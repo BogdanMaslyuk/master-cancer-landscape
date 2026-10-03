@@ -1,6 +1,7 @@
 import "./globals.css";
 import "./research.css";
 import "./atlas.css";
+import "./atlas-polish.css";
 import AppShell from "../components/AppShell";
 
 export const metadata = {
