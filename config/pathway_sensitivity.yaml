@@ -1,0 +1,14 @@
+thresholds:
+  - 50
+  - 100
+  - 200
+
+analysis_set: recurrent
+baseline_threshold: 100
+identifier_resolution: data/processed/pathways/identifier_resolution.tsv
+baseline_significant_report: outputs/reports/M3_3_pathway_significant.tsv
+
+notes:
+  - Sensitivity analysis varies only the per-comparison top-N cut-off; candidate eligibility filters and enrichment background remain unchanged.
+  - The recurrent set keeps the M3.3 definition of presence in at least 2 of 3 primary comparisons.
+  - Top-100 is treated as the locked baseline and is checked against the completed M3.3 significant-term report.
