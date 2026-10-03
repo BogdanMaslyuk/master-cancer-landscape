@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { apiGet } from "../../lib/api";
 
 type Gene = Record<string, any>;
@@ -31,12 +32,12 @@ export default async function GenesPage(){
       <h2>Threshold stability matrix</h2>
       <div className="matrix" style={{marginTop:12}}>
         <div className="head">Gene</div><div className="head">Top-50</div><div className="head">Top-100</div><div className="head">Top-200</div>
-        {items.map((g:any)=><>
-          <div className="name" key={`${g.gene_symbol}-name`}><Link href={`/genes/${g.gene_symbol}`} style={{color:"var(--accent)"}}>{g.gene_symbol}</Link></div>
+        {items.map((g:any)=><Fragment key={g.gene_symbol}>
+          <div className="name"><Link href={`/genes/${g.gene_symbol}`} style={{color:"var(--accent)"}}>{g.gene_symbol}</Link></div>
           <div className={String(g.recurrent_top50).toLowerCase()==="true"?"yes":"no"}>{String(g.recurrent_top50).toLowerCase()==="true"?"●":"—"}</div>
           <div className={String(g.recurrent_top100).toLowerCase()==="true"?"yes":"no"}>{String(g.recurrent_top100).toLowerCase()==="true"?"●":"—"}</div>
           <div className={String(g.recurrent_top200).toLowerCase()==="true"?"yes":"no"}>{String(g.recurrent_top200).toLowerCase()==="true"?"●":"—"}</div>
-        </>)}
+        </Fragment>)}
       </div>
     </section>
 
