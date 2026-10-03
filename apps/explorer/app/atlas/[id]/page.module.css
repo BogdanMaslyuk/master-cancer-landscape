@@ -1,0 +1,252 @@
+.researchRoute {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);
+  gap: 10px;
+  align-items: center;
+  margin: 22px 0 28px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.researchRoute > i {
+  color: var(--muted-2);
+  font-style: normal;
+  font-size: 18px;
+}
+
+.routeStep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.routeStep > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.routeStep div { min-width: 0; display: grid; gap: 2px; }
+.routeStep small { color: var(--muted); font-size: 11px; line-height: 1.2; }
+.routeStep b { color: var(--text-strong); font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; }
+.routeCurrent { background: var(--accent-softer); box-shadow: inset 0 0 0 1px #d6e6f7; }
+.routeCurrent > span { background: var(--accent); color: white; }
+
+.layerGrid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.layerCard {
+  position: relative;
+  overflow: hidden;
+  min-height: 300px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.layerCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--line-strong);
+}
+
+.molecularLayer::before { background: var(--accent); }
+.modelLayer::before { background: #557a9e; }
+.patientLayer::before { background: #d49a2a; }
+
+.layerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.layerNumber {
+  color: #bac5d2;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+
+.readyBadge,
+.pendingBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.readyBadge { color: var(--success); background: var(--success-soft); }
+.pendingBadge { color: var(--warning); background: var(--warning-soft); }
+
+.layerCard h2 {
+  margin: 7px 0 10px;
+  color: var(--text-strong);
+  font-size: clamp(21px,2vw,28px);
+  line-height: 1.12;
+  letter-spacing: -.025em;
+}
+
+.layerCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.layerFooter {
+  display: grid;
+  gap: 6px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.layerFooter b { color: var(--text-strong); font-size: 12px; }
+.layerFooter span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+.layerFooter small { color: var(--muted-2); font-size: 11px; line-height: 1.5; }
+
+.miniMetrics {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.miniMetrics div {
+  padding: 11px 10px;
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.miniMetrics b { display: block; color: var(--text-strong); font-size: 18px; }
+.miniMetrics span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.25; }
+
+.guardrail {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 32px;
+  padding: 14px 16px;
+  border: 1px solid #f1dfb3;
+  border-radius: var(--radius-md);
+  background: #fffaf0;
+}
+
+.guardrailIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 9px;
+  background: #f9e7b9;
+  color: #8a5d00;
+  font-weight: 900;
+}
+
+.guardrail > div:last-child { display: grid; gap: 4px; }
+.guardrail b { color: #614500; font-size: 13px; }
+.guardrail span { color: #806b39; font-size: 12px; line-height: 1.55; }
+
+.geneticsPanel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.geneticsSummary {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-subtle);
+}
+
+.geneticsSummary div { padding: 18px 20px; }
+.geneticsSummary div + div { border-left: 1px solid var(--line); }
+.geneticsSummary strong { display: block; color: var(--text-strong); font-size: 26px; letter-spacing: -.03em; }
+.geneticsSummary span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+
+.geneBars { display: grid; gap: 11px; padding: 22px; }
+.geneBarRow { display: grid; grid-template-columns: 92px minmax(120px,1fr) 120px; align-items: center; gap: 14px; }
+.geneName { color: var(--accent-dark); font-size: 13px; font-weight: 800; }
+.geneName:hover { color: var(--accent); }
+.barTrack { overflow: hidden; height: 9px; border-radius: 999px; background: var(--surface-muted); }
+.barFill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#6a9bc9,#1f5fa8); }
+.geneCount { display: flex; align-items: baseline; justify-content: flex-end; gap: 5px; white-space: nowrap; }
+.geneCount b { color: var(--text-strong); font-size: 13px; }
+.geneCount span { color: var(--muted); font-size: 11px; }
+.dataNote { margin: 0; padding: 14px 22px 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.55; }
+
+.indexPrompt {
+  display: grid;
+  gap: 13px;
+  padding: 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+}
+
+.indexPrompt > div { display: flex; align-items: flex-start; gap: 12px; }
+.indexPrompt > div > div { display: grid; gap: 5px; }
+.indexPrompt b { color: var(--text-strong); font-size: 14px; }
+.indexPrompt p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.indexPrompt code { overflow-x: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--accent-dark); font-size: 12px; }
+.indexPrompt small { color: var(--muted-2); line-height: 1.5; }
+.indexIcon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+@media (max-width: 1100px) {
+  .researchRoute { grid-template-columns: 1fr 1fr; }
+  .researchRoute > i { display: none; }
+  .layerGrid { grid-template-columns: 1fr; }
+  .layerCard { min-height: 0; }
+}
+
+@media (max-width: 720px) {
+  .researchRoute { grid-template-columns: 1fr; }
+  .geneticsSummary { grid-template-columns: 1fr; }
+  .geneticsSummary div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .geneBarRow { grid-template-columns: 72px minmax(80px,1fr); }
+  .geneCount { grid-column: 2; justify-content: flex-start; }
+  .miniMetrics { grid-template-columns: 1fr; }
+}
