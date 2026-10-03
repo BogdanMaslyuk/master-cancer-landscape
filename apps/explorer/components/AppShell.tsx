@@ -19,6 +19,7 @@ const systemLinks = [
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
+  if (href === "/atlas" && pathname.startsWith("/comparisons")) return true;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
