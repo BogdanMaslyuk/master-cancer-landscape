@@ -22,6 +22,23 @@ def _truthy_series(series: pd.Series) -> pd.Series:
     )
 
 
+def _prepare_for_parquet(frame: pd.DataFrame) -> pd.DataFrame:
+    """Normalize mixed object columns before Arrow conversion.
+
+    DepMap identifier/text columns can contain strings together with numeric-looking
+    values or NaN (for example dbSNP/CIViC identifiers). Pandas keeps such columns
+    as object, while PyArrow requires a consistent scalar type. These columns are
+    identifiers/annotations rather than quantitative variables, so stringifying
+    non-null object values preserves their meaning and makes the export stable.
+    """
+    result = frame.copy()
+    for col in result.columns:
+        if result[col].dtype != object:
+            continue
+        result[col] = result[col].map(lambda value: None if pd.isna(value) else str(value))
+    return result
+
+
 def _release_from_inventory() -> str | None:
     path = PROCESSED / "depmap_input_inventory.tsv"
     if not path.exists():
@@ -210,9 +227,13 @@ def _write_outputs(metadata: pd.DataFrame, mutations: pd.DataFrame, release: str
     mutations = mutations.copy()
     mutations["depmap_release"] = release
 
-    metadata.to_parquet(PROCESSED / "depmap_model_metadata.parquet", index=False)
-    metadata.to_csv(PROCESSED / "depmap_model_metadata.tsv", sep="\t", index=False)
-    mutations.to_parquet(PROCESSED / "depmap_model_mutations.parquet", index=False)
+    metadata_export = _prepare_for_parquet(metadata)
+    mutations_export = _prepare_for_parquet(mutations)
+
+    metadata_export.to_parquet(PROCESSED / "depmap_model_metadata.parquet", index=False)
+    metadata_export.to_csv(PROCESSED / "depmap_model_metadata.tsv", sep="\t", index=False)
+    mutations_export.to_parquet(PROCESSED / "depmap_model_mutations.parquet", index=False)
+    mutations_export.to_csv(PROCESSED / "depmap_model_mutations.tsv", sep="\t", index=False)
 
     if mutations.empty:
         summary = pd.DataFrame(columns=["model_id", "mutations_n", "mutated_genes_n", "functional_variants_n", "driver_mutations_n", "hotspot_mutations_n", "likely_lof_n"])
@@ -240,7 +261,7 @@ def _write_outputs(metadata: pd.DataFrame, mutations: pd.DataFrame, release: str
     print(f"Mutation rows: {len(mutations)}")
     print(f"Models with mutation records: {mutations['model_id'].nunique() if not mutations.empty else 0}")
     print("Wrote data/processed/depmap_model_metadata.*")
-    print("Wrote data/processed/depmap_model_mutations.parquet")
+    print("Wrote data/processed/depmap_model_mutations.parquet/.tsv")
     print("Wrote data/processed/depmap_model_profile_summary.*")
 
 
