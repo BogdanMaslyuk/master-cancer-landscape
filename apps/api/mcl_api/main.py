@@ -3,13 +3,14 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from .atlas import MCLAtlas
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
 
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.1.0",
+    version="0.2.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -20,6 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 store = MCLDataStore(MCL_ROOT)
+atlas_store = MCLAtlas(MCL_ROOT, store)
 
 
 def _guard(call):
@@ -39,6 +41,40 @@ def health():
 @app.get("/api/summary")
 def summary():
     return _guard(store.summary)
+
+
+@app.get("/api/atlas")
+def atlas():
+    return _guard(atlas_store.atlas)
+
+
+@app.get("/api/atlas/{cancer_id}")
+def cancer_context(cancer_id: str):
+    return _guard(lambda: atlas_store.context(cancer_id))
+
+
+@app.get("/api/models")
+def models(
+    cancer_id: str | None = None,
+    group: str | None = None,
+    search: str | None = None,
+    sequencing_only: bool = False,
+    limit: int = Query(1000, ge=1, le=5000),
+):
+    return _guard(
+        lambda: atlas_store.models(
+            cancer_id=cancer_id,
+            group=group,
+            search=search,
+            sequencing_only=sequencing_only,
+            limit=limit,
+        )
+    )
+
+
+@app.get("/api/models/{model_id}")
+def model(model_id: str):
+    return _guard(lambda: atlas_store.model(model_id))
 
 
 @app.get("/api/comparisons")
