@@ -1,0 +1,51 @@
+organism: hsapiens
+
+comparisons:
+  - label: LUAD_G12C_vs_WT
+    cancer_id: CANCER-001
+    comparison: kras-wt
+  - label: LUAD_G12C_vs_other_KRAS
+    cancer_id: CANCER-001
+    comparison: other-kras
+  - label: PDAC_G12D_vs_other_KRAS
+    cancer_id: CANCER-004
+    comparison: other-kras
+
+candidate_selection:
+  top_n_per_comparison: 100
+  require_negative_delta: true
+  exclude_broad_dependency: true
+  exclude_low_sample_size: true
+
+analysis_sets:
+  recurrent:
+    minimum_comparisons: 2
+  core:
+    minimum_comparisons: 3
+
+enrichment:
+  sources:
+    - GO:BP
+    - REAC
+    - KEGG
+    - CORUM
+  significance_threshold_method: g_SCS
+  user_threshold: 0.05
+  all_results: true
+  domain_scope: custom
+  identifier_resolution:
+    target_namespace: ENSG
+    numeric_ns: ENTREZGENE_ACC
+    chunk_size: 1000
+  no_evidences: false
+  excluded_term_ids:
+    - CORUM:0000000
+    - REAC:0000000
+    - KEGG:00000
+
+notes:
+  - PDAC G12D vs KRAS-WT is excluded from the primary pathway-discovery set because all genes currently carry low_sample_size=true in that comparison.
+  - Background genes are eligibility-matched to the candidate-selection process rather than using all human genes.
+  - Entrez Gene IDs are resolved through g:Convert to one canonical Ensembl gene per HGNC-approved MCL symbol before g:GOSt.
+  - Query and custom background are submitted to g:GOSt as Ensembl gene IDs so g:GOSt does not perform a second numeric-ID reinterpretation.
+  - Artificial datasource root terms are excluded from biological result tables.

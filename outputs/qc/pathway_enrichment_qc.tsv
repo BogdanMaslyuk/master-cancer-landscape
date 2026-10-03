@@ -1,0 +1,22 @@
+severity	check	entity_id	field	observed	expected	message
+INFO	recurrent_gene_universe	M3.3		239	>0	Number of unique genes observed in at least one per-comparison top candidate list.
+INFO	pathway_set_sizes	recurrent		query=54; background=16555	eligibility-matched custom background	Pathway query and custom background sizes.
+INFO	pathway_query_identifier_mapping	recurrent		54	54	All pathway-query genes resolved to one canonical Ensembl gene.
+WARNING	pathway_background_identifier_mapping	recurrent		14	0 unresolved background genes	Some eligible background genes were excluded because canonical ENSG mapping was unresolved.
+INFO	gprofiler_query_size_match	recurrent		54	54	g:Profiler query size matches the canonical ENSG query submitted by MCL.
+INFO	gprofiler_background_size_match	recurrent		16541	16541	g:Profiler effective domain matches the canonical ENSG custom background.
+INFO	pathway_set_sizes	core		query=7; background=16555	eligibility-matched custom background	Pathway query and custom background sizes.
+INFO	pathway_query_identifier_mapping	core		7	7	All pathway-query genes resolved to one canonical Ensembl gene.
+WARNING	pathway_background_identifier_mapping	core		14	0 unresolved background genes	Some eligible background genes were excluded because canonical ENSG mapping was unresolved.
+INFO	gprofiler_query_size_match	core		7	7	g:Profiler query size matches the canonical ENSG query submitted by MCL.
+INFO	gprofiler_background_size_match	core		16541	16541	g:Profiler effective domain matches the canonical ENSG custom background.
+INFO	significant_pathway_terms	core		0	descriptive count	Significant functional terms after the configured g:Profiler correction method.
+INFO	pathway_source_terms	core|CORUM		all=13; significant=0	descriptive count	Returned and significant terms for this functional datasource.
+INFO	pathway_source_terms	core|GO:BP		all=541; significant=0	descriptive count	Returned and significant terms for this functional datasource.
+INFO	pathway_source_terms	core|KEGG		all=24; significant=0	descriptive count	Returned and significant terms for this functional datasource.
+INFO	pathway_source_terms	core|REAC		all=54; significant=0	descriptive count	Returned and significant terms for this functional datasource.
+INFO	significant_pathway_terms	recurrent		9	descriptive count	Significant functional terms after the configured g:Profiler correction method.
+INFO	pathway_source_terms	recurrent|CORUM		all=96; significant=7	descriptive count	Returned and significant terms for this functional datasource.
+INFO	pathway_source_terms	recurrent|GO:BP		all=1788; significant=0	descriptive count	Returned and significant terms for this functional datasource.
+INFO	pathway_source_terms	recurrent|KEGG		all=147; significant=2	descriptive count	Returned and significant terms for this functional datasource.
+INFO	pathway_source_terms	recurrent|REAC		all=323; significant=0	descriptive count	Returned and significant terms for this functional datasource.

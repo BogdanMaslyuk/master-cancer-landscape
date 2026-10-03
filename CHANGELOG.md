@@ -112,3 +112,13 @@
 - added compact genome-wide QC;
 - added self-contained offline HTML explorer with scatter, heatmap, gene card and searchable table;
 - no opaque aggregate target score was introduced.
+
+## 0.5.0-dev — Milestone 3.3 pathway enrichment
+- Added reproducible cross-context candidate reconstruction from genome-wide DepMap outputs.
+- Added eligibility-matched custom backgrounds for recurrent and core candidate sets.
+- Added g:Profiler g:GOSt enrichment for GO Biological Process, Reactome, KEGG, and CORUM.
+- Added datasource-version provenance, raw-response caching, QC, and processed pathway outputs.
+- Added explicit g:Convert normalization from Entrez Gene IDs to canonical Ensembl gene IDs before g:GOSt.
+- Ambiguous mappings are resolved only when the g:Convert gene name uniquely matches the MCL/HGNC symbol; otherwise they remain explicit and fail/warn through QC rather than being silently expanded.
+- Query and custom background are now submitted to g:GOSt as ENSG identifiers, preventing implicit numeric-ID expansion in the statistical universe.
+- Added an auditable identifier-resolution table and raw g:Convert response snapshots.

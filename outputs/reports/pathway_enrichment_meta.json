@@ -1,0 +1,281 @@
+{
+  "analysis_version": "m3.3-pathways-v0.3",
+  "candidate_selection": {
+    "top_n_per_comparison": 100,
+    "require_negative_delta": true,
+    "exclude_broad_dependency": true,
+    "exclude_low_sample_size": true
+  },
+  "comparisons": [
+    {
+      "label": "LUAD_G12C_vs_WT",
+      "cancer_id": "CANCER-001",
+      "comparison": "kras-wt",
+      "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__kras-wt_genes.tsv",
+      "genes_total_n": 18531,
+      "eligible_background_n": 16555,
+      "selected_top_n": 100
+    },
+    {
+      "label": "LUAD_G12C_vs_other_KRAS",
+      "cancer_id": "CANCER-001",
+      "comparison": "other-kras",
+      "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__other-kras_genes.tsv",
+      "genes_total_n": 18531,
+      "eligible_background_n": 16555,
+      "selected_top_n": 100
+    },
+    {
+      "label": "PDAC_G12D_vs_other_KRAS",
+      "cancer_id": "CANCER-004",
+      "comparison": "other-kras",
+      "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-004__other-kras_genes.tsv",
+      "genes_total_n": 18531,
+      "eligible_background_n": 16676,
+      "selected_top_n": 100
+    }
+  ],
+  "analysis_sets": {
+    "recurrent": {
+      "minimum_comparisons": 2,
+      "query_genes_n": 54,
+      "background_genes_n": 16555,
+      "source_identifier_type": "ENTREZGENE",
+      "profile_identifier_type": "ENSG",
+      "query_identifiers_n": 54,
+      "background_identifiers_n": 16541,
+      "query_unresolved_symbols": [],
+      "background_unresolved_symbols_n": 14,
+      "background_unresolved_symbols_sample": [
+        "C4orf36",
+        "DUSP13B",
+        "ELFN2",
+        "GOLGA8M",
+        "HERC3",
+        "IL9R",
+        "KYAT1",
+        "MALL",
+        "MATR3",
+        "PDE4C",
+        "PDE8B",
+        "PINX1",
+        "SPATA13",
+        "VAMP7"
+      ],
+      "gprofiler_query_sizes": [
+        54
+      ],
+      "gprofiler_effective_domain_sizes": [
+        16541
+      ]
+    },
+    "core": {
+      "minimum_comparisons": 3,
+      "query_genes_n": 7,
+      "background_genes_n": 16555,
+      "source_identifier_type": "ENTREZGENE",
+      "profile_identifier_type": "ENSG",
+      "query_identifiers_n": 7,
+      "background_identifiers_n": 16541,
+      "query_unresolved_symbols": [],
+      "background_unresolved_symbols_n": 14,
+      "background_unresolved_symbols_sample": [
+        "C4orf36",
+        "DUSP13B",
+        "ELFN2",
+        "GOLGA8M",
+        "HERC3",
+        "IL9R",
+        "KYAT1",
+        "MALL",
+        "MATR3",
+        "PDE4C",
+        "PDE8B",
+        "PINX1",
+        "SPATA13",
+        "VAMP7"
+      ],
+      "gprofiler_query_sizes": [
+        7
+      ],
+      "gprofiler_effective_domain_sizes": [
+        16541
+      ]
+    }
+  },
+  "config_path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\config\\pathways.yaml",
+  "organism": "hsapiens",
+  "sources": [
+    "GO:BP",
+    "REAC",
+    "KEGG",
+    "CORUM"
+  ],
+  "significance_threshold_method": "g_SCS",
+  "user_threshold": 0.05,
+  "source_identifier_type": "ENTREZGENE",
+  "profile_identifier_type": "ENSG",
+  "identifier_resolution": {
+    "service": "g:Profiler g:Convert",
+    "target_namespace": "ENSG",
+    "numeric_ns": "ENTREZGENE_ACC",
+    "convert_endpoint": "https://biit.cs.ut.ee/gprofiler/api/convert/convert/",
+    "chunk_size": 1000,
+    "input_symbols_n": 16555,
+    "input_entrez_ids_n": 16555,
+    "resolution_status_counts": {
+      "resolved_symbol_match": 16522,
+      "resolved_single": 19,
+      "ambiguous": 14
+    }
+  },
+  "excluded_term_ids": [
+    "CORUM:0000000",
+    "KEGG:00000",
+    "REAC:0000000"
+  ],
+  "gprofiler_profile_endpoint": "https://biit.cs.ut.ee/gprofiler/api/gost/profile/",
+  "gprofiler_versions_endpoint": "https://biit.cs.ut.ee/gprofiler/api/util/data_versions",
+  "gprofiler_versions": {
+    "biomart": "Ensembl",
+    "biomart_version": "114",
+    "display_name": "Human",
+    "genebuild": "GRCh38.p14",
+    "gprofiler_version": "e114_eg62_p19_27110d83",
+    "organism": "hsapiens",
+    "sources": {
+      "CORUM": {
+        "name": "CORUM protein complexes",
+        "version": "28.11.2022 Corum 4.1"
+      },
+      "GO:BP": {
+        "name": "biological process",
+        "version": "annotations: BioMart\nclasses: releases/2026-01-23"
+      },
+      "GO:CC": {
+        "name": "cellular component",
+        "version": "annotations: BioMart\nclasses: releases/2026-01-23"
+      },
+      "GO:MF": {
+        "name": "molecular function",
+        "version": "annotations: BioMart\nclasses: releases/2026-01-23"
+      },
+      "HP": {
+        "name": "Human Phenotype Ontology",
+        "version": "annotations: 03.2026\nclasses: None"
+      },
+      "HPA": {
+        "name": "Human Protein Atlas",
+        "version": "annotations: HPA website: 25-11-06\nclasses: script: 26-01-20"
+      },
+      "KEGG": {
+        "name": "Kyoto Encyclopedia of Genes and Genomes",
+        "version": "KEGG FTP Release 2026-03-15"
+      },
+      "MIRNA": {
+        "name": "miRTarBase",
+        "version": "Release 10.0"
+      },
+      "REAC": {
+        "name": "Reactome",
+        "version": "annotations: BioMart\nclasses: 2026-3-20"
+      },
+      "TF": {
+        "name": "Transfac",
+        "version": "annotations: TRANSFAC Release 2025.2\nclasses: v2"
+      },
+      "WP": {
+        "name": "WikiPathways",
+        "version": "20260310"
+      }
+    },
+    "taxonomy_id": "9606"
+  },
+  "timestamp": "2026-10-03T19:39:47.762010+00:00",
+  "raw_responses": {
+    "identifier_conversion_001": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_001.json",
+      "sha256": "a52ded30b0e054a3685b722e1b5156a6736877adf062fde64d5e4a568b87d7bb"
+    },
+    "identifier_conversion_002": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_002.json",
+      "sha256": "dfed5272298f238332abb80e55409ef6c38103a6b106013e460023751f1612cc"
+    },
+    "identifier_conversion_003": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_003.json",
+      "sha256": "ed21b1864c057eef00b4eb5ee0fcfb6bac4b7b978249456ceb7dae2b336156fe"
+    },
+    "identifier_conversion_004": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_004.json",
+      "sha256": "ddd5da6ce40a0bccb63701d4c4032e0d264d820df2ef601e8322c1806cf8f292"
+    },
+    "identifier_conversion_005": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_005.json",
+      "sha256": "1f60f7d243eaf513db08c4a4870190e9ed5d461b6bfa9aa2e219a38ebc957c72"
+    },
+    "identifier_conversion_006": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_006.json",
+      "sha256": "5740f5dcccfffe782da2db40b79c771e384746bc9e26f54986396c1baad309d7"
+    },
+    "identifier_conversion_007": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_007.json",
+      "sha256": "14d385032962146b2a1e56ae2f881bd6dda668962c86d52b7427411f6461630c"
+    },
+    "identifier_conversion_008": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_008.json",
+      "sha256": "6cdd33fc0614fc0f86e29b0b6212380f0d6fd074dda77a10bc0793906083b834"
+    },
+    "identifier_conversion_009": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_009.json",
+      "sha256": "207ff932bdfcd9342a7ceda732d2a54d4bc7f5c7c0e4d0e405ccbd4838002cad"
+    },
+    "identifier_conversion_010": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_010.json",
+      "sha256": "f0b44fe23d8c67d3d5317f53692718540380208d0a4715e42330559c8c8f2857"
+    },
+    "identifier_conversion_011": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_011.json",
+      "sha256": "f9fa62ee5c7b37f7a287e6914be118b88f40c5bba09dd082cb301a8118cb0bb1"
+    },
+    "identifier_conversion_012": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_012.json",
+      "sha256": "66d44f5e867da4b64044100e69fdea603c9c3d032ea89f8548eede9f484521f2"
+    },
+    "identifier_conversion_013": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_013.json",
+      "sha256": "258149d0c440cedeb5c06f4eb6c72f3291be72a082141541701e9f9e628e737f"
+    },
+    "identifier_conversion_014": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_014.json",
+      "sha256": "f3d2f1895b46c20b9d7035719213240e0e6a6d71c05576bf9128e364e21f1e26"
+    },
+    "identifier_conversion_015": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_015.json",
+      "sha256": "0ecb7931ed419d6c71a18bb93f84f6bccb25ccdbb49510dbbabe756376d36804"
+    },
+    "identifier_conversion_016": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_016.json",
+      "sha256": "0e5ec9ce8eec6806fc2e1723470f7e8a49f772933b6d624ae2ab3457ba12592f"
+    },
+    "identifier_conversion_017": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\identifier_conversion_017.json",
+      "sha256": "f668a5719a6e53fbcd0cdc5445704ec091ce915db7f3022b5f9cccc017102746"
+    },
+    "recurrent": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\recurrent.json",
+      "sha256": "28fe270d4dc281fdcb2a110fc7ca9283481408dab42056a307840215c7d4f2f1"
+    },
+    "core": {
+      "path": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler\\20261003T193947Z\\core.json",
+      "sha256": "4ed18c04f8bd6ff9427b50e8fbf2f92f39d7e40b09e5297ec2f6bb7a1f59597c"
+    }
+  },
+  "outputs": {
+    "candidate_top100_long": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways\\candidate_top100_long.tsv",
+    "candidate_recurrence": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways\\candidate_recurrence.tsv",
+    "background_genes": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways\\background_genes.tsv",
+    "identifier_resolution": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways\\identifier_resolution.tsv",
+    "enrichment_all": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways\\enrichment_all.tsv",
+    "significant_terms": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\reports\\M3_3_pathway_significant.tsv"
+  }
+}

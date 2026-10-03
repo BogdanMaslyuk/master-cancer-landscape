@@ -1,8 +1,8 @@
-﻿"gene_symbol"	"comparisons_n"	"comparisons"	"best_rank"	"mean_rank"	"mean_delta_gene_effect"
-"WDR48"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"9"	"14"	"-0,3112"
-"UBIAD1"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"2"	"20,67"	"-0,4587"
-"HNRNPA1"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"28"	"33,67"	"-0,2377"
-"CRKL"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"14"	"33,67"	"-0,2472"
-"UBA5"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"12"	"34,67"	"-0,2592"
-"C3orf38"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"23"	"35,67"	"-0,2438"
-"FIS1"	"3"	"LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS"	"22"	"43,67"	"-0,2286"
+gene_symbol	comparisons_n	comparisons	best_rank	mean_rank	mean_delta_gene_effect
+WDR48	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	9	14.0	-0.311172
+UBIAD1	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	2	20.67	-0.458696
+CRKL	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	14	33.67	-0.247158
+HNRNPA1	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	28	33.67	-0.237734
+UBA5	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	12	34.67	-0.259206
+C3orf38	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	23	35.67	-0.243804
+FIS1	3	LUAD_G12C_vs_WT; LUAD_G12C_vs_other_KRAS; PDAC_G12D_vs_other_KRAS	22	43.67	-0.228627

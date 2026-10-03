@@ -1,0 +1,191 @@
+[
+  {
+    "severity": "INFO",
+    "check": "recurrent_gene_universe",
+    "entity_id": "M3.3",
+    "field": null,
+    "observed": "239",
+    "expected": ">0",
+    "message": "Number of unique genes observed in at least one per-comparison top candidate list."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_set_sizes",
+    "entity_id": "recurrent",
+    "field": null,
+    "observed": "query=54; background=16555",
+    "expected": "eligibility-matched custom background",
+    "message": "Pathway query and custom background sizes."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_query_identifier_mapping",
+    "entity_id": "recurrent",
+    "field": null,
+    "observed": "54",
+    "expected": "54",
+    "message": "All pathway-query genes resolved to one canonical Ensembl gene."
+  },
+  {
+    "severity": "WARNING",
+    "check": "pathway_background_identifier_mapping",
+    "entity_id": "recurrent",
+    "field": null,
+    "observed": "14",
+    "expected": "0 unresolved background genes",
+    "message": "Some eligible background genes were excluded because canonical ENSG mapping was unresolved."
+  },
+  {
+    "severity": "INFO",
+    "check": "gprofiler_query_size_match",
+    "entity_id": "recurrent",
+    "field": null,
+    "observed": "54",
+    "expected": "54",
+    "message": "g:Profiler query size matches the canonical ENSG query submitted by MCL."
+  },
+  {
+    "severity": "INFO",
+    "check": "gprofiler_background_size_match",
+    "entity_id": "recurrent",
+    "field": null,
+    "observed": "16541",
+    "expected": "16541",
+    "message": "g:Profiler effective domain matches the canonical ENSG custom background."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_set_sizes",
+    "entity_id": "core",
+    "field": null,
+    "observed": "query=7; background=16555",
+    "expected": "eligibility-matched custom background",
+    "message": "Pathway query and custom background sizes."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_query_identifier_mapping",
+    "entity_id": "core",
+    "field": null,
+    "observed": "7",
+    "expected": "7",
+    "message": "All pathway-query genes resolved to one canonical Ensembl gene."
+  },
+  {
+    "severity": "WARNING",
+    "check": "pathway_background_identifier_mapping",
+    "entity_id": "core",
+    "field": null,
+    "observed": "14",
+    "expected": "0 unresolved background genes",
+    "message": "Some eligible background genes were excluded because canonical ENSG mapping was unresolved."
+  },
+  {
+    "severity": "INFO",
+    "check": "gprofiler_query_size_match",
+    "entity_id": "core",
+    "field": null,
+    "observed": "7",
+    "expected": "7",
+    "message": "g:Profiler query size matches the canonical ENSG query submitted by MCL."
+  },
+  {
+    "severity": "INFO",
+    "check": "gprofiler_background_size_match",
+    "entity_id": "core",
+    "field": null,
+    "observed": "16541",
+    "expected": "16541",
+    "message": "g:Profiler effective domain matches the canonical ENSG custom background."
+  },
+  {
+    "severity": "INFO",
+    "check": "significant_pathway_terms",
+    "entity_id": "core",
+    "field": null,
+    "observed": "0",
+    "expected": "descriptive count",
+    "message": "Significant functional terms after the configured g:Profiler correction method."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "core|CORUM",
+    "field": null,
+    "observed": "all=13; significant=0",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "core|GO:BP",
+    "field": null,
+    "observed": "all=541; significant=0",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "core|KEGG",
+    "field": null,
+    "observed": "all=24; significant=0",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "core|REAC",
+    "field": null,
+    "observed": "all=54; significant=0",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "significant_pathway_terms",
+    "entity_id": "recurrent",
+    "field": null,
+    "observed": "9",
+    "expected": "descriptive count",
+    "message": "Significant functional terms after the configured g:Profiler correction method."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "recurrent|CORUM",
+    "field": null,
+    "observed": "all=96; significant=7",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "recurrent|GO:BP",
+    "field": null,
+    "observed": "all=1788; significant=0",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "recurrent|KEGG",
+    "field": null,
+    "observed": "all=147; significant=2",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  },
+  {
+    "severity": "INFO",
+    "check": "pathway_source_terms",
+    "entity_id": "recurrent|REAC",
+    "field": null,
+    "observed": "all=323; significant=0",
+    "expected": "descriptive count",
+    "message": "Returned and significant terms for this functional datasource."
+  }
+]

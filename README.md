@@ -278,3 +278,14 @@ mcl qc-depmap-genome-wide --cancer-id CANCER-001 --comparison kras-wt
 - FDR и broad-dependency как отдельные признаки.
 
 **Интерпретационное ограничение:** CRISPR-нокаут — это генетическая зависимость, а не доказательство того, что белок уже является пригодной, безопасной и фармакологически достижимой мишенью малой молекулы.
+
+## Milestone 3.3 — pathway enrichment
+
+After the required genome-wide DepMap comparisons have been generated:
+
+```powershell
+mcl analyze-pathways
+mcl qc-pathways
+```
+
+M3.3 reconstructs per-comparison top candidates from the canonical genome-wide tables, derives recurrent/core candidate sets, builds eligibility-matched custom statistical backgrounds, and queries g:Profiler for GO Biological Process, Reactome, KEGG, and CORUM enrichment. Source-version metadata and raw API responses are retained for provenance. Before enrichment, Entrez Gene IDs are explicitly normalized with g:Convert to one canonical Ensembl gene per MCL/HGNC symbol; g:GOSt receives only ENSG query/background identifiers. The resulting `data/processed/pathways/identifier_resolution.tsv` preserves the Entrez→ENSG decision and any unresolved ambiguity for audit.

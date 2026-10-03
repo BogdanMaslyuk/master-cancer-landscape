@@ -45,3 +45,12 @@ depmap:
   - OmicsSomaticMutations.csv
   - OmicsProfiles.csv
   note: Files must come from the same pinned public release. sync-depmap uses the official no-CAPTCHA metadata endpoint; it never scrapes or bypasses CAPTCHA-protected downloads. If DepMap enables bearer-token file URLs, DEPMAP_BEARER_TOKEN can be used without changing the analysis layer.
+gprofiler:
+  enabled: true
+  access_mode: rest_api
+  profile_endpoint: https://biit.cs.ut.ee/gprofiler/api/gost/profile/
+  convert_endpoint: https://biit.cs.ut.ee/gprofiler/api/convert/convert/
+  data_versions_endpoint: https://biit.cs.ut.ee/gprofiler/api/util/data_versions
+  official_api_docs: https://biit.cs.ut.ee/gprofiler/page/apis
+  organism: hsapiens
+  note: M3.3 resolves Entrez IDs to canonical ENSG with g:Convert, then uses g:GOSt with an eligibility-matched ENSG custom background and records datasource versions in provenance metadata.

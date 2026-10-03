@@ -22,9 +22,11 @@ from mcl.analysis.depmap import (
     validate_depmap_inputs,
 )
 from mcl.analysis.depmap_genomewide import analyze_depmap_genomewide
+from mcl.analysis.pathways import analyze_pathways, load_pathway_config
 from mcl.qc.opentargets import opentargets_qc, opentargets_disease_mapping_qc
 from mcl.qc.depmap import depmap_qc, depmap_kras_sensitivity_qc
 from mcl.qc.depmap_genomewide import depmap_genomewide_qc
+from mcl.qc.pathways import pathway_enrichment_qc
 from mcl.normalize.disease_mapping import load_opentargets_disease_mappings
 from mcl.utils.io import write_json, write_tsv
 from mcl.utils.hash import sha256_file
@@ -44,7 +46,7 @@ def status(root: Path | None = typer.Option(None, help="Project root")) -> None:
     configure_logging(root)
     seed = root / "data/input/targets_seed.tsv"
     n = len(load_target_seeds(seed)) if seed.exists() else 0
-    typer.echo("Master Cancer Landscape Computational Pipeline v0.4.0")
+    typer.echo("Master Cancer Landscape Computational Pipeline v0.5.0-dev")
     typer.echo("Milestone 0: IMPLEMENTED")
     m1_done = (root / "data/processed/target_identifiers.tsv").exists()
     m2_done = (root / "data/processed/opentargets_associations.tsv").exists()
@@ -52,16 +54,19 @@ def status(root: Path | None = typer.Option(None, help="Project root")) -> None:
     m31_done = (root / "data/processed/depmap_kras_sensitivity.tsv").exists()
     m32_dir = root / "data/processed/depmap_genomewide"
     m32_done = m32_dir.exists() and any(m32_dir.glob("*_genes.parquet"))
+    m33_done = (root / "data/processed/pathways/enrichment_all.parquet").exists()
     typer.echo(f"Milestone 1: IMPLEMENTED / {'executed' if m1_done else 'awaiting execution'}")
     typer.echo(f"Milestone 2A+2B: IMPLEMENTED / {'executed' if m2_done else 'awaiting execution'}")
     typer.echo(f"Milestone 3 DepMap: IMPLEMENTED / {'executed' if m3_done else 'awaiting pinned local release files'}")
     typer.echo(f"Milestone 3.1 KRAS sensitivity: IMPLEMENTED / {'executed' if m31_done else 'awaiting execution'}")
     typer.echo(f"Milestone 3.2 Genome-wide Dependency Explorer: IMPLEMENTED / {'executed' if m32_done else 'awaiting execution'}")
+    typer.echo(f"Milestone 3.3 Pathway enrichment: IMPLEMENTED / {'executed' if m33_done else 'awaiting execution'}")
     typer.echo(f"Target seeds: {n}")
     pairs = root / "data/input/cancer_target_pairs_wave1.tsv"
     pair_n = len(load_wave1_pairs(pairs)) if pairs.exists() else 0
     typer.echo(f"Wave 1 Cancer×Target pairs: {pair_n}")
-    typer.echo("Next execution gate: analyze-depmap-genome-wide --cancer-id <ID> --comparison <mode>")
+    next_gate = "qc-pathways" if m33_done else "analyze-pathways"
+    typer.echo(f"Next execution gate: {next_gate}")
 
 
 @app.command("fetch-hgnc")
@@ -629,10 +634,6 @@ def qc_depmap_kras_sensitivity_cmd(root: Path | None = typer.Option(None, help="
 
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command("analyze-depmap-genome-wide")
 def analyze_depmap_genome_wide_cmd(
     cancer_id: str = typer.Option(..., "--cancer-id", help="Cancer context ID, e.g. CANCER-001"),
@@ -768,3 +769,143 @@ def qc_depmap_genome_wide_cmd(
         typer.echo(
             f"[{row['severity']}] {row['check']} {row.get('entity_id') or ''}: {row['message']}"
         )
+
+
+@app.command("analyze-pathways")
+def analyze_pathways_cmd(
+    root: Path | None = typer.Option(None, help="Project root"),
+    config_path: Path | None = typer.Option(None, "--config", help="Pathway-analysis YAML config"),
+) -> None:
+    """Run M3.3 functional enrichment for recurrent genome-wide dependencies."""
+    root = _root(root)
+    configure_logging(root)
+    config_path = config_path or (root / "config/pathways.yaml")
+
+    try:
+        candidate_long, recurrence, backgrounds, identifier_resolution, enrichment, raw_responses, meta = analyze_pathways(
+            root=root,
+            config_path=config_path,
+        )
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    except Exception as exc:
+        # HTTP/network failures should remain visible without hiding the underlying message.
+        raise typer.BadParameter(f"Pathway analysis failed: {exc}") from exc
+
+    qc = pathway_enrichment_qc(recurrence, backgrounds, enrichment, meta)
+    processed = root / "data/processed/pathways"
+    qc_dir = root / "outputs/qc"
+    reports = root / "outputs/reports"
+    raw_dir = root / "data/raw/gprofiler" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    processed.mkdir(parents=True, exist_ok=True)
+    qc_dir.mkdir(parents=True, exist_ok=True)
+    reports.mkdir(parents=True, exist_ok=True)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    candidate_long_tsv = processed / "candidate_top100_long.tsv"
+    recurrence_tsv = processed / "candidate_recurrence.tsv"
+    backgrounds_tsv = processed / "background_genes.tsv"
+    identifier_resolution_tsv = processed / "identifier_resolution.tsv"
+    enrichment_tsv = processed / "enrichment_all.tsv"
+
+    candidate_long.to_csv(candidate_long_tsv, sep="\t", index=False)
+    candidate_long.to_parquet(processed / "candidate_top100_long.parquet", index=False)
+    recurrence.to_csv(recurrence_tsv, sep="\t", index=False)
+    recurrence.to_parquet(processed / "candidate_recurrence.parquet", index=False)
+    backgrounds.to_csv(backgrounds_tsv, sep="\t", index=False)
+    backgrounds.to_parquet(processed / "background_genes.parquet", index=False)
+    identifier_resolution.to_csv(identifier_resolution_tsv, sep="\t", index=False)
+    identifier_resolution.to_parquet(processed / "identifier_resolution.parquet", index=False)
+    enrichment.to_csv(enrichment_tsv, sep="\t", index=False)
+    enrichment.to_parquet(processed / "enrichment_all.parquet", index=False)
+
+    cfg = load_pathway_config(config_path)
+    analysis_sets = cfg.get("analysis_sets") or {}
+    for set_name, details in analysis_sets.items():
+        minimum = int((details or {}).get("minimum_comparisons", 1))
+        subset = recurrence.loc[recurrence["comparisons_n"] >= minimum].copy()
+        subset.to_csv(reports / f"M3_3_{set_name}_candidates.tsv", sep="\t", index=False)
+        if set_name == "recurrent":
+            (reports / "M3_3_pathway_gene_symbols.txt").write_text(
+                "\n".join(subset["gene_symbol"].astype(str)) + "\n",
+                encoding="utf-8",
+            )
+
+    significant = enrichment.loc[enrichment["significant"].fillna(False).astype(bool)].copy()
+    significant = significant.sort_values(
+        ["analysis_set", "p_value_adjusted", "source", "term_name"],
+        na_position="last",
+    )
+    significant.to_csv(reports / "M3_3_pathway_significant.tsv", sep="\t", index=False)
+
+    raw_files = {}
+    for set_name, payload in raw_responses.items():
+        raw_path = raw_dir / f"{set_name}.json"
+        write_json(raw_path, payload)
+        raw_files[set_name] = {
+            "path": str(raw_path),
+            "sha256": sha256_file(raw_path),
+        }
+
+    qc_dicts = [x.model_dump(mode="json") for x in qc]
+    write_json(qc_dir / "pathway_enrichment_qc.json", qc_dicts)
+    if qc_dicts:
+        write_tsv(qc_dir / "pathway_enrichment_qc.tsv", qc_dicts, list(qc_dicts[0].keys()))
+
+    meta = {
+        **meta,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "raw_responses": raw_files,
+        "outputs": {
+            "candidate_top100_long": str(candidate_long_tsv),
+            "candidate_recurrence": str(recurrence_tsv),
+            "background_genes": str(backgrounds_tsv),
+            "identifier_resolution": str(identifier_resolution_tsv),
+            "enrichment_all": str(enrichment_tsv),
+            "significant_terms": str(reports / "M3_3_pathway_significant.tsv"),
+        },
+    }
+    write_json(reports / "pathway_enrichment_meta.json", meta)
+
+    errors = [x for x in qc if x.severity == "ERROR"]
+    warnings = [x for x in qc if x.severity == "WARNING"]
+    typer.echo("M3.3 pathway enrichment completed")
+    for set_name, details in meta.get("analysis_sets", {}).items():
+        typer.echo(
+            f"{set_name}: query={details['query_genes_n']} | "
+            f"background={details['background_genes_n']}"
+        )
+    typer.echo(f"Enrichment rows: {len(enrichment)} | significant: {len(significant)}")
+    typer.echo(
+        f"QC ERROR: {len(errors)} | WARNING: {len(warnings)} | TOTAL: {len(qc)}"
+    )
+    if errors:
+        raise typer.Exit(code=2)
+
+
+@app.command("qc-pathways")
+def qc_pathways_cmd(
+    root: Path | None = typer.Option(None, help="Project root"),
+) -> None:
+    root = _root(root)
+    configure_logging(root)
+    qc_path = root / "outputs/qc/pathway_enrichment_qc.json"
+    if not qc_path.exists():
+        raise typer.BadParameter("No pathway QC output. Run analyze-pathways first.")
+    rows = json.loads(qc_path.read_text(encoding="utf-8"))
+    errors = [x for x in rows if x["severity"] == "ERROR"]
+    warnings = [x for x in rows if x["severity"] == "WARNING"]
+    info = [x for x in rows if x["severity"] == "INFO"]
+    typer.echo(
+        f"ERROR: {len(errors)} | WARNING: {len(warnings)} | INFO: {len(info)} | TOTAL: {len(rows)}"
+    )
+    for row in errors + warnings:
+        typer.echo(
+            f"[{row['severity']}] {row['check']} {row.get('entity_id') or ''}: {row['message']}"
+        )
+    if errors:
+        raise typer.Exit(code=2)
+
+
+if __name__ == "__main__":
+    app()
