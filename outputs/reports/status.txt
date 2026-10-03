@@ -1,0 +1,5 @@
+Master Cancer Landscape Computational Pipeline v0.1
+Milestone 0: IMPLEMENTED
+Milestone 1 code: IMPLEMENTED
+Target seeds: 31
+Next execution gate: pinned/current HGNC snapshot -> normalize-targets -> QC

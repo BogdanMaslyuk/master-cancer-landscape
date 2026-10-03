@@ -1,0 +1,92 @@
+cancer_id	comparison_type	model_id	cell_line_name	group	sequencing_available	molecular_status	assignment_reason	analysis_group
+CANCER-001	other-kras	ACH-000012	HCC-827	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000021	NCI-H1693	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000029	HCC-827-GR5	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000030	PC-14	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000033	NCI-H1819	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-000062	RERF-LC-MS	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000066	HCC4006	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000109	NCI-H3255	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000121	NCI-H2405	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000150	HCC2935	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000161	COR-L105	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000264	Calu-6	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000282	NCI-H1755	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-000309	SK-LU-1	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000311	NCI-H2122	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000314	HCC-2108	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000327	NCI-H1395	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000337	NCI-H3122	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000339	HCC-461	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000343	NCI-H522	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000379	NCI-H1781	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000392	Calu-3	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000414	NCI-H1944	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000416	NCI-H838	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000447	NCI-H2228	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000448	NCI-H1666	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000451	NCI-H2085	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000482	RERF-LC-KJ	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000496	NCI-H1792	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000521	NCI-H2030	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000528	ABC-1	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000562	HCC-78	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000575	HCC-364	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-000578	HCC-1171	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-000587	NCI-H1975	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000589	NCI-H1437	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000590	NCI-H2073	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000638	NCI-H441	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000666	NCI-H1355	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000667	HCC-44	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000675	NCI-H1734	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000677	SW 1573	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000681	A549	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000706	EKVX	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000712	HCC-1833	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000718	NCI-H2291	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000733	NCI-H1838	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000744	NCI-H1623	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000757	A427	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000766	NCI-H1648	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000774	RERF-LC-Ad2	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000779	PC-9	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000781	NCI-H2023	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000785	NCI-H2126	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000787	LXF-289	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000791	RERF-LC-Ad1	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000837	NCI-H322	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000841	NCI-H2087	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000845	NCI-H1373	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000851	MOR/CPR	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000852	NCI-H1435	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000860	NCI-H358	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000861	HOP-62	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000869	NCI-H1568	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000872	HCC515	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000875	NCI-H2347	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000886	NCI-H2009	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000888	NCI-H1793	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000892	NCI-H1563	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000893	NCI-H1651	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-000900	NCI-H23	target_variant	True	target_variant	Exact configured KRAS target variant p.G12C detected	context
+CANCER-001	other-kras	ACH-000916	NCI-H1573	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000925	DV-90	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000945	NCI-H650	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-000951	NCI-H2342	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-001088	HLC-1	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-001137	NCI-H1993	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-001233	VMRC-LCD	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-001490	COR-L321	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002089	201T	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002157	LC-2-ad	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002172	NCI-H322M	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-002184	PC-3 [JPC-3]	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-002333	HCC-827-GR	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-001	other-kras	ACH-002337	JHU-028	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-001	other-kras	ACH-002497	NCI-H920	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002522	SNU-2292	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002526	SNU-1327	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002531	SNU-2535	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-002650	ETCC-016	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-001	other-kras	ACH-003012	A549_CRAF_KD	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator

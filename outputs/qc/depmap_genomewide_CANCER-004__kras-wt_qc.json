@@ -1,0 +1,38 @@
+[
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|kras-wt",
+    "field": null,
+    "observed": "18531/18531 genes",
+    "expected": "available groups meet configured minimums",
+    "message": "Some or all genes have fewer available models than the pre-specified warning threshold; inference remains exploratory."
+  },
+  {
+    "severity": "INFO",
+    "check": "genes_analyzed",
+    "entity_id": "CANCER-004|kras-wt",
+    "field": null,
+    "observed": "18531",
+    "expected": ">0",
+    "message": "Number of normalized genes evaluated in this genome-wide comparison."
+  },
+  {
+    "severity": "INFO",
+    "check": "fdr_hits",
+    "entity_id": "CANCER-004|kras-wt",
+    "field": null,
+    "observed": "0",
+    "expected": "descriptive count",
+    "message": "Genes with Benjamini-Hochberg q < 0.05; this is not an overall target-priority score."
+  },
+  {
+    "severity": "INFO",
+    "check": "broad_dependency_flags",
+    "entity_id": "CANCER-004|kras-wt",
+    "field": null,
+    "observed": "1276",
+    "expected": "descriptive count",
+    "message": "Genes crossing the configured broad-dependency screening threshold."
+  }
+]

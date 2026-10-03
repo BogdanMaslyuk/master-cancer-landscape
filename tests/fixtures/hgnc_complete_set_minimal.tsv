@@ -1,0 +1,7 @@
+hgnc_id	symbol	name	status	alias_symbol	prev_symbol	date_modified	entrez_id	ensembl_gene_id	uniprot_ids
+HGNC:6407	KRAS	KRAS proto-oncogene, GTPase	Approved	K-Ras|K-RAS2	KRAS2	2025-01-01	3845	ENSG00000133703	P01116
+HGNC:3236	EGFR	epidermal growth factor receptor	Approved	ERBB|ERBB1	ERBB1	2025-01-01	1956	ENSG00000146648	P00533
+HGNC:1097	BRAF	B-Raf proto-oncogene, serine/threonine kinase	Approved	BRAF1|BRAF-1		2023-01-20	673	ENSG00000157764	P15056
+HGNC:9605	PTGS2	prostaglandin-endoperoxide synthase 2	Approved	COX2|COX-2		2025-01-01	5743	ENSG00000073756	P35354
+HGNC:90001	TESTA	synthetic test gene A	Approved	DUPALIAS		2025-01-01	90001	ENSGTESTA	PTESTA
+HGNC:90002	TESTB	synthetic test gene B	Approved	DUPALIAS		2025-01-01	90002	ENSGTESTB	PTESTB

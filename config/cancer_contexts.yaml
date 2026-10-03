@@ -1,0 +1,191 @@
+contexts:
+  CANCER-001:
+    name: Lung adenocarcinoma — KRAS G12C
+    inclusion:
+      lineage: lung
+      disease: lung adenocarcinoma
+      alteration_gene: KRAS
+      alteration: p.G12C
+    exclusion: []
+    minimum_context_n_warning: 5
+    comparator: same lineage/disease without KRAS p.G12C
+    status: configured_not_executed
+    opentargets:
+      disease_id: MONDO_0005061
+      expected_disease_name: lung adenocarcinoma
+      mapping_scope: exact_disease
+      mapping_confidence: high
+      molecular_context: KRAS p.G12C
+      molecular_context_encoded_in_ot: false
+      rationale: Open Targets disease mapping represents lung adenocarcinoma at disease
+        level. KRAS p.G12C is retained as a separate project molecular context and
+        is not attributed to the Open Targets disease ontology.
+      mapping_source_url: https://platform.opentargets.org/disease/MONDO_0005061
+      legacy_disease_ids:
+      - EFO_0000571
+    depmap:
+      context_definition: lung adenocarcinoma models with KRAS p.G12C
+      comparator_definition: lung adenocarcinoma models with mutation profiling but
+        without KRAS p.G12C
+      metadata:
+        oncotree_codes:
+        - LUAD
+        depmap_model_types:
+        - LUAD
+        oncotree_subtypes:
+        - Lung Adenocarcinoma
+      mutation:
+        mode: exact_protein_change_present
+        gene: KRAS
+        protein_change_regexes:
+        - ^p\.G12C$
+        other_variants_ambiguous: false
+      context_assignment: defining_present
+      comparator_assignment: defining_absent
+  CANCER-004:
+    name: Pancreatic ductal adenocarcinoma — KRAS G12D
+    inclusion:
+      lineage: pancreas
+      disease: pancreatic ductal adenocarcinoma
+      alteration_gene: KRAS
+      alteration: p.G12D
+    exclusion: []
+    minimum_context_n_warning: 5
+    comparator: same lineage/disease without KRAS p.G12D
+    status: configured_not_executed
+    opentargets:
+      disease_id: MONDO_0005184
+      expected_disease_name: pancreatic ductal adenocarcinoma
+      mapping_scope: exact_disease
+      mapping_confidence: high
+      molecular_context: KRAS p.G12D
+      molecular_context_encoded_in_ot: false
+      rationale: MONDO_0005184 is the disease-level pancreatic ductal adenocarcinoma
+        entity. KRAS p.G12D remains a separate project molecular context and is not
+        attributed to the Open Targets disease-level association score.
+      mapping_source_url: https://platform.opentargets.org/disease/MONDO_0005184
+      legacy_disease_ids:
+      - EFO_0002618
+    depmap:
+      context_definition: pancreatic ductal/pancreatic adenocarcinoma models with
+        KRAS p.G12D
+      comparator_definition: same pancreatic adenocarcinoma disease group with mutation
+        profiling but without KRAS p.G12D
+      metadata:
+        oncotree_codes:
+        - PAAD
+        - PDAC
+        depmap_model_types:
+        - PAAD
+        - PDAC
+        oncotree_subtypes:
+        - Pancreatic Adenocarcinoma
+        - Pancreatic Ductal Adenocarcinoma
+      mutation:
+        mode: exact_protein_change_present
+        gene: KRAS
+        protein_change_regexes:
+        - ^p\.G12D$
+        other_variants_ambiguous: false
+      context_assignment: defining_present
+      comparator_assignment: defining_absent
+  CANCER-011:
+    name: Glioblastoma — IDH-wildtype
+    inclusion:
+      lineage: central_nervous_system
+      disease: glioblastoma
+      alteration: IDH-wildtype
+    exclusion:
+    - pathogenic IDH1 defining mutation
+    - pathogenic IDH2 defining mutation
+    minimum_context_n_warning: 5
+    comparator: same disease with defining IDH alteration if sufficiently represented
+    status: configured_not_executed
+    opentargets:
+      disease_id: MONDO_0018177
+      expected_disease_name: glioblastoma
+      mapping_scope: exact_disease
+      mapping_confidence: high
+      molecular_context: IDH-wildtype
+      molecular_context_encoded_in_ot: false
+      rationale: MONDO_0018177 captures glioblastoma at disease level. IDH-wildtype
+        remains a separate project molecular context so generic Open Targets association
+        scores are not misrepresented as IDH-wildtype-specific evidence.
+      mapping_source_url: https://platform.opentargets.org/disease/MONDO_0018177
+      legacy_disease_ids:
+      - EFO_0000519
+    depmap:
+      context_definition: DepMap 26Q1 models annotated as Glioblastoma, IDH-Wildtype;
+        mutation data are used as a concordance check to exclude canonical IDH1 R132
+        or IDH2 R172 defining alterations
+      comparator_definition: same exact glioblastoma subtype with a canonical IDH1 R132
+        or IDH2 R172 alteration, if such discordant models are represented; otherwise
+        context-specific comparison is not claimed
+      metadata:
+        oncotree_codes:
+        - GB
+        depmap_model_types:
+        - GB
+        oncotree_subtypes:
+        - Glioblastoma, IDH-Wildtype
+        oncotree_lineages:
+        - CNS/Brain
+      mutation:
+        mode: absence_of_defining_variants
+        defining_variants:
+        - gene: IDH1
+          protein_change_regexes:
+          - ^p\.R132
+        - gene: IDH2
+          protein_change_regexes:
+          - ^p\.R172
+        other_relevant_variants_ambiguous: true
+      context_assignment: defining_absent
+      comparator_assignment: defining_present
+  CANCER-013:
+    name: Acute myeloid leukemia — FLT3-mutant
+    inclusion:
+      lineage: hematopoietic_and_lymphoid
+      disease: acute myeloid leukemia
+      alteration_gene: FLT3
+      alteration: any pathogenic FLT3 mutation
+    exclusion: []
+    minimum_context_n_warning: 5
+    comparator: same disease without FLT3 mutation
+    status: configured_not_executed
+    opentargets:
+      disease_id: MONDO_0018874
+      expected_disease_name: acute myeloid leukemia
+      mapping_scope: exact_disease
+      mapping_confidence: high
+      molecular_context: FLT3-mutant
+      molecular_context_encoded_in_ot: false
+      rationale: Open Targets mapping captures AML at disease level. FLT3-mutant status
+        remains separate and association scores are not interpreted as FLT3-mutant-specific
+        without independent evidence.
+      mapping_source_url: https://platform.opentargets.org/disease/MONDO_0018874
+      legacy_disease_ids:
+      - EFO_0000222
+    depmap:
+      context_definition: acute myeloid leukemia models with high-confidence FLT3
+        driver/hotspot mutation or canonical FLT3 ITD/TKD signal
+      comparator_definition: acute myeloid leukemia models with mutation profiling
+        and no FLT3 variant; ambiguous non-qualifying FLT3 variants are excluded
+      metadata:
+        oncotree_codes:
+        - AML
+        depmap_model_types:
+        - AML
+        oncotree_subtypes:
+        - Acute Myeloid Leukemia
+      mutation:
+        mode: driver_or_hotspot_gene_variant
+        gene: FLT3
+        protein_change_regexes:
+        - ^p\.D835
+        - ^p\.I836
+        text_regexes:
+        - \bITD\b
+        - internal tandem duplication
+      context_assignment: defining_present
+      comparator_assignment: defining_absent

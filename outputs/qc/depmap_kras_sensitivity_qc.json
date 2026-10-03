@@ -1,0 +1,83 @@
+[
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-KRAS|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-PTPN11|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-SOS1|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-EGFR|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-MAP2K1|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-ULK1|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-PIK3CA|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-CDK6|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-004|TGT-YAP1|vs_kras_wildtype_proxy",
+    "field": null,
+    "observed": "context=19; comparator=3",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available group is below the pre-specified n threshold; inference remains exploratory."
+  }
+]

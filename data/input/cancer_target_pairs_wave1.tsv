@@ -1,0 +1,35 @@
+Evidence_ID	Cancer_ID	Target_ID	Cancer_name	Molecular_context	HGNC_symbol
+EVID-0001	CANCER-001	TGT-KRAS	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	KRAS
+EVID-0004	CANCER-004	TGT-KRAS	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	KRAS
+EVID-0009	CANCER-013	TGT-FLT3	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	FLT3
+EVID-0013	CANCER-001	TGT-PTPN11	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	PTPN11
+EVID-0014	CANCER-001	TGT-SOS1	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	SOS1
+EVID-0015	CANCER-001	TGT-GRB2	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	GRB2
+EVID-0016	CANCER-001	TGT-MET	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	MET
+EVID-0017	CANCER-001	TGT-BRAF	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	BRAF
+EVID-0018	CANCER-001	TGT-MAP2K1	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	MAP2K1
+EVID-0019	CANCER-001	TGT-RAF1	Lung adenocarcinoma — KRAS G12C	KRAS p.G12C	RAF1
+EVID-0020	CANCER-004	TGT-PTPN11	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	PTPN11
+EVID-0021	CANCER-004	TGT-SOS1	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	SOS1
+EVID-0022	CANCER-004	TGT-EGFR	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	EGFR
+EVID-0023	CANCER-004	TGT-MAP2K1	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	MAP2K1
+EVID-0024	CANCER-004	TGT-ULK1	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	ULK1
+EVID-0025	CANCER-004	TGT-PIK3CA	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	PIK3CA
+EVID-0026	CANCER-004	TGT-CDK6	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	CDK6
+EVID-0027	CANCER-004	TGT-YAP1	Pancreatic ductal adenocarcinoma — KRAS G12D	KRAS p.G12D	YAP1
+EVID-0028	CANCER-011	TGT-EGFR	Glioblastoma — IDH-wildtype	IDH-wildtype	EGFR
+EVID-0029	CANCER-011	TGT-PDGFRA	Glioblastoma — IDH-wildtype	IDH-wildtype	PDGFRA
+EVID-0030	CANCER-011	TGT-CDK4	Glioblastoma — IDH-wildtype	IDH-wildtype	CDK4
+EVID-0031	CANCER-011	TGT-MDM2	Glioblastoma — IDH-wildtype	IDH-wildtype	MDM2
+EVID-0032	CANCER-011	TGT-MET	Glioblastoma — IDH-wildtype	IDH-wildtype	MET
+EVID-0033	CANCER-011	TGT-PIK3CA	Glioblastoma — IDH-wildtype	IDH-wildtype	PIK3CA
+EVID-0034	CANCER-011	TGT-MTOR	Glioblastoma — IDH-wildtype	IDH-wildtype	MTOR
+EVID-0035	CANCER-011	TGT-WEE1	Glioblastoma — IDH-wildtype	IDH-wildtype	WEE1
+EVID-0036	CANCER-011	TGT-FGFR3	Glioblastoma — IDH-wildtype	IDH-wildtype	FGFR3
+EVID-0037	CANCER-013	TGT-PTPN11	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	PTPN11
+EVID-0038	CANCER-013	TGT-NRAS	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	NRAS
+EVID-0039	CANCER-013	TGT-AURKB	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	AURKB
+EVID-0040	CANCER-013	TGT-AXL	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	AXL
+EVID-0041	CANCER-013	TGT-BCL2	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	BCL2
+EVID-0042	CANCER-013	TGT-MCL1	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	MCL1
+EVID-0043	CANCER-013	TGT-PIM1	Acute myeloid leukemia — FLT3-mutant	FLT3-mutant	PIM1

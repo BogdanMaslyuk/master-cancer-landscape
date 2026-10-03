@@ -1,0 +1,8 @@
+Verification date: 2026-09-26
+Milestone 0 skeleton: PASS
+Milestone 1 normalization logic: PASS
+Unit tests: 8 passed
+Python compileall: PASS
+Target seed count: 31
+Live HGNC snapshot execution in this build runtime: NOT RUN (outbound network unavailable)
+Scientific data were not guessed to compensate for unavailable live network access.

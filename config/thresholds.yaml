@@ -1,0 +1,21 @@
+target_normalization:
+  ambiguity_is_error: true
+  not_found_is_error: true
+  non_approved_status_is_error: true
+  existing_identifier_conflict_is_error: false
+depmap:
+  minimum_context_n_warning: 5
+  minimum_comparator_n_warning: 5
+  minimum_n_for_statistical_test: 2
+  dependency_probability_threshold: 0.5
+  broad_dependency_fraction_warning: 0.8
+  multiple_testing: benjamini_hochberg_global_wave1
+  note: Broad-dependency threshold is an internal screening warning, not an official
+    DepMap common-essential or safety classification.
+
+  genomewide:
+    minimum_context_n_warning: 5
+    minimum_comparator_n_warning: 5
+    minimum_n_for_statistical_test: 2
+    multiple_testing: benjamini_hochberg_within_context_comparison
+    note: Genome-wide discovery preserves separate evidence axes and does not create an opaque overall target score.

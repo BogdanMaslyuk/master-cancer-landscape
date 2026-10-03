@@ -1,0 +1,65 @@
+cancer_id	comparison_type	model_id	cell_line_name	group	sequencing_available	molecular_status	assignment_reason	analysis_group
+CANCER-004	other-kras	ACH-000022	PA-TU-8988S	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000023	PA-TU-8988T	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000031	Panc 02.13	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000042	Panc 02.03	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000060	Panc 10.05	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000085	T3M-4	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000093	Panc 05.04	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000094	HPAF-II	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000107	Capan-2	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000114	SU.86.86	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000118	HUP-T3	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000138	CFPAC-1	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000139	Panc 03.27	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000155	SW 1990	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000164	PANC-1	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000178	Hs 766T	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000205	PK-59	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000213	HUP-T4	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000222	AsPC-1	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000235	Panc 04.03	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000243	DAN-G	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000265	KP-4	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000266	SNU-213	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000270	HPAC	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000281	KP-2	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000307	PK-1	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000320	PSN1	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000332	YAPC	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000354	Capan-1	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000417	Panc 08.13	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000468	PK-45H	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000502	TCC-PAN2	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000517	SNU-410	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000535	BxPC-3	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-004	other-kras	ACH-000599	PA-TU-8902	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000601	MIA PaCa-2	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-000652	SUIT-2	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-000933	SNU-324	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-004	other-kras	ACH-001072	GR-M	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-001098	KCI-MOH1	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-001101	KLM-1	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-001107	KP-1N	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-001171	PL45	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-001353	JOPACA-1	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-001375	PACADD-119	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-001376	PACADD-135	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-001377	PACADD-137	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-004	other-kras	ACH-001378	PACADD-159	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-001379	PACADD-161	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-001380	PACADD-165	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded
+CANCER-004	other-kras	ACH-001382	PACADD-188	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-001999	950-5-BIK	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-002039	PK-8	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-002164	MZ1-PC	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-002186	PL4	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-002672	MAPAC-HS-77	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-002738	PANFR0420	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-002742	PANFR0233	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-002743	PANFR0368	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-002744	PANFR0402	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-002745	PANFR0069	excluded	False	unsequenced	No default WES/WGS profile in OmicsProfiles.csv	excluded
+CANCER-004	other-kras	ACH-003429	CCLF_PANC_0074_T	target_variant	True	target_variant	Exact configured KRAS target variant p.G12D detected	context
+CANCER-004	other-kras	ACH-003430	CCLF_PANC_0002_T	other_kras_driver_hotspot	True	other_kras_driver_hotspot	Non-target KRAS variant with DepMap driver/hotspot annotation	comparator
+CANCER-004	other-kras	ACH-003433	CCLF_PANC_0019_T	kras_wildtype_proxy	True	kras_wildtype_proxy	Sequenced model with no KRAS variant record; used as KRAS WT proxy	excluded

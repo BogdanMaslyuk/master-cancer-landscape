@@ -1,0 +1,128 @@
+[
+  {
+    "severity": "INFO",
+    "check": "model_id_unique",
+    "entity_id": null,
+    "field": null,
+    "observed": "2154",
+    "expected": "unique",
+    "message": "Model metadata has unique ModelID values."
+  },
+  {
+    "severity": "INFO",
+    "check": "sequencing_profiles",
+    "entity_id": null,
+    "field": null,
+    "observed": "1968",
+    "expected": ">0",
+    "message": "WES/WGS model coverage is available for comparator eligibility."
+  },
+  {
+    "severity": "INFO",
+    "check": "gene_effect_targets",
+    "entity_id": null,
+    "field": null,
+    "observed": "1208 models; 26 Wave 1 targets",
+    "expected": "all 26 targets",
+    "message": "CRISPRGeneEffect.csv contains all Wave 1 target symbols with unique ModelIDs."
+  },
+  {
+    "severity": "INFO",
+    "check": "gene_dependency_targets",
+    "entity_id": null,
+    "field": null,
+    "observed": "1208 models; 26 Wave 1 targets",
+    "expected": "all 26 targets",
+    "message": "CRISPRGeneDependency.csv contains all Wave 1 target symbols with unique ModelIDs."
+  },
+  {
+    "severity": "INFO",
+    "check": "mutation_schema",
+    "entity_id": null,
+    "field": null,
+    "observed": "641 relevant mutation rows",
+    "expected": "model/gene/protein annotations",
+    "message": "Mutation schema supports the configured Wave 1 context rules."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_diagnostics",
+    "entity_id": "CANCER-001",
+    "field": null,
+    "observed": "disease_metadata_matches=91; sequenced=83; alteration_statuses={\"defining_absent\": 74, \"defining_present\": 9, \"unsequenced\": 8}; groups=context:9,comparator:74,excluded:8",
+    "expected": "auditable nonzero disease and context counts",
+    "message": "Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_feasibility",
+    "entity_id": "CANCER-001",
+    "field": null,
+    "observed": "context=9; comparator=74",
+    "expected": "both groups > 0",
+    "message": "Configured disease/mutation rules form both context and comparator groups."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_diagnostics",
+    "entity_id": "CANCER-004",
+    "field": null,
+    "observed": "disease_metadata_matches=64; sequenced=56; alteration_statuses={\"defining_absent\": 34, \"defining_present\": 22, \"unsequenced\": 8}; groups=context:22,comparator:34,excluded:8",
+    "expected": "auditable nonzero disease and context counts",
+    "message": "Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_feasibility",
+    "entity_id": "CANCER-004",
+    "field": null,
+    "observed": "context=22; comparator=34",
+    "expected": "both groups > 0",
+    "message": "Configured disease/mutation rules form both context and comparator groups."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_diagnostics",
+    "entity_id": "CANCER-011",
+    "field": null,
+    "observed": "disease_metadata_matches=67; sequenced=66; alteration_statuses={\"defining_absent\": 66, \"unsequenced\": 1}; groups=context:66,comparator:0,excluded:1",
+    "expected": "auditable nonzero disease and context counts",
+    "message": "Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment."
+  },
+  {
+    "severity": "WARNING",
+    "check": "context_rule_feasibility",
+    "entity_id": "CANCER-011",
+    "field": null,
+    "observed": "context=66; comparator=0",
+    "expected": "comparator > 0 when context-specific testing is intended",
+    "message": "Context exists but no same-disease comparator was formed; descriptive dependency can still be calculated, but context-specific inference is unavailable."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_diagnostics",
+    "entity_id": "CANCER-013",
+    "field": null,
+    "observed": "disease_metadata_matches=42; sequenced=41; alteration_statuses={\"ambiguous\": 1, \"defining_absent\": 36, \"defining_present\": 4, \"unsequenced\": 1}; groups=context:4,comparator:36,excluded:2",
+    "expected": "auditable nonzero disease and context counts",
+    "message": "Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment."
+  },
+  {
+    "severity": "INFO",
+    "check": "context_rule_feasibility",
+    "entity_id": "CANCER-013",
+    "field": null,
+    "observed": "context=4; comparator=36",
+    "expected": "both groups > 0",
+    "message": "Configured disease/mutation rules form both context and comparator groups."
+  },
+  {
+    "severity": "WARNING",
+    "check": "context_sample_size",
+    "entity_id": "CANCER-013",
+    "field": null,
+    "observed": "4",
+    "expected": ">=5",
+    "message": "Molecular-context cohort is below the pre-specified sample-size warning threshold; quantitative results may be calculated but must remain exploratory."
+  }
+]

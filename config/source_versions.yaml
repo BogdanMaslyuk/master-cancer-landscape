@@ -1,0 +1,47 @@
+hgnc:
+  mode: pinned_snapshot_preferred
+  current_approved_tsv: https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt
+  current_withdrawn_tsv: https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/withdrawn.txt
+  official_download_docs: https://hgnc.genenames.org/download/
+  official_rest_docs: https://hgnc.genenames.org/help/rest/
+  snapshot_date: null
+  max_requests_per_second_if_rest_fallback: 8
+uniprot:
+  enabled: false
+  note: Milestone 1 uses HGNC cross-references; independent UniProt validation is
+    a later substep.
+ensembl:
+  enabled: false
+  note: Milestone 1 uses HGNC cross-references; independent validation is a later
+    substep.
+ncbi:
+  enabled: false
+  note: Milestone 1 uses HGNC cross-references; independent validation is a later
+    substep.
+opentargets:
+  enabled: true
+  graphql_endpoint: https://api.platform.opentargets.org/api/v4/graphql
+  release: '26.09'
+  access_mode_wave1: graphql
+  page_size: 500
+  systematic_scale_mode: parquet_bulk
+  official_graphql_docs: https://platform-docs.opentargets.org/data-access/graphql-api
+  official_download_docs: https://platform-docs.opentargets.org/data-access/datasets
+  note: Wave 1 uses direct disease-target associations only; molecular subtype context
+    is stored separately and never inferred from disease-level Open Targets data.
+depmap:
+  enabled: true
+  release: 26Q1
+  access_mode: synchronized_pinned_release_cache
+  public_catalog_endpoint: https://depmap.org/portal/api/no-captcha/download/files
+  protected_catalog_endpoint: https://depmap.org/portal/api/download/files
+  raw_dir: data/raw/depmap/26Q1
+  official_data_page: https://depmap.org/portal/data_page/
+  official_release_notes: https://forum.depmap.org/t/announcing-the-26q1-release/4606
+  required_files:
+  - Model.csv (or Models.csv if the release labels it that way)
+  - CRISPRGeneEffect.csv
+  - CRISPRGeneDependency.csv
+  - OmicsSomaticMutations.csv
+  - OmicsProfiles.csv
+  note: Files must come from the same pinned public release. sync-depmap uses the official no-CAPTCHA metadata endpoint; it never scrapes or bypasses CAPTCHA-protected downloads. If DepMap enables bearer-token file URLs, DEPMAP_BEARER_TOKEN can be used without changing the analysis layer.

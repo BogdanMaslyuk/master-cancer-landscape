@@ -1,0 +1,14 @@
+project_name: Master Cancer Landscape
+code_version: 0.3.0
+input_workbook: data/input/Master_Cancer_Landscape_v0.2_Wave1.xlsx
+target_seed: data/input/targets_seed.tsv
+processed_dir: data/processed
+qc_dir: outputs/qc
+reports_dir: outputs/reports
+raw_dir: data/raw
+missing_values:
+- Unknown
+- Not evaluated
+- Not applicable
+canonical_target_key: HGNC_symbol
+technical_target_key: HGNC_ID

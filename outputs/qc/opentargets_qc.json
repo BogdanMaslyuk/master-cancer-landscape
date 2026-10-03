@@ -1,0 +1,11 @@
+[
+  {
+    "severity": "INFO",
+    "check": "opentargets",
+    "entity_id": "",
+    "field": "",
+    "observed": "",
+    "expected": "",
+    "message": "All Open Targets structural QC checks passed"
+  }
+]

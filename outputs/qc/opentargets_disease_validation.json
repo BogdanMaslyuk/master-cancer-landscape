@@ -1,0 +1,89 @@
+{
+  "platform": {
+    "api_version": "26.9.0",
+    "data_version": "26.09"
+  },
+  "platform_meta_file": "data\\raw\\opentargets\\26.09\\platform_meta.json",
+  "diseases": {
+    "CANCER-001": {
+      "configured_id": "MONDO_0005061",
+      "resolved_id": "MONDO_0005061",
+      "returned_id": "MONDO_0005061",
+      "returned_name": "lung adenocarcinoma",
+      "expected_name": "lung adenocarcinoma",
+      "resolution_method": "configured_id",
+      "id_changed": false,
+      "count": "10763",
+      "resolution_raw_files": [
+        "data\\raw\\opentargets\\26.09\\CANCER-001_MONDO_0005061_configured_disease.json"
+      ]
+    },
+    "CANCER-004": {
+      "configured_id": "MONDO_0005184",
+      "resolved_id": "MONDO_0005184",
+      "returned_id": "MONDO_0005184",
+      "returned_name": "pancreatic ductal adenocarcinoma",
+      "expected_name": "pancreatic ductal adenocarcinoma",
+      "resolution_method": "configured_id",
+      "id_changed": false,
+      "count": "7651",
+      "resolution_raw_files": [
+        "data\\raw\\opentargets\\26.09\\CANCER-004_MONDO_0005184_configured_disease.json"
+      ]
+    },
+    "CANCER-011": {
+      "configured_id": "MONDO_0018177",
+      "resolved_id": "MONDO_0018177",
+      "returned_id": "MONDO_0018177",
+      "returned_name": "glioblastoma",
+      "expected_name": "glioblastoma",
+      "resolution_method": "configured_id",
+      "id_changed": false,
+      "count": "11143",
+      "resolution_raw_files": [
+        "data\\raw\\opentargets\\26.09\\CANCER-011_MONDO_0018177_configured_disease.json"
+      ]
+    },
+    "CANCER-013": {
+      "configured_id": "MONDO_0018874",
+      "resolved_id": "MONDO_0018874",
+      "returned_id": "MONDO_0018874",
+      "returned_name": "acute myeloid leukemia",
+      "expected_name": "acute myeloid leukemia",
+      "resolution_method": "configured_id",
+      "id_changed": false,
+      "count": "12633",
+      "resolution_raw_files": [
+        "data\\raw\\opentargets\\26.09\\CANCER-013_MONDO_0018874_configured_disease.json"
+      ]
+    }
+  },
+  "tractability_files": {
+    "ENSG00000068078": "data\\raw\\opentargets\\26.09\\target_ENSG00000068078_tractability.json",
+    "ENSG00000105810": "data\\raw\\opentargets\\26.09\\target_ENSG00000105810_tractability.json",
+    "ENSG00000105976": "data\\raw\\opentargets\\26.09\\target_ENSG00000105976_tractability.json",
+    "ENSG00000115904": "data\\raw\\opentargets\\26.09\\target_ENSG00000115904_tractability.json",
+    "ENSG00000121879": "data\\raw\\opentargets\\26.09\\target_ENSG00000121879_tractability.json",
+    "ENSG00000122025": "data\\raw\\opentargets\\26.09\\target_ENSG00000122025_tractability.json",
+    "ENSG00000132155": "data\\raw\\opentargets\\26.09\\target_ENSG00000132155_tractability.json",
+    "ENSG00000133703": "data\\raw\\opentargets\\26.09\\target_ENSG00000133703_tractability.json",
+    "ENSG00000134853": "data\\raw\\opentargets\\26.09\\target_ENSG00000134853_tractability.json",
+    "ENSG00000135446": "data\\raw\\opentargets\\26.09\\target_ENSG00000135446_tractability.json",
+    "ENSG00000135679": "data\\raw\\opentargets\\26.09\\target_ENSG00000135679_tractability.json",
+    "ENSG00000137193": "data\\raw\\opentargets\\26.09\\target_ENSG00000137193_tractability.json",
+    "ENSG00000137693": "data\\raw\\opentargets\\26.09\\target_ENSG00000137693_tractability.json",
+    "ENSG00000143384": "data\\raw\\opentargets\\26.09\\target_ENSG00000143384_tractability.json",
+    "ENSG00000146648": "data\\raw\\opentargets\\26.09\\target_ENSG00000146648_tractability.json",
+    "ENSG00000157764": "data\\raw\\opentargets\\26.09\\target_ENSG00000157764_tractability.json",
+    "ENSG00000166483": "data\\raw\\opentargets\\26.09\\target_ENSG00000166483_tractability.json",
+    "ENSG00000167601": "data\\raw\\opentargets\\26.09\\target_ENSG00000167601_tractability.json",
+    "ENSG00000169032": "data\\raw\\opentargets\\26.09\\target_ENSG00000169032_tractability.json",
+    "ENSG00000171791": "data\\raw\\opentargets\\26.09\\target_ENSG00000171791_tractability.json",
+    "ENSG00000177169": "data\\raw\\opentargets\\26.09\\target_ENSG00000177169_tractability.json",
+    "ENSG00000177885": "data\\raw\\opentargets\\26.09\\target_ENSG00000177885_tractability.json",
+    "ENSG00000178999": "data\\raw\\opentargets\\26.09\\target_ENSG00000178999_tractability.json",
+    "ENSG00000179295": "data\\raw\\opentargets\\26.09\\target_ENSG00000179295_tractability.json",
+    "ENSG00000198793": "data\\raw\\opentargets\\26.09\\target_ENSG00000198793_tractability.json",
+    "ENSG00000213281": "data\\raw\\opentargets\\26.09\\target_ENSG00000213281_tractability.json"
+  }
+}

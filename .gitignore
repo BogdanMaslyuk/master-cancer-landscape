@@ -1,0 +1,51 @@
+﻿# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build / package
+build/
+dist/
+*.egg-info/
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+
+# Large/raw data
+data/raw/
+data/external/
+data/cache/
+
+# Large DepMap source files
+*CRISPRGeneEffect*.csv
+*CRISPRGeneDependency*.csv
+*Model*.csv
+*OmicsSomaticMutations*.csv
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# Large reproducible genome-wide matrices
+data/processed/depmap_genomewide/*_dependency_matrix.parquet
+data/processed/depmap_genomewide/*_gene_effect_matrix.parquet

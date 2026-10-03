@@ -1,0 +1,11 @@
+[
+  {
+    "severity": "INFO",
+    "check": "target_normalization",
+    "entity_id": null,
+    "field": null,
+    "observed": null,
+    "expected": null,
+    "message": "All checks passed"
+  }
+]

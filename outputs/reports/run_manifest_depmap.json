@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-10-02T19:59:49.857234+00:00",
+  "code_version": "0.3.1",
+  "milestone": "3 DepMap functional dependency Wave 1",
+  "git_commit": null,
+  "python_version": "3.13.12",
+  "dependency_spec_sha256": "050a189f9283a0423a638512da292f01f29b9d91d2473f7e3e64017730810289",
+  "configuration_sha256": "c5458dd9fda949f2e4409d20d0244ebc4827f1c3d30ae8af47bed428363ece75",
+  "depmap_release": "26Q1",
+  "source_url": "https://depmap.org/portal/data_page/",
+  "input_pairs": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\input\\cancer_target_pairs_wave1.tsv",
+  "input_pairs_sha256": "8e1376986c9196790e86532e7d9b70992970530dcbde4ec9434c886dd0749338",
+  "depmap_files": {
+    "models": {
+      "path": "data\\raw\\depmap\\26Q1\\Model.csv",
+      "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8",
+      "size_bytes": 697455
+    },
+    "gene_effect": {
+      "path": "data\\raw\\depmap\\26Q1\\CRISPRGeneEffect.csv",
+      "sha256": "e610a4cefb13a82b5b256b47eb08b63ff14843f8dbd0fb164bc0a32688e5b89e",
+      "size_bytes": 440646050
+    },
+    "gene_dependency": {
+      "path": "data\\raw\\depmap\\26Q1\\CRISPRGeneDependency.csv",
+      "sha256": "5de498b8fba15897f4f4d6a93681c25d5d41fdbc29f82a5968abb113cc553308",
+      "size_bytes": 432362817
+    },
+    "mutations": {
+      "path": "data\\raw\\depmap\\26Q1\\OmicsSomaticMutations.csv",
+      "sha256": "4d50634373578621bfb9f8ca69b38cfffc3f9b7abcdefd653044a675b856c520",
+      "size_bytes": 580755338
+    },
+    "omics_profiles": {
+      "path": "data\\raw\\depmap\\26Q1\\OmicsProfiles.csv",
+      "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2",
+      "size_bytes": 671558
+    }
+  },
+  "evidence_rows_n": 34,
+  "context_audit_rows_n": 264,
+  "qc_errors_n": 0,
+  "qc_warnings_n": 17,
+  "qc_result": "PASS",
+  "outputs": [
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_evidence.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_evidence.parquet",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_context_audit.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\qc\\depmap_qc.json"
+  ]
+}

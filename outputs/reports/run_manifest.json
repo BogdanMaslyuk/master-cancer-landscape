@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-09-26T08:59:59.726043+00:00",
+  "code_version": "0.1.0",
+  "git_commit": null,
+  "python_version": "3.13.12",
+  "dependency_spec_sha256": "5dd1d542081573c99a53200f60b3833de5012f0fc3321833393f3116b23d82f2",
+  "configuration_sha256": "13f7205a39c1b158c881d13c1e27e60366bc3594d26551f879f5486396f4d583",
+  "input_target_seed": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\input\\targets_seed.tsv",
+  "input_target_seed_sha256": "dcb0e2626f5a751f7634549cdb1b81aff9cdaaa3184728a3318f520ca9337399",
+  "hgnc_snapshot": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\hgnc\\2026-09-26\\hgnc_complete_set.txt",
+  "hgnc_snapshot_sha256": "3e5da5b757afce6cae333d3e6c97a59ff3aadfb13da1c70f89d9a8f252b9e7ec",
+  "withdrawn_snapshot": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\hgnc\\2026-09-26\\withdrawn.txt",
+  "withdrawn_snapshot_sha256": "9328a7361ed5149bf7901cae52c6c30b832b8ec55af22146ea296081278a3140",
+  "targets_n": 31,
+  "qc_errors_n": 0,
+  "qc_result": "PASS",
+  "outputs": [
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\target_identifiers.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\provenance.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\qc\\target_normalization_qc.json"
+  ]
+}

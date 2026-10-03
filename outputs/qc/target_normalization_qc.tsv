@@ -1,0 +1,2 @@
+severity	check	entity_id	field	observed	expected	message
+INFO	target_normalization					All checks passed

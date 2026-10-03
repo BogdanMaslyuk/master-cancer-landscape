@@ -1,0 +1,18 @@
+severity	check	entity_id	field	observed	expected	message
+WARNING	low_sample_size	CANCER-013|TGT-FLT3		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	comparator_nonempty	CANCER-011|TGT-EGFR		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-PDGFRA		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-CDK4		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-MDM2		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-MET		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-PIK3CA		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-MTOR		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-WEE1		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	comparator_nonempty	CANCER-011|TGT-FGFR3		0	>0	No same-disease comparator models are available; context-specific statistics cannot be interpreted.
+WARNING	low_sample_size	CANCER-013|TGT-PTPN11		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	low_sample_size	CANCER-013|TGT-NRAS		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	low_sample_size	CANCER-013|TGT-AURKB		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	low_sample_size	CANCER-013|TGT-AXL		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	low_sample_size	CANCER-013|TGT-BCL2		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	low_sample_size	CANCER-013|TGT-MCL1		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.
+WARNING	low_sample_size	CANCER-013|TGT-PIM1		context=3; comparator=20	available groups meet configured minimums	At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain.

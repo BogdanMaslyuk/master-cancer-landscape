@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-09-30T07:43:35.359852+00:00",
+  "code_version": "0.2.0",
+  "milestone": "2A+2B Open Targets Wave 1",
+  "git_commit": null,
+  "python_version": "3.13.12",
+  "dependency_spec_sha256": "49d912755ee1aece5af9c3f1a6f3c11e48aee46e4469b8b957b4e238d668008f",
+  "configuration_sha256": "619873438917c46b77a1c5ae0bbf124b665bfa30a4532b9bb20453160e64a115",
+  "input_pairs": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\input\\cancer_target_pairs_wave1.tsv",
+  "input_pairs_sha256": "8e1376986c9196790e86532e7d9b70992970530dcbde4ec9434c886dd0749338",
+  "target_identifiers": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\target_identifiers.tsv",
+  "target_identifiers_sha256": "4105e75362caca27d4c110b3785b2b495b41c8a182980aa3038d188d9ed2e218",
+  "opentargets_release": "26.09",
+  "opentargets_endpoint": "https://api.platform.opentargets.org/api/v4/graphql",
+  "cancer_target_pairs_n": 34,
+  "qc_errors_n": 0,
+  "qc_warnings_n": 0,
+  "qc_result": "PASS",
+  "outputs": [
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\opentargets_associations.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\opentargets_associations.parquet",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\opentargets_provenance.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\qc\\opentargets_qc.json"
+  ]
+}

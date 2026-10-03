@@ -1,0 +1,15 @@
+severity	check	entity_id	field	observed	expected	message
+INFO	model_id_unique			2154	unique	Model metadata has unique ModelID values.
+INFO	sequencing_profiles			1968	>0	WES/WGS model coverage is available for comparator eligibility.
+INFO	gene_effect_targets			1208 models; 26 Wave 1 targets	all 26 targets	CRISPRGeneEffect.csv contains all Wave 1 target symbols with unique ModelIDs.
+INFO	gene_dependency_targets			1208 models; 26 Wave 1 targets	all 26 targets	CRISPRGeneDependency.csv contains all Wave 1 target symbols with unique ModelIDs.
+INFO	mutation_schema			641 relevant mutation rows	model/gene/protein annotations	Mutation schema supports the configured Wave 1 context rules.
+INFO	context_rule_diagnostics	CANCER-001		"disease_metadata_matches=91; sequenced=83; alteration_statuses={""defining_absent"": 74, ""defining_present"": 9, ""unsequenced"": 8}; groups=context:9,comparator:74,excluded:8"	auditable nonzero disease and context counts	Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment.
+INFO	context_rule_feasibility	CANCER-001		context=9; comparator=74	both groups > 0	Configured disease/mutation rules form both context and comparator groups.
+INFO	context_rule_diagnostics	CANCER-004		"disease_metadata_matches=64; sequenced=56; alteration_statuses={""defining_absent"": 34, ""defining_present"": 22, ""unsequenced"": 8}; groups=context:22,comparator:34,excluded:8"	auditable nonzero disease and context counts	Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment.
+INFO	context_rule_feasibility	CANCER-004		context=22; comparator=34	both groups > 0	Configured disease/mutation rules form both context and comparator groups.
+INFO	context_rule_diagnostics	CANCER-011		"disease_metadata_matches=67; sequenced=66; alteration_statuses={""defining_absent"": 66, ""unsequenced"": 1}; groups=context:66,comparator:0,excluded:1"	auditable nonzero disease and context counts	Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment.
+WARNING	context_rule_feasibility	CANCER-011		context=66; comparator=0	comparator > 0 when context-specific testing is intended	Context exists but no same-disease comparator was formed; descriptive dependency can still be calculated, but context-specific inference is unavailable.
+INFO	context_rule_diagnostics	CANCER-013		"disease_metadata_matches=42; sequenced=41; alteration_statuses={""ambiguous"": 1, ""defining_absent"": 36, ""defining_present"": 4, ""unsequenced"": 1}; groups=context:4,comparator:36,excluded:2"	auditable nonzero disease and context counts	Diagnostic breakdown of disease matching, sequencing coverage, mutation classification, and final cohort assignment.
+INFO	context_rule_feasibility	CANCER-013		context=4; comparator=36	both groups > 0	Configured disease/mutation rules form both context and comparator groups.
+WARNING	context_sample_size	CANCER-013		4	>=5	Molecular-context cohort is below the pre-specified sample-size warning threshold; quantitative results may be calculated but must remain exploratory.

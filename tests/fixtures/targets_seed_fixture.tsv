@@ -1,0 +1,4 @@
+Target_ID	input_symbol	existing_uniprot_id	existing_ensembl_gene_id	existing_ncbi_gene_id
+TGT-KRAS	KRAS	P01116	ENSG00000133703	3845
+TGT-PTGS2	COX2	P35354	ENSG00000073756	5743
+TGT-BRAF	BRAF	P15056	ENSG00000157764	673

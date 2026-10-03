@@ -1,0 +1,155 @@
+[
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-FLT3",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-EGFR",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-PDGFRA",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-CDK4",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-MDM2",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-MET",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-PIK3CA",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-MTOR",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-WEE1",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "comparator_nonempty",
+    "entity_id": "CANCER-011|TGT-FGFR3",
+    "field": null,
+    "observed": "0",
+    "expected": ">0",
+    "message": "No same-disease comparator models are available; context-specific statistics cannot be interpreted."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-PTPN11",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-NRAS",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-AURKB",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-AXL",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-BCL2",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-MCL1",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  },
+  {
+    "severity": "WARNING",
+    "check": "low_sample_size",
+    "entity_id": "CANCER-013|TGT-PIM1",
+    "field": null,
+    "observed": "context=3; comparator=20",
+    "expected": "available groups meet configured minimums",
+    "message": "At least one available analysis group is below the pre-specified sample-size warning threshold; categorical interpretation must remain uncertain."
+  }
+]

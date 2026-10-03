@@ -1,0 +1,7 @@
+{
+  "platform": {
+    "api_version": "26.9.0",
+    "data_version": "26.09"
+  },
+  "platform_meta_file": "data\\raw\\opentargets\\26.09\\platform_meta.json"
+}

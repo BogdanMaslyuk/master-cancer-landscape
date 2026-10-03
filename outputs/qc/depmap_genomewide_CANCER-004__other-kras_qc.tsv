@@ -1,0 +1,5 @@
+severity	check	entity_id	field	observed	expected	message
+WARNING	low_sample_size	CANCER-004|other-kras		600/18531 genes	available groups meet configured minimums	Some or all genes have fewer available models than the pre-specified warning threshold; inference remains exploratory.
+INFO	genes_analyzed	CANCER-004|other-kras		18531	>0	Number of normalized genes evaluated in this genome-wide comparison.
+INFO	fdr_hits	CANCER-004|other-kras		0	descriptive count	Genes with Benjamini-Hochberg q < 0.05; this is not an overall target-priority score.
+INFO	broad_dependency_flags	CANCER-004|other-kras		1276	descriptive count	Genes crossing the configured broad-dependency screening threshold.

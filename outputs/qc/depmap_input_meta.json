@@ -1,0 +1,30 @@
+{
+  "release": "26Q1",
+  "files": {
+    "models": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\depmap\\26Q1\\Model.csv",
+    "gene_effect": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\depmap\\26Q1\\CRISPRGeneEffect.csv",
+    "gene_dependency": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\depmap\\26Q1\\CRISPRGeneDependency.csv",
+    "mutations": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\depmap\\26Q1\\OmicsSomaticMutations.csv",
+    "omics_profiles": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\depmap\\26Q1\\OmicsProfiles.csv"
+  },
+  "omics_profiles_schema": {
+    "model_id_column": "ModelID",
+    "datatype_column": "DataType",
+    "default_entry_column": "IsDefaultEntryForModel"
+  },
+  "mutation_schema": {
+    "model_id": "ModelID",
+    "gene": "HugoSymbol",
+    "protein_change": "ProteinChange",
+    "variant_classification": "VariantType",
+    "driver_flags": [
+      "Hotspot",
+      "HessDriver"
+    ],
+    "text_columns": [
+      "VariantInfo",
+      "RescueReason",
+      "DNAChange"
+    ]
+  }
+}

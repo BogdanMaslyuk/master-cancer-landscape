@@ -1,0 +1,2 @@
+severity	check	entity_id	field	observed	expected	message
+INFO	opentargets					All Open Targets structural QC checks passed

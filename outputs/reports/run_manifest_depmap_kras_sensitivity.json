@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-10-03T13:40:15.729784+00:00",
+  "code_version": "0.3.5",
+  "milestone": "3.1 DepMap KRAS comparator sensitivity",
+  "depmap_release": "26Q1",
+  "input_pairs": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\input\\cancer_target_pairs_wave1.tsv",
+  "input_pairs_sha256": "8e1376986c9196790e86532e7d9b70992970530dcbde4ec9434c886dd0749338",
+  "eligible_cancer_target_pairs_n": 17,
+  "comparison_types_n": 2,
+  "evidence_rows_n": 34,
+  "audit_rows_n": 155,
+  "qc_errors_n": 0,
+  "qc_warnings_n": 9,
+  "qc_result": "PASS",
+  "outputs": [
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_kras_sensitivity.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_kras_sensitivity_audit.tsv",
+    "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\qc\\depmap_kras_sensitivity_qc.json"
+  ],
+  "analysis_meta": {
+    "release": "26Q1",
+    "parser_version": "depmap-m3.1-v0.1",
+    "analysis": "M3.1 KRAS comparator sensitivity analysis",
+    "source_url": "https://depmap.org/portal/data_page/",
+    "retrieved_at": "2026-10-03T13:40:14.089248+00:00",
+    "eligible_contexts": [
+      "CANCER-001",
+      "CANCER-004"
+    ],
+    "comparison_types": [
+      "vs_kras_wildtype_proxy",
+      "vs_other_kras_driver_hotspot"
+    ],
+    "classification": {
+      "target_variant": "exact configured KRAS protein change",
+      "kras_wildtype_proxy": "WES/WGS-covered same-disease model with no KRAS variant record",
+      "other_kras_driver_hotspot": "non-target KRAS variant with DepMap driver/hotspot annotation",
+      "ambiguous_kras_variant": "KRAS variant present but not target and no recognized driver/hotspot annotation; excluded"
+    },
+    "multiplicity_correction": "Benjamini–Hochberg across all calculable M3.1 KRAS sensitivity comparisons",
+    "dependency_probability_threshold": 0.5,
+    "minimum_context_n_warning": 5,
+    "minimum_comparator_n_warning": 5,
+    "minimum_n_for_statistical_test": 2,
+    "omics_profiles_schema": {
+      "model_id_column": "ModelID",
+      "datatype_column": "DataType",
+      "default_entry_column": "IsDefaultEntryForModel"
+    },
+    "mutation_schema": {
+      "model_id": "ModelID",
+      "gene": "HugoSymbol",
+      "protein_change": "ProteinChange",
+      "variant_classification": "VariantType",
+      "driver_flags": [
+        "Hotspot",
+        "HessDriver"
+      ],
+      "text_columns": [
+        "VariantInfo",
+        "RescueReason",
+        "DNAChange"
+      ]
+    },
+    "files": {
+      "models": {
+        "path": "data\\raw\\depmap\\26Q1\\Model.csv",
+        "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8",
+        "size_bytes": 697455
+      },
+      "gene_effect": {
+        "path": "data\\raw\\depmap\\26Q1\\CRISPRGeneEffect.csv",
+        "sha256": "e610a4cefb13a82b5b256b47eb08b63ff14843f8dbd0fb164bc0a32688e5b89e",
+        "size_bytes": 440646050
+      },
+      "gene_dependency": {
+        "path": "data\\raw\\depmap\\26Q1\\CRISPRGeneDependency.csv",
+        "sha256": "5de498b8fba15897f4f4d6a93681c25d5d41fdbc29f82a5968abb113cc553308",
+        "size_bytes": 432362817
+      },
+      "mutations": {
+        "path": "data\\raw\\depmap\\26Q1\\OmicsSomaticMutations.csv",
+        "sha256": "4d50634373578621bfb9f8ca69b38cfffc3f9b7abcdefd653044a675b856c520",
+        "size_bytes": 580755338
+      },
+      "omics_profiles": {
+        "path": "data\\raw\\depmap\\26Q1\\OmicsProfiles.csv",
+        "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2",
+        "size_bytes": 671558
+      }
+    },
+    "parquet_written": true
+  }
+}
