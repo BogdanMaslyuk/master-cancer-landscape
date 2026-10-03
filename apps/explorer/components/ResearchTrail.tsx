@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 const steps = [
-  { n: 1, href: "/comparisons", title: "Выбрать опухолевый контекст", short: "Контекст" },
-  { n: 2, href: "/comparisons", title: "Найти отличающиеся зависимости", short: "Зависимости" },
+  { n: 1, href: "/atlas", title: "Выбрать орган, опухоль и молекулярный контекст", short: "Заболевание" },
+  { n: 2, href: "/atlas", title: "Проверить клеточные модели и выбрать сравнение", short: "Модели" },
   { n: 3, href: "/genes", title: "Оценить устойчивые гены", short: "Гены" },
   { n: 4, href: "/pathways", title: "Понять функциональные модули", short: "Модули" },
   { n: 5, href: "/methodology", title: "Фармакологическая оценка — следующий этап M3.4", short: "M3.4" },
