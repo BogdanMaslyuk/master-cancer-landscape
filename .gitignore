@@ -39,6 +39,14 @@ data/cache/
 *Model*.csv
 *OmicsSomaticMutations*.csv
 
+# Generated local cell-model indexes
+data/processed/depmap_model_metadata.parquet
+data/processed/depmap_model_metadata.tsv
+data/processed/depmap_model_mutations.parquet
+data/processed/depmap_model_mutations.tsv
+data/processed/depmap_model_profile_summary.parquet
+data/processed/depmap_model_profile_summary.tsv
+
 # Secrets
 .env
 .env.*
