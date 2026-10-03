@@ -71,6 +71,16 @@ def _slug(value: str) -> str:
     return "-".join(part for part in "".join(ch.lower() if ch.isalnum() else " " for ch in value).split() if part)
 
 
+def _truthy(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not pd.isna(value):
+        return bool(value)
+    return str(value).strip().lower() in {"true", "1", "yes", "y", "t"}
+
+
 def _parse_variant_json(value: Any, kind: str) -> list[dict[str, Any]]:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return []
@@ -85,7 +95,7 @@ def _parse_variant_json(value: Any, kind: str) -> list[dict[str, Any]]:
     for row in payload:
         if not isinstance(row, dict):
             continue
-        gene = str(row.get("GeneSymbol") or "").strip()
+        gene = str(row.get("GeneSymbol") or row.get("HugoSymbol") or "").strip()
         protein = str(row.get("ProteinChange") or "").strip()
         dna = str(row.get("DNAChange") or "").strip()
         key = (gene, protein, dna)
@@ -99,7 +109,7 @@ def _parse_variant_json(value: Any, kind: str) -> list[dict[str, Any]]:
                 "dna_change": dna or None,
                 "hotspot": row.get("Hotspot"),
                 "driver": row.get("HessDriver"),
-                "classification": row.get("VariantClassification"),
+                "classification": row.get("VariantClassification") or row.get("MolecularConsequence"),
                 "kind": kind,
             }
         )
@@ -131,8 +141,118 @@ class MCLAtlas:
             return pd.read_csv(tsv, sep="\t", low_memory=False)
         return pd.DataFrame()
 
+    @lru_cache(maxsize=1)
+    def _model_metadata(self) -> pd.DataFrame:
+        parquet = self.root / "data/processed/depmap_model_metadata.parquet"
+        tsv = self.root / "data/processed/depmap_model_metadata.tsv"
+        if parquet.exists():
+            return pd.read_parquet(parquet)
+        if tsv.exists():
+            return pd.read_csv(tsv, sep="\t", low_memory=False)
+        return pd.DataFrame()
+
+    @lru_cache(maxsize=1)
+    def _model_mutations(self) -> pd.DataFrame:
+        parquet = self.root / "data/processed/depmap_model_mutations.parquet"
+        tsv = self.root / "data/processed/depmap_model_mutations.tsv"
+        if parquet.exists():
+            return pd.read_parquet(parquet)
+        if tsv.exists():
+            return pd.read_csv(tsv, sep="\t", low_memory=False)
+        return pd.DataFrame()
+
     def _comparison_specs(self, cancer_id: str) -> list[dict[str, Any]]:
         return [x for x in self.store.comparison_specs() if str(x.get("cancer_id")) == cancer_id]
+
+    def _patient_layer(self, cancer_id: str, cfg: dict[str, Any], cancer_ru: str) -> dict[str, Any]:
+        ot = cfg.get("opentargets") or {}
+        return {
+            "status": "not_connected",
+            "status_ru": "Пациентская когорта пока не подключена",
+            "disease_name": cancer_ru,
+            "disease_id": ot.get("disease_id") or ot.get("disease_efo_id"),
+            "description": (
+                "MCL пока не использует частоты мутаций из пациентских когорт для этого экрана. "
+                "Поэтому данные клеточных линий ниже нельзя трактовать как частоту изменений у пациентов."
+            ),
+            "planned_sources": ["cBioPortal / TCGA", "AACR Project GENIE"],
+        }
+
+    def _context_model_genetics(self, cancer_id: str, audit_sub: pd.DataFrame) -> dict[str, Any]:
+        mutations = self._model_mutations()
+        if mutations.empty or "model_id" not in mutations.columns or "gene" not in mutations.columns:
+            return {
+                "available": False,
+                "status_ru": "Полный генетический профиль моделей ещё не проиндексирован",
+                "build_command": ".\\.venv\\Scripts\\python.exe .\\scripts\\build_depmap_model_profiles.py",
+                "note": "Сейчас доступны только варианты, использованные при формировании молекулярных групп.",
+                "top_genes": [],
+            }
+
+        model_ids = set(audit_sub.get("model_id", pd.Series(dtype=str)).dropna().astype(str))
+        sub = mutations[mutations["model_id"].astype(str).isin(model_ids)].copy()
+        if sub.empty:
+            return {
+                "available": True,
+                "status_ru": "Генетический профиль проиндексирован, но вариантов для этих моделей не найдено",
+                "top_genes": [],
+                "profiled_models_n": 0,
+            }
+
+        if "is_functional" in sub.columns:
+            functional_mask = sub["is_functional"].map(_truthy)
+            functional = sub[functional_mask].copy()
+        else:
+            impact = sub.get("vep_impact", pd.Series("", index=sub.index)).astype(str).str.upper()
+            driver = sub.get("driver", pd.Series(False, index=sub.index)).map(_truthy)
+            hotspot = sub.get("hotspot", pd.Series(False, index=sub.index)).map(_truthy)
+            lof = sub.get("likely_lof", pd.Series(False, index=sub.index)).map(_truthy)
+            functional = sub[impact.isin(["HIGH", "MODERATE"]) | driver | hotspot | lof].copy()
+
+        if functional.empty:
+            functional = sub.copy()
+
+        group_map = {}
+        if not audit_sub.empty and {"model_id", "assigned_group"}.issubset(audit_sub.columns):
+            group_map = dict(
+                audit_sub[["model_id", "assigned_group"]]
+                .drop_duplicates("model_id")
+                .astype(str)
+                .itertuples(index=False, name=None)
+            )
+        functional["assigned_group"] = functional["model_id"].astype(str).map(group_map)
+
+        genes: list[dict[str, Any]] = []
+        for gene, gene_rows in functional.groupby(functional["gene"].astype(str)):
+            context_n = int(gene_rows.loc[gene_rows["assigned_group"] == "context", "model_id"].nunique())
+            comparator_n = int(gene_rows.loc[gene_rows["assigned_group"] == "comparator", "model_id"].nunique())
+            models_n = int(gene_rows["model_id"].nunique())
+            genes.append(
+                {
+                    "gene": gene,
+                    "models_n": models_n,
+                    "context_models_n": context_n,
+                    "comparator_models_n": comparator_n,
+                }
+            )
+        genes.sort(key=lambda x: (-int(x["models_n"]), str(x["gene"])))
+
+        profiled_models_n = int(sub["model_id"].nunique())
+        sequenced_models_n = int(audit_sub.get("sequencing_available", pd.Series(dtype=bool)).map(_truthy).sum()) if not audit_sub.empty else 0
+        for row in genes[:20]:
+            denominator = sequenced_models_n or profiled_models_n
+            row["model_fraction"] = (row["models_n"] / denominator) if denominator else None
+
+        return {
+            "available": True,
+            "status_ru": "Полный мутационный профиль клеточных моделей подключён",
+            "source": "DepMap OmicsSomaticMutations",
+            "profiled_models_n": profiled_models_n,
+            "sequenced_models_n": sequenced_models_n,
+            "functional_variants_n": int(len(functional)),
+            "top_genes": genes[:20],
+            "note": "Частоты рассчитаны только среди доступных клеточных моделей MCL и не являются частотами у пациентов.",
+        }
 
     def _context_summary(self, cancer_id: str, cfg: dict[str, Any]) -> dict[str, Any]:
         audit = self._audit()
@@ -149,13 +269,16 @@ class MCLAtlas:
 
         groups = sub.get("assigned_group", pd.Series(dtype=str)).astype(str) if not sub.empty else pd.Series(dtype=str)
         sequencing = sub.get("sequencing_available", pd.Series(dtype=bool))
-        sequencing_n = int(sequencing.fillna(False).astype(bool).sum()) if not sequencing.empty else 0
+        sequencing_n = int(sequencing.map(_truthy).sum()) if not sequencing.empty else 0
         comparisons = self._comparison_specs(cancer_id)
 
         molecular = str(ot.get("molecular_context") or inclusion.get("alteration") or cfg.get("name") or cancer_id)
         cancer_ru = display.get("cancer_ru") or subtype or primary_disease
         organ_ru = display.get("organ_ru") or organ_en
         molecular_ru = display.get("molecular_ru") or molecular.replace("p.", "")
+
+        patient_layer = self._patient_layer(cancer_id, cfg, str(cancer_ru))
+        model_genetics = self._context_model_genetics(cancer_id, sub)
 
         return _clean(
             {
@@ -184,6 +307,28 @@ class MCLAtlas:
                 "comparisons_n": len(comparisons),
                 "comparisons": comparisons,
                 "minimum_context_n_warning": cfg.get("minimum_context_n_warning"),
+                "patient_layer": patient_layer,
+                "model_genetics": model_genetics,
+                "evidence_layers": [
+                    {
+                        "id": "patient",
+                        "label_ru": "Опухоль у пациентов",
+                        "status": patient_layer["status"],
+                        "source_ru": "Пациентские молекулярные когорты",
+                    },
+                    {
+                        "id": "molecular_context",
+                        "label_ru": "Молекулярный подтип",
+                        "status": "available",
+                        "source_ru": "Конфигурация MCL + мутационные данные DepMap",
+                    },
+                    {
+                        "id": "models",
+                        "label_ru": "Экспериментальные модели",
+                        "status": "available",
+                        "source_ru": "DepMap / OncoTree",
+                    },
+                ],
             }
         )
 
@@ -250,7 +395,7 @@ class MCLAtlas:
         if group:
             frame = frame[frame["assigned_group"].astype(str).str.lower() == group.lower()]
         if sequencing_only and "sequencing_available" in frame:
-            frame = frame[frame["sequencing_available"].fillna(False).astype(bool)]
+            frame = frame[frame["sequencing_available"].map(_truthy)]
         if search:
             needle = search.strip().lower()
             mask = pd.Series(False, index=frame.index)
@@ -295,6 +440,73 @@ class MCLAtlas:
             )
         return {"total": total, "items": items}
 
+    def _model_genetics(self, model_id: str, memberships: list[dict[str, Any]]) -> dict[str, Any]:
+        mutations = self._model_mutations()
+        if not mutations.empty and "model_id" in mutations.columns:
+            rows = mutations[mutations["model_id"].astype(str).str.upper() == model_id.upper()].copy()
+            if not rows.empty:
+                if "priority_score" in rows.columns:
+                    rows = rows.sort_values(["priority_score", "gene"], ascending=[False, True], na_position="last")
+                elif "gene" in rows.columns:
+                    rows = rows.sort_values("gene")
+
+                driver = rows.get("driver", pd.Series(False, index=rows.index)).map(_truthy)
+                hotspot = rows.get("hotspot", pd.Series(False, index=rows.index)).map(_truthy)
+                lof = rows.get("likely_lof", pd.Series(False, index=rows.index)).map(_truthy)
+                impact = rows.get("vep_impact", pd.Series("", index=rows.index)).astype(str).str.upper()
+                priority_mask = driver | hotspot | lof | impact.eq("HIGH")
+                priority = rows[priority_mask].copy()
+                if priority.empty:
+                    priority = rows.head(25).copy()
+
+                columns = [
+                    "gene", "protein_change", "dna_change", "variant_type", "molecular_consequence",
+                    "vep_impact", "driver", "hotspot", "likely_lof", "allele_fraction", "depth",
+                    "clin_sig", "civic_description", "priority_score",
+                ]
+                keep = [c for c in columns if c in rows.columns]
+                return {
+                    "availability": "full",
+                    "availability_ru": "Полный мутационный профиль подключён",
+                    "source": "DepMap OmicsSomaticMutations",
+                    "mutations_n": int(len(rows)),
+                    "mutated_genes_n": int(rows["gene"].dropna().astype(str).nunique()) if "gene" in rows else 0,
+                    "driver_mutations_n": int(driver.sum()),
+                    "hotspot_mutations_n": int(hotspot.sum()),
+                    "likely_lof_n": int(lof.sum()),
+                    "high_impact_n": int(impact.eq("HIGH").sum()),
+                    "priority_variants": _clean(priority[keep].head(50).to_dict("records")),
+                    "variants": _clean(rows[keep].head(300).to_dict("records")),
+                    "variants_returned_n": min(int(len(rows)), 300),
+                    "note": "Это генетика конкретной экспериментальной модели, а не частоты изменений в опухолях пациентов.",
+                }
+
+        fallback: list[dict[str, Any]] = []
+        seen: set[tuple[Any, Any, Any]] = set()
+        for membership in memberships:
+            for variant in membership.get("variants") or []:
+                key = (variant.get("gene"), variant.get("protein_change"), variant.get("dna_change"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                fallback.append(variant)
+        return {
+            "availability": "limited",
+            "availability_ru": "Доступны только варианты, использованные при формировании групп",
+            "source": "MCL DepMap context audit",
+            "mutations_n": len(fallback),
+            "mutated_genes_n": len({x.get("gene") for x in fallback if x.get("gene")}),
+            "driver_mutations_n": sum(1 for x in fallback if _truthy(x.get("driver"))),
+            "hotspot_mutations_n": sum(1 for x in fallback if _truthy(x.get("hotspot"))),
+            "likely_lof_n": 0,
+            "high_impact_n": 0,
+            "priority_variants": fallback,
+            "variants": fallback,
+            "variants_returned_n": len(fallback),
+            "build_command": ".\\.venv\\Scripts\\python.exe .\\scripts\\build_depmap_model_profiles.py",
+            "note": "Для полной генетики один раз постройте компактный индекс из локального OmicsSomaticMutations.csv.",
+        }
+
     def model(self, model_id: str) -> dict[str, Any]:
         frame = self._audit()
         if frame.empty or "model_id" not in frame:
@@ -303,7 +515,18 @@ class MCLAtlas:
         if hits.empty:
             raise MCLDataError(f"Cell model not found: {model_id}")
         row = hits.iloc[0]
-        memberships = self.models(search=str(row.get("model_id")), limit=100)["items"]
+        resolved_model_id = str(row.get("model_id"))
+        memberships = self.models(search=resolved_model_id, limit=100)["items"]
+
+        metadata: dict[str, Any] = {}
+        metadata_frame = self._model_metadata()
+        if not metadata_frame.empty and "model_id" in metadata_frame.columns:
+            meta_hit = metadata_frame[metadata_frame["model_id"].astype(str).str.upper() == resolved_model_id.upper()]
+            if not meta_hit.empty:
+                metadata = _clean(meta_hit.iloc[0].to_dict())
+
+        genetics = self._model_genetics(resolved_model_id, memberships)
+
         return _clean(
             {
                 "model_id": row.get("model_id"),
@@ -315,5 +538,7 @@ class MCLAtlas:
                 "oncotree_code": row.get("oncotree_code"),
                 "sequencing_available": row.get("sequencing_available"),
                 "memberships": memberships,
+                "metadata": metadata,
+                "genetics": genetics,
             }
         )
