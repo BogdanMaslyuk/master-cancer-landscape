@@ -6,6 +6,7 @@ import { apiGet, formatNumber } from "../../../lib/api";
 type Gene = Record<string, any>;
 type GenePage = { comparison_id:string; total:number; items:Gene[] };
 type Comparison = Record<string, any>;
+type Context = Record<string, any>;
 
 function qcLabel(status:string){
   const s=String(status||"PASS").toUpperCase();
@@ -17,8 +18,9 @@ function qcLabel(status:string){
 export default async function ComparisonPage({ params }: { params: Promise<{id:string}> }) {
   const {id} = await params;
   const comparisonId = decodeURIComponent(id);
-  const [meta, genes, scatter] = await Promise.all([
-    apiGet<Comparison>(`/api/comparisons/${encodeURIComponent(comparisonId)}`),
+  const meta = await apiGet<Comparison>(`/api/comparisons/${encodeURIComponent(comparisonId)}`);
+  const [context, genes, scatter] = await Promise.all([
+    apiGet<Context>(`/api/atlas/${encodeURIComponent(meta.cancer_id)}`),
     apiGet<GenePage>(`/api/comparisons/${encodeURIComponent(comparisonId)}/genes?page_size=100&exclude_broad=true&exclude_low_sample=true`),
     apiGet<GenePage>(`/api/comparisons/${encodeURIComponent(comparisonId)}/genes?page_size=2000&exclude_broad=true&exclude_low_sample=true`),
   ]);
@@ -26,8 +28,14 @@ export default async function ComparisonPage({ params }: { params: Promise<{id:s
   const stableN = scatter.items.filter((g:any)=>String(g.present_all_thresholds).toLowerCase()==="true").length;
 
   return <>
+    <div className="breadcrumbs">
+      <Link href="/atlas">Атлас опухолей</Link><span>›</span>
+      <Link href={`/atlas/${meta.cancer_id}`}>{context.cancer_ru}</Link><span>›</span>
+      <strong>{meta.label}</strong>
+    </div>
+
     <section className="hero">
-      <div className="eyebrow hero-eyebrow">ШАГ 2 · {meta.cancer_id} · DepMap {meta.depmap_release}</div>
+      <div className="eyebrow hero-eyebrow">ШАГ 2 · {context.organ_ru} · {context.molecular_ru} · DepMap {meta.depmap_release}</div>
       <h1>{meta.label}</h1>
       <p><b>Научный вопрос:</b> какие генетические зависимости сильнее выражены в целевой группе клеточных моделей по сравнению с группой сравнения?</p>
     </section>
@@ -39,6 +47,11 @@ export default async function ComparisonPage({ params }: { params: Promise<{id:s
       <div className="question-arrow">сравниваем с</div>
       <div><span>Группа сравнения</span><b>{meta.comparator_definition || "Контрольная группа"}</b><small>{meta.comparator_models_n ?? "—"} клеточных моделей</small></div>
     </section>
+
+    <div className="analysis-origin-note">
+      <span>Откуда взялась выборка?</span>
+      <Link href={`/atlas/${meta.cancer_id}`}>Посмотреть {context.cancer_ru}: клеточные линии и правила включения →</Link>
+    </div>
 
     <section className="kpi-strip">
       <div className="kpi"><strong>{formatNumber(meta.genes_analyzed_n,0)}</strong><span>генов проанализировано</span></div>
