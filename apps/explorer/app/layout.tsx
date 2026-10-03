@@ -7,13 +7,13 @@ export const metadata = {
 };
 
 const links = [
-  ["/", "Overview"],
-  ["/comparisons", "Cancer Explorer"],
-  ["/genes", "Genes"],
-  ["/pathways", "Pathways"],
-  ["/network", "Network"],
-  ["/qc", "QC"],
-  ["/methodology", "Methodology"],
+  ["/", "Обзор"],
+  ["/comparisons", "Опухолевые контексты"],
+  ["/genes", "Гены-кандидаты"],
+  ["/pathways", "Функциональные модули"],
+  ["/network", "Карта связей"],
+  ["/qc", "Контроль качества"],
+  ["/methodology", "Методика и термины"],
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
