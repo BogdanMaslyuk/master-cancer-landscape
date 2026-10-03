@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./research.css";
 import Link from "next/link";
 
 export const metadata = {
