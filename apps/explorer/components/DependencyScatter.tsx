@@ -31,11 +31,11 @@ function CustomTooltip({ active, payload }: any) {
   return (
     <div className="chart-tooltip">
       <div className="chart-tooltip-gene">{p.gene_symbol}</div>
-      <div><span>Target median</span><b>{tooltipValue(p.context_median_gene_effect)}</b></div>
-      <div><span>Comparator median</span><b>{tooltipValue(p.comparator_median_gene_effect)}</b></div>
+      <div><span>Целевая группа, медиана</span><b>{tooltipValue(p.context_median_gene_effect)}</b></div>
+      <div><span>Группа сравнения, медиана</span><b>{tooltipValue(p.comparator_median_gene_effect)}</b></div>
       <div><span>Δ Gene Effect</span><b>{tooltipValue(p.delta_gene_effect)}</b></div>
       <div><span>Cliff's δ</span><b>{tooltipValue(p.cliffs_delta)}</b></div>
-      {String(p.present_all_thresholds).toLowerCase() === "true" && <div className="tooltip-stable">Stable recurrent</div>}
+      {String(p.present_all_thresholds).toLowerCase() === "true" && <div className="tooltip-stable">Устойчивый повторяющийся ген</div>}
     </div>
   );
 }
@@ -61,9 +61,9 @@ export default function DependencyScatter({ points }: { points: Point[] }) {
   return (
     <div className="chart-shell">
       <div className="chart-legend">
-        <span><i className="dot regular" /> eligible genes</span>
-        <span><i className="dot stable" /> stable recurrent</span>
-        <span className="muted">Ниже диагонали = более сильная зависимость в целевом контексте</span>
+        <span><i className="dot regular" /> гены после фильтрации</span>
+        <span><i className="dot stable" /> устойчивые повторяющиеся гены</span>
+        <span className="muted">Ниже диагонали = более сильная зависимость в целевой группе</span>
       </div>
       <div style={{ width: "100%", height: 430 }}>
         <ResponsiveContainer>
@@ -74,14 +74,14 @@ export default function DependencyScatter({ points }: { points: Point[] }) {
               dataKey="comparator_median_gene_effect"
               domain={extent}
               tick={{ fontSize: 12 }}
-              label={{ value: "Comparator median Gene Effect", position: "insideBottom", offset: -14 }}
+              label={{ value: "Группа сравнения: медианный Gene Effect", position: "insideBottom", offset: -14 }}
             />
             <YAxis
               type="number"
               dataKey="context_median_gene_effect"
               domain={extent}
               tick={{ fontSize: 12 }}
-              label={{ value: "Target median Gene Effect", angle: -90, position: "insideLeft" }}
+              label={{ value: "Целевая группа: медианный Gene Effect", angle: -90, position: "insideLeft" }}
             />
             <ReferenceLine segment={[{ x: extent[0], y: extent[0] }, { x: extent[1], y: extent[1] }]} stroke="#9aa8ba" strokeDasharray="5 5" />
             <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: "3 3" }} />
