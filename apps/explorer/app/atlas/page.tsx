@@ -13,11 +13,11 @@ export default async function AtlasPage(){
       <div>
         <div className="eyebrow">ГЛАВНАЯ ТОЧКА ВХОДА</div>
         <h1>Атлас опухолей</h1>
-        <p>Начните с заболевания, а не с технического сравнения. Выберите орган, тип опухоли и молекулярный контекст — затем изучите доступные клеточные линии и только после этого переходите к генетическим зависимостям.</p>
+        <p>Начните с заболевания. MCL последовательно разделяет данные опухолей у пациентов, молекулярный подтип и конкретные экспериментальные модели — и только затем ведёт к функциональным зависимостям.</p>
       </div>
       <div className="atlas-route-card">
         <span>Путь исследования</span>
-        <strong>Орган → опухоль → молекулярный контекст → клеточные линии → сравнение</strong>
+        <strong>Опухоль → молекулярный подтип → клеточные модели → CRISPR-зависимости → кандидаты</strong>
       </div>
     </section>
 
@@ -28,12 +28,18 @@ export default async function AtlasPage(){
       <div className="kpi"><strong>{atlas.analyses_n}</strong><span>полногеномных сравнений доступны</span></div>
     </section>
 
+    <section className="section callout atlas-callout">
+      <div className="eyebrow">КАК УСТРОЕНЫ ДАННЫЕ</div>
+      <h3>Пациентская опухоль и клеточная линия — не один уровень</h3>
+      <p className="section-copy">Частота мутации в опухолях пациентов, критерий молекулярного подтипа и генетика конкретной клеточной линии отвечают на разные вопросы. MCL показывает их раздельно, чтобы не переносить свойства небольшого набора моделей на всех пациентов.</p>
+    </section>
+
     <section className="section">
       <div className="section-header">
         <div>
           <div className="eyebrow">ШАГ 1</div>
-          <h2>Выберите орган или систему</h2>
-          <div className="section-copy">Внутри каждого органа показаны только те опухолевые и молекулярные контексты, которые уже заведены в MCL. Контекст может иметь клеточные модели, даже если полногеномный анализ для него ещё не выполнен.</div>
+          <h2>Выберите орган и заболевание</h2>
+          <div className="section-copy">Внутри каждого раздела показаны молекулярные контексты, для которых уже описаны экспериментальные модели. Пациентская геномика будет подключаться отдельным доказательным слоем и не подменяется статистикой DepMap.</div>
         </div>
       </div>
 
@@ -56,11 +62,11 @@ export default async function AtlasPage(){
             {organ.contexts.map((ctx:any)=><Link href={`/atlas/${ctx.id}`} className="organ-context-link" key={ctx.id}>
               <div>
                 <strong>{ctx.cancer_ru}</strong>
-                <span>{ctx.molecular_ru}</span>
+                <span>Подтип: {ctx.molecular_ru}</span>
               </div>
               <div className="context-link-meta">
                 <small>{ctx.models_n} клеточных моделей</small>
-                <span className={`analysis-state ${ctx.analysis_available?"ready":"pending"}`}>{ctx.analysis_available?"анализ доступен":"модели собраны"}</span>
+                <span className={`analysis-state ${ctx.analysis_available?"ready":"pending"}`}>{ctx.analysis_available?"функциональный анализ доступен":"модели собраны"}</span>
               </div>
               <b className="context-arrow">→</b>
             </Link>)}
@@ -70,9 +76,9 @@ export default async function AtlasPage(){
     </section>
 
     <section className="section callout atlas-callout">
-      <div className="eyebrow">ПОЧЕМУ ТАК</div>
-      <h3>Клеточная модель — не техническая деталь, а основа интерпретации</h3>
-      <p className="section-copy">Одна и та же зависимость может быть специфична для ткани, мутации или конкретного набора моделей. Поэтому MCL теперь сначала показывает, какие именно линии формируют исследуемую группу и чем они отличаются от контроля.</p>
+      <div className="eyebrow">ЗАЧЕМ НУЖНЫ КЛЕТОЧНЫЕ МОДЕЛИ</div>
+      <h3>Групповая зависимость должна быть объяснима через конкретные линии</h3>
+      <p className="section-copy">Даже модели с одной определяющей мутацией отличаются сопутствующей генетикой. Поэтому из любой групповой зависимости MCL должен позволять спуститься к клеточным линиям и проверить индивидуальный молекулярный фон каждой из них.</p>
     </section>
   </>;
 }
