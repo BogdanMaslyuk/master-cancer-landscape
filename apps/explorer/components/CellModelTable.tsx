@@ -11,6 +11,9 @@ type Variant = {
 
 type Model = {
   cancer_id: string;
+  cancer_ru?: string;
+  organ_ru?: string;
+  molecular_context?: string;
   model_id: string;
   cell_line_name: string;
   assigned_group: string;
@@ -36,7 +39,7 @@ function variantLabel(variants: Variant[] | undefined) {
     .join(" · ");
 }
 
-export default function CellModelTable({ models }: { models: Model[] }) {
+export default function CellModelTable({ models, showContext = false }: { models: Model[]; showContext?: boolean }) {
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
 
@@ -46,7 +49,7 @@ export default function CellModelTable({ models }: { models: Model[] }) {
       const inTab = tab === "all" || m.assigned_group === tab;
       if (!inTab) return false;
       if (!needle) return true;
-      const haystack = `${m.cell_line_name} ${m.model_id} ${variantLabel(m.variants)}`.toLowerCase();
+      const haystack = `${m.cell_line_name} ${m.model_id} ${m.cancer_ru || ""} ${m.organ_ru || ""} ${m.molecular_context || ""} ${variantLabel(m.variants)}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [models, query, tab]);
@@ -77,19 +80,20 @@ export default function CellModelTable({ models }: { models: Model[] }) {
         </div>
         <label className="model-search">
           <span>Поиск</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Название линии, DepMap ID, мутация…" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Линия, DepMap ID, опухоль, мутация…" />
         </label>
       </div>
 
-      <div className="model-browser-meta">Показано {filtered.length} из {models.length} моделей</div>
+      <div className="model-browser-meta">Показано {filtered.length} из {models.length} записей</div>
 
       <div className="table-wrap model-table-wrap">
         <table className="model-table">
-          <thead><tr><th>Клеточная линия</th><th>Роль в контексте</th><th>Молекулярные варианты</th><th>Секвенирование</th><th></th></tr></thead>
+          <thead><tr><th>Клеточная линия</th>{showContext && <th>Опухолевый контекст</th>}<th>Роль</th><th>Молекулярные варианты</th><th>Секвенирование</th><th></th></tr></thead>
           <tbody>
             {filtered.map((m) => (
               <tr key={`${m.cancer_id}-${m.model_id}`} className={m.assigned_group === "excluded" ? "row-muted" : ""}>
                 <td><div className="model-name"><strong>{m.cell_line_name}</strong><small>{m.model_id}</small></div></td>
+                {showContext && <td><Link className="context-cell-link" href={`/atlas/${m.cancer_id}`}><strong>{m.cancer_ru || m.cancer_id}</strong><small>{m.molecular_context || "—"}</small></Link></td>}
                 <td><span className={`group-badge ${m.assigned_group}`}>{m.assigned_group_ru}</span></td>
                 <td><div className="variant-copy">{variantLabel(m.variants)}</div></td>
                 <td>{m.sequencing_available ? <span className="status-inline yes">доступно</span> : <span className="status-inline no">нет</span>}</td>
