@@ -86,7 +86,8 @@
 .organ-icon.pancreas svg path,
 .organ-icon.brain svg path,
 .organ-icon.blood svg path {
-  fill: currentColor;
+  fill: currentColor !important;
+  stroke: none !important;
 }
 
 .organ-metrics {
