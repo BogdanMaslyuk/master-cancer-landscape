@@ -1,0 +1,235 @@
+{
+  "analysis_version": "m3.3.1-pathway-sensitivity-v0.1",
+  "timestamp": "2026-10-03T20:00:11.582076+00:00",
+  "pathway_config": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\config\\pathways.yaml",
+  "sensitivity_config": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\config\\pathway_sensitivity.yaml",
+  "thresholds": [
+    50,
+    100,
+    200
+  ],
+  "analysis_set": "recurrent",
+  "minimum_comparisons": 2,
+  "baseline_threshold": 100,
+  "baseline_top100_matches_m3_3": true,
+  "profile_endpoint": "https://biit.cs.ut.ee/gprofiler/api/gost/profile/",
+  "sources": [
+    "GO:BP",
+    "REAC",
+    "KEGG",
+    "CORUM"
+  ],
+  "significance_threshold_method": "g_SCS",
+  "user_threshold": 0.05,
+  "per_threshold": {
+    "50": {
+      "top_n": 50,
+      "query_genes_n": 26,
+      "query_identifiers_n": 26,
+      "background_genes_n": 16555,
+      "background_identifiers_n": 16541,
+      "background_unresolved_symbols_n": 14,
+      "significant_terms_n": 10,
+      "gprofiler_query_sizes": [
+        26
+      ],
+      "gprofiler_effective_domain_sizes": [
+        16541
+      ],
+      "build_meta": {
+        "analysis_version": "m3.3-pathways-v0.3",
+        "candidate_selection": {
+          "top_n_per_comparison": 50,
+          "require_negative_delta": true,
+          "exclude_broad_dependency": true,
+          "exclude_low_sample_size": true
+        },
+        "comparisons": [
+          {
+            "label": "LUAD_G12C_vs_WT",
+            "cancer_id": "CANCER-001",
+            "comparison": "kras-wt",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__kras-wt_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16555,
+            "selected_top_n": 50
+          },
+          {
+            "label": "LUAD_G12C_vs_other_KRAS",
+            "cancer_id": "CANCER-001",
+            "comparison": "other-kras",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__other-kras_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16555,
+            "selected_top_n": 50
+          },
+          {
+            "label": "PDAC_G12D_vs_other_KRAS",
+            "cancer_id": "CANCER-004",
+            "comparison": "other-kras",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-004__other-kras_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16676,
+            "selected_top_n": 50
+          }
+        ],
+        "analysis_sets": {
+          "recurrent": {
+            "minimum_comparisons": 2,
+            "query_genes_n": 26,
+            "background_genes_n": 16555
+          },
+          "core": {
+            "minimum_comparisons": 3,
+            "query_genes_n": 2,
+            "background_genes_n": 16555
+          }
+        }
+      }
+    },
+    "100": {
+      "top_n": 100,
+      "query_genes_n": 54,
+      "query_identifiers_n": 54,
+      "background_genes_n": 16555,
+      "background_identifiers_n": 16541,
+      "background_unresolved_symbols_n": 14,
+      "significant_terms_n": 9,
+      "gprofiler_query_sizes": [
+        54
+      ],
+      "gprofiler_effective_domain_sizes": [
+        16541
+      ],
+      "build_meta": {
+        "analysis_version": "m3.3-pathways-v0.3",
+        "candidate_selection": {
+          "top_n_per_comparison": 100,
+          "require_negative_delta": true,
+          "exclude_broad_dependency": true,
+          "exclude_low_sample_size": true
+        },
+        "comparisons": [
+          {
+            "label": "LUAD_G12C_vs_WT",
+            "cancer_id": "CANCER-001",
+            "comparison": "kras-wt",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__kras-wt_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16555,
+            "selected_top_n": 100
+          },
+          {
+            "label": "LUAD_G12C_vs_other_KRAS",
+            "cancer_id": "CANCER-001",
+            "comparison": "other-kras",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__other-kras_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16555,
+            "selected_top_n": 100
+          },
+          {
+            "label": "PDAC_G12D_vs_other_KRAS",
+            "cancer_id": "CANCER-004",
+            "comparison": "other-kras",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-004__other-kras_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16676,
+            "selected_top_n": 100
+          }
+        ],
+        "analysis_sets": {
+          "recurrent": {
+            "minimum_comparisons": 2,
+            "query_genes_n": 54,
+            "background_genes_n": 16555
+          },
+          "core": {
+            "minimum_comparisons": 3,
+            "query_genes_n": 7,
+            "background_genes_n": 16555
+          }
+        }
+      }
+    },
+    "200": {
+      "top_n": 200,
+      "query_genes_n": 108,
+      "query_identifiers_n": 108,
+      "background_genes_n": 16555,
+      "background_identifiers_n": 16541,
+      "background_unresolved_symbols_n": 14,
+      "significant_terms_n": 27,
+      "gprofiler_query_sizes": [
+        108
+      ],
+      "gprofiler_effective_domain_sizes": [
+        16541
+      ],
+      "build_meta": {
+        "analysis_version": "m3.3-pathways-v0.3",
+        "candidate_selection": {
+          "top_n_per_comparison": 200,
+          "require_negative_delta": true,
+          "exclude_broad_dependency": true,
+          "exclude_low_sample_size": true
+        },
+        "comparisons": [
+          {
+            "label": "LUAD_G12C_vs_WT",
+            "cancer_id": "CANCER-001",
+            "comparison": "kras-wt",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__kras-wt_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16555,
+            "selected_top_n": 200
+          },
+          {
+            "label": "LUAD_G12C_vs_other_KRAS",
+            "cancer_id": "CANCER-001",
+            "comparison": "other-kras",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-001__other-kras_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16555,
+            "selected_top_n": 200
+          },
+          {
+            "label": "PDAC_G12D_vs_other_KRAS",
+            "cancer_id": "CANCER-004",
+            "comparison": "other-kras",
+            "input": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\depmap_genomewide\\CANCER-004__other-kras_genes.tsv",
+            "genes_total_n": 18531,
+            "eligible_background_n": 16676,
+            "selected_top_n": 200
+          }
+        ],
+        "analysis_sets": {
+          "recurrent": {
+            "minimum_comparisons": 2,
+            "query_genes_n": 108,
+            "background_genes_n": 16555
+          },
+          "core": {
+            "minimum_comparisons": 3,
+            "query_genes_n": 14,
+            "background_genes_n": 16555
+          }
+        }
+      }
+    }
+  },
+  "stable_recurrent_genes_n": 26,
+  "stable_significant_terms_n": 2,
+  "parquet_written": true,
+  "outputs": {
+    "candidate_topn_long": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways_sensitivity\\candidate_topn_long.tsv",
+    "enrichment_all": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways_sensitivity\\enrichment_all.tsv",
+    "gene_stability": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways_sensitivity\\gene_stability.tsv",
+    "term_stability": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\processed\\pathways_sensitivity\\term_stability.tsv",
+    "stable_recurrent_genes": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\reports\\M3_3_1_stable_recurrent_genes.tsv",
+    "stable_pathways": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\reports\\M3_3_1_stable_pathways.tsv",
+    "qc_tsv": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\qc\\pathway_sensitivity_qc.tsv",
+    "qc_json": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\outputs\\qc\\pathway_sensitivity_qc.json",
+    "raw_dir": "C:\\Users\\Bogdan\\Desktop\\master-cancer-landscape\\data\\raw\\gprofiler_sensitivity\\20261003T200011Z"
+  }
+}

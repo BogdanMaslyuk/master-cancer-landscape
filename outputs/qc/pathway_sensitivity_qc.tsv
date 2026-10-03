@@ -1,0 +1,15 @@
+severity	check	entity_id	observed	expected	message
+INFO	sensitivity_query_identifier_mapping	top50	genes=26; ENSG=26	one ENSG per query gene	Canonical identifier mapping for the recurrent sensitivity query.
+WARNING	sensitivity_background_identifier_mapping	top50	14	0 unresolved background genes	Unresolved eligible background symbols are excluded before g:Profiler.
+INFO	sensitivity_gprofiler_query_size_match	top50	[26]	26	g:Profiler query size should match the submitted canonical ENSG query.
+INFO	sensitivity_gprofiler_background_size_match	top50	[16541]	16541	g:Profiler effective domain should match the canonical custom background.
+INFO	sensitivity_query_identifier_mapping	top100	genes=54; ENSG=54	one ENSG per query gene	Canonical identifier mapping for the recurrent sensitivity query.
+WARNING	sensitivity_background_identifier_mapping	top100	14	0 unresolved background genes	Unresolved eligible background symbols are excluded before g:Profiler.
+INFO	sensitivity_gprofiler_query_size_match	top100	[54]	54	g:Profiler query size should match the submitted canonical ENSG query.
+INFO	sensitivity_gprofiler_background_size_match	top100	[16541]	16541	g:Profiler effective domain should match the canonical custom background.
+INFO	sensitivity_query_identifier_mapping	top200	genes=108; ENSG=108	one ENSG per query gene	Canonical identifier mapping for the recurrent sensitivity query.
+WARNING	sensitivity_background_identifier_mapping	top200	14	0 unresolved background genes	Unresolved eligible background symbols are excluded before g:Profiler.
+INFO	sensitivity_gprofiler_query_size_match	top200	[108]	108	g:Profiler query size should match the submitted canonical ENSG query.
+INFO	sensitivity_gprofiler_background_size_match	top200	[16541]	16541	g:Profiler effective domain should match the canonical custom background.
+INFO	sensitivity_thresholds_complete	M3.3.1	50,100,200	50,100,200	All configured top-N thresholds should complete enrichment.
+INFO	sensitivity_top100_baseline_reproduction	top100	baseline=9; current=9	identical significant source/term_id set	Top-100 sensitivity result is compared with the locked M3.3 baseline.

@@ -1,0 +1,109 @@
+gene_symbol	recurrent_top50	comparisons_n_top50	best_rank_top50	mean_rank_top50	mean_delta_gene_effect_top50	recurrent_top100	comparisons_n_top100	best_rank_top100	mean_rank_top100	mean_delta_gene_effect_top100	recurrent_top200	comparisons_n_top200	best_rank_top200	mean_rank_top200	mean_delta_gene_effect_top200	thresholds_n	present_all_thresholds	thresholds_present
+ARL4A	True	2.0	43.0	46.0	-0.246141	True	2.0	43.0	46.0	-0.246141	True	2	43	46.0	-0.246141	3	True	50;100;200
+ATP5ME	True	2.0	6.0	27.5	-0.340175	True	2.0	6.0	27.5	-0.340175	True	3	6	77.67	-0.265678	3	True	50;100;200
+BRD2	True	2.0	5.0	5.0	-0.473561	True	2.0	5.0	5.0	-0.473561	True	3	5	58.33	-0.355636	3	True	50;100;200
+C3orf38	True	2.0	23.0	25.0	-0.287866	True	3.0	23.0	35.67	-0.243804	True	3	23	35.67	-0.243804	3	True	50;100;200
+COX18	True	2.0	15.0	17.0	-0.314887	True	2.0	15.0	17.0	-0.314887	True	2	15	17.0	-0.314887	3	True	50;100;200
+CRKL	True	2.0	14.0	21.0	-0.248882	True	3.0	14.0	33.67	-0.247158	True	3	14	33.67	-0.247158	3	True	50;100;200
+DNM1L	True	2.0	4.0	17.5	-0.389346	True	2.0	4.0	17.5	-0.389346	True	2	4	17.5	-0.389346	3	True	50;100;200
+EAF1	True	2.0	13.0	15.0	-0.339231	True	2.0	13.0	15.0	-0.339231	True	2	13	15.0	-0.339231	3	True	50;100;200
+EFR3A	True	2.0	33.0	39.0	-0.255566	True	2.0	33.0	39.0	-0.255566	True	2	33	39.0	-0.255566	3	True	50;100;200
+ENO1	True	2.0	35.0	38.0	-0.259978	True	2.0	35.0	38.0	-0.259978	True	2	35	38.0	-0.259978	3	True	50;100;200
+FDXR	True	2.0	4.0	5.5	-0.448674	True	2.0	4.0	5.5	-0.448674	True	2	4	5.5	-0.448674	3	True	50;100;200
+FIS1	True	2.0	22.0	35.5	-0.221651	True	3.0	22.0	43.67	-0.228627	True	3	22	43.67	-0.228627	3	True	50;100;200
+HNRNPA1	True	3.0	28.0	33.67	-0.237734	True	3.0	28.0	33.67	-0.237734	True	3	28	33.67	-0.237734	3	True	50;100;200
+KRAS	True	2.0	1.0	1.0	-0.891097	True	2.0	1.0	1.0	-0.891097	True	2	1	1.0	-0.891097	3	True	50;100;200
+MIPEP	True	2.0	6.0	7.0	-0.404706	True	2.0	6.0	7.0	-0.404706	True	2	6	7.0	-0.404706	3	True	50;100;200
+MLST8	True	2.0	27.0	29.0	-0.271354	True	2.0	27.0	29.0	-0.271354	True	2	27	29.0	-0.271354	3	True	50;100;200
+MRPS12	True	2.0	8.0	21.0	-0.321364	True	2.0	8.0	21.0	-0.321364	True	2	8	21.0	-0.321364	3	True	50;100;200
+MRPS6	True	2.0	16.0	18.0	-0.311578	True	2.0	16.0	18.0	-0.311578	True	2	16	18.0	-0.311578	3	True	50;100;200
+PSMG1	True	2.0	3.0	3.0	-0.592708	True	2.0	3.0	3.0	-0.592708	True	2	3	3.0	-0.592708	3	True	50;100;200
+SNAP23	True	2.0	1.0	5.0	-0.585512	True	2.0	1.0	5.0	-0.585512	True	2	1	5.0	-0.585512	3	True	50;100;200
+SNRPB2	True	2.0	10.0	10.5	-0.328593	True	2.0	10.0	10.5	-0.328593	True	2	10	10.5	-0.328593	3	True	50;100;200
+SYNCRIP	True	2.0	9.0	13.0	-0.338322	True	2.0	9.0	13.0	-0.338322	True	2	9	13.0	-0.338322	3	True	50;100;200
+UBA5	True	2.0	12.0	21.5	-0.26786	True	3.0	12.0	34.67	-0.259206	True	3	12	34.67	-0.259206	3	True	50;100;200
+UBIAD1	True	2.0	2.0	2.0	-0.6107	True	3.0	2.0	20.67	-0.458696	True	3	2	20.67	-0.458696	3	True	50;100;200
+WDR48	True	3.0	9.0	14.0	-0.311172	True	3.0	9.0	14.0	-0.311172	True	3	9	14.0	-0.311172	3	True	50;100;200
+ZNF217	True	2.0	16.0	24.0	-0.289589	True	2.0	16.0	24.0	-0.289589	True	2	16	24.0	-0.289589	3	True	50;100;200
+C19orf25	False					True	2.0	43.0	50.5	-0.247056	True	2	43	50.5	-0.247056	2	False	100;200
+CYC1	False					True	2.0	54.0	64.5	-0.189444	True	2	54	64.5	-0.189444	2	False	100;200
+DOCK5	False					True	2.0	2.0	28.0	-0.326093	True	3	2	69.33	-0.276824	2	False	100;200
+DOLK	False					True	2.0	44.0	48.0	-0.243731	True	2	44	48.0	-0.243731	2	False	100;200
+EMC1	False					True	2.0	28.0	45.5	-0.254866	True	2	28	45.5	-0.254866	2	False	100;200
+EMC7	False					True	2.0	14.0	41.5	-0.230018	True	2	14	41.5	-0.230018	2	False	100;200
+FURIN	False					True	2.0	21.0	59.0	-0.243911	True	2	21	59.0	-0.243911	2	False	100;200
+G6PD	False					True	2.0	23.0	42.5	-0.258064	True	2	23	42.5	-0.258064	2	False	100;200
+HEATR3	False					True	2.0	15.0	42.5	-0.222804	True	3	15	63.0	-0.214951	2	False	100;200
+HSP90AB1	False					True	2.0	38.0	48.0	-0.241092	True	2	38	48.0	-0.241092	2	False	100;200
+ING3	False					True	2.0	34.0	54.0	-0.194002	True	2	34	54.0	-0.194002	2	False	100;200
+ITGB5	False					True	2.0	38.0	47.0	-0.196732	True	2	38	47.0	-0.196732	2	False	100;200
+KIF4A	False					True	2.0	8.0	44.5	-0.245551	True	2	8	44.5	-0.245551	2	False	100;200
+LCMT1	False					True	2.0	39.0	65.0	-0.181912	True	2	39	65.0	-0.181912	2	False	100;200
+LTB4R	False					True	2.0	89.0	91.5	-0.201423	True	2	89	91.5	-0.201423	2	False	100;200
+MON2	False					True	2.0	7.0	34.0	-0.331173	True	2	7	34.0	-0.331173	2	False	100;200
+ODR4	False					True	2.0	30.0	49.0	-0.237183	True	2	30	49.0	-0.237183	2	False	100;200
+PTK2	False					True	2.0	17.0	42.5	-0.213136	True	3	17	64.0	-0.207496	2	False	100;200
+RNASEH2A	False					True	2.0	65.0	69.5	-0.220293	True	2	65	69.5	-0.220293	2	False	100;200
+SEC62	False					True	2.0	80.0	84.0	-0.206384	True	2	80	84.0	-0.206384	2	False	100;200
+SERBP1	False					True	2.0	24.0	58.0	-0.240847	True	3	24	88.67	-0.200832	2	False	100;200
+SLC25A26	False					True	2.0	19.0	43.0	-0.268156	True	2	19	43.0	-0.268156	2	False	100;200
+SLC35B2	False					True	2.0	26.0	45.5	-0.257474	True	2	26	45.5	-0.257474	2	False	100;200
+TARS2	False					True	2.0	36.0	61.0	-0.239311	True	2	36	61.0	-0.239311	2	False	100;200
+TGIF1	False					True	2.0	41.0	55.0	-0.244397	True	2	41	55.0	-0.244397	2	False	100;200
+TRA2B	False					True	2.0	42.0	57.0	-0.190404	True	3	42	97.33	-0.184028	2	False	100;200
+VCL	False					True	2.0	93.0	93.5	-0.198944	True	2	93	93.5	-0.198944	2	False	100;200
+WASHC2C	False					True	2.0	52.0	70.5	-0.18431	True	2	52	70.5	-0.18431	2	False	100;200
+ADSL	False					False					True	2	134	136.5	-0.177122	1	False	200
+AIFM1	False					False					True	2	127	152.0	-0.173371	1	False	200
+ALG8	False					False					True	2	96	137.5	-0.180975	1	False	200
+APEX2	False					False					True	2	66	103.5	-0.200354	1	False	200
+B3GAT3	False					False					True	2	123	131.5	-0.149513	1	False	200
+BRAT1	False					False					True	2	30	84.0	-0.206013	1	False	200
+CCAR1	False					False					True	2	119	131.0	-0.154794	1	False	200
+CCDC51	False					False					True	2	99	130.0	-0.182016	1	False	200
+CNOT1	False					False					True	2	98	135.5	-0.148285	1	False	200
+CRK	False					False					True	2	96	133.5	-0.181652	1	False	200
+CTPS1	False					False					True	2	101	133.5	-0.18199	1	False	200
+DERL2	False					False					True	2	71	129.5	-0.189429	1	False	200
+DNTTIP1	False					False					True	2	119	154.5	-0.17283	1	False	200
+DPH5	False					False					True	2	98	128.0	-0.183427	1	False	200
+DPPA2	False					False					True	2	72	101.0	-0.168259	1	False	200
+FERMT2	False					False					True	2	55	87.5	-0.17625	1	False	200
+FOXO3B	False					False					True	2	70	121.0	-0.159655	1	False	200
+FOXRED1	False					False					True	2	83	116.5	-0.18957	1	False	200
+GCN1	False					False					True	2	77	110.0	-0.192928	1	False	200
+GPI	False					False					True	2	25	102.5	-0.174662	1	False	200
+HSPA13	False					False					True	2	121	125.0	-0.182293	1	False	200
+ITGAV	False					False					True	2	24	67.0	-0.189751	1	False	200
+IWS1	False					False					True	2	70	112.5	-0.19494	1	False	200
+MED24	False					False					True	2	66	110.5	-0.168087	1	False	200
+MGRN1	False					False					True	2	45	76.5	-0.213901	1	False	200
+MRPL53	False					False					True	2	48	115.0	-0.207809	1	False	200
+MRPS2	False					False					True	2	53	100.5	-0.209967	1	False	200
+MTFMT	False					False					True	2	78	116.0	-0.191716	1	False	200
+NACC1	False					False					True	2	111	138.5	-0.177428	1	False	200
+NDC1	False					False					True	2	129	147.5	-0.145726	1	False	200
+NDUFAF8	False					False					True	2	51	87.0	-0.208245	1	False	200
+NFKBIA	False					False					True	2	98	148.5	-0.17686	1	False	200
+NUP42	False					False					True	2	170	175.5	-0.165762	1	False	200
+NUTM2A	False					False					True	2	171	182.0	-0.136433	1	False	200
+PIGL	False					False					True	2	18	77.5	-0.238296	1	False	200
+PRKRA	False					False					True	2	55	83.0	-0.170283	1	False	200
+PRRC2A	False					False					True	2	103	103.5	-0.193203	1	False	200
+RAB15	False					False					True	2	142	154.5	-0.171693	1	False	200
+RBM10	False					False					True	2	63	109.0	-0.163831	1	False	200
+RBM12	False					False					True	2	182	183.0	-0.142977	1	False	200
+RCOR1	False					False					True	2	91	110.5	-0.190421	1	False	200
+RHOA	False					False					True	2	88	98.5	-0.19605	1	False	200
+RMI1	False					False					True	2	107	141.0	-0.179364	1	False	200
+RNASEH2C	False					False					True	2	26	69.0	-0.231441	1	False	200
+SETD2	False					False					True	2	42	77.5	-0.227386	1	False	200
+SP3	False					False					True	2	47	84.5	-0.221009	1	False	200
+ST3GAL1	False					False					True	2	115	148.0	-0.154733	1	False	200
+SV2A	False					False					True	2	37	77.0	-0.216386	1	False	200
+TNS3	False					False					True	2	131	157.0	-0.140592	1	False	200
+TRAF2	False					False					True	2	15	64.0	-0.249604	1	False	200
+WDR1	False					False					True	2	18	78.0	-0.248274	1	False	200
+WDR83	False					False					True	2	46	116.5	-0.211145	1	False	200
+YPEL5	False					False					True	2	6	61.0	-0.256796	1	False	200
+ZNF687	False					False					True	2	190	194.5	-0.159766	1	False	200

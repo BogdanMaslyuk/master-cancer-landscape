@@ -1,0 +1,114 @@
+[
+  {
+    "severity": "INFO",
+    "check": "sensitivity_query_identifier_mapping",
+    "entity_id": "top50",
+    "observed": "genes=26; ENSG=26",
+    "expected": "one ENSG per query gene",
+    "message": "Canonical identifier mapping for the recurrent sensitivity query."
+  },
+  {
+    "severity": "WARNING",
+    "check": "sensitivity_background_identifier_mapping",
+    "entity_id": "top50",
+    "observed": "14",
+    "expected": "0 unresolved background genes",
+    "message": "Unresolved eligible background symbols are excluded before g:Profiler."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_gprofiler_query_size_match",
+    "entity_id": "top50",
+    "observed": "[26]",
+    "expected": "26",
+    "message": "g:Profiler query size should match the submitted canonical ENSG query."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_gprofiler_background_size_match",
+    "entity_id": "top50",
+    "observed": "[16541]",
+    "expected": "16541",
+    "message": "g:Profiler effective domain should match the canonical custom background."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_query_identifier_mapping",
+    "entity_id": "top100",
+    "observed": "genes=54; ENSG=54",
+    "expected": "one ENSG per query gene",
+    "message": "Canonical identifier mapping for the recurrent sensitivity query."
+  },
+  {
+    "severity": "WARNING",
+    "check": "sensitivity_background_identifier_mapping",
+    "entity_id": "top100",
+    "observed": "14",
+    "expected": "0 unresolved background genes",
+    "message": "Unresolved eligible background symbols are excluded before g:Profiler."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_gprofiler_query_size_match",
+    "entity_id": "top100",
+    "observed": "[54]",
+    "expected": "54",
+    "message": "g:Profiler query size should match the submitted canonical ENSG query."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_gprofiler_background_size_match",
+    "entity_id": "top100",
+    "observed": "[16541]",
+    "expected": "16541",
+    "message": "g:Profiler effective domain should match the canonical custom background."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_query_identifier_mapping",
+    "entity_id": "top200",
+    "observed": "genes=108; ENSG=108",
+    "expected": "one ENSG per query gene",
+    "message": "Canonical identifier mapping for the recurrent sensitivity query."
+  },
+  {
+    "severity": "WARNING",
+    "check": "sensitivity_background_identifier_mapping",
+    "entity_id": "top200",
+    "observed": "14",
+    "expected": "0 unresolved background genes",
+    "message": "Unresolved eligible background symbols are excluded before g:Profiler."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_gprofiler_query_size_match",
+    "entity_id": "top200",
+    "observed": "[108]",
+    "expected": "108",
+    "message": "g:Profiler query size should match the submitted canonical ENSG query."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_gprofiler_background_size_match",
+    "entity_id": "top200",
+    "observed": "[16541]",
+    "expected": "16541",
+    "message": "g:Profiler effective domain should match the canonical custom background."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_thresholds_complete",
+    "entity_id": "M3.3.1",
+    "observed": "50,100,200",
+    "expected": "50,100,200",
+    "message": "All configured top-N thresholds should complete enrichment."
+  },
+  {
+    "severity": "INFO",
+    "check": "sensitivity_top100_baseline_reproduction",
+    "entity_id": "top100",
+    "observed": "baseline=9; current=9",
+    "expected": "identical significant source/term_id set",
+    "message": "Top-100 sensitivity result is compared with the locked M3.3 baseline."
+  }
+]
