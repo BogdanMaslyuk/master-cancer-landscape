@@ -20,6 +20,12 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
     tables. Missing runtime artifacts therefore fail fast with an actionable error.
     """
 
+    def __init__(self, root, store):
+        super().__init__(root, store)
+        # Architecture v1 boundary: processed/ contains reproducible scientific
+        # results, while runtime/ contains artifacts optimized purely for serving UI.
+        self.index_dir = self.root / "data" / "runtime" / "explorer"
+
     def _runtime_path(self, name: str):
         path = self.index_dir / name
         if not path.exists():
