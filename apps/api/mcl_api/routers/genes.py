@@ -3,6 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard
+from ..schemas.genes import (
+    GeneDetailResponse,
+    GeneFacetResponse,
+    GeneMatrixResponse,
+    GeneSearchResponse,
+)
 from ..state import gene_service
 
 
@@ -19,12 +25,12 @@ def gene_suggest(q: str = Query(..., min_length=1), limit: int = Query(12, ge=1,
     return guard(lambda: gene_service.suggest(q.strip(), limit))
 
 
-@router.get("/api/genes/facets")
+@router.get("/api/genes/facets", response_model=GeneFacetResponse)
 def gene_facets():
     return guard(gene_service.facets)
 
 
-@router.get("/api/genes/search")
+@router.get("/api/genes/search", response_model=GeneSearchResponse)
 def gene_search(
     q: str | None = None,
     domain: str | None = None,
@@ -75,7 +81,7 @@ def gene_search(
     )
 
 
-@router.get("/api/gene-matrix")
+@router.get("/api/gene-matrix", response_model=GeneMatrixResponse)
 def gene_matrix(
     q: str | None = None,
     domain: str | None = None,
@@ -168,7 +174,7 @@ def gene_mutation_associations(
     return guard(lambda: gene_service.mutation_associations(symbol, limit))
 
 
-@router.get("/api/genes/{gene_symbol}")
+@router.get("/api/genes/{gene_symbol}", response_model=GeneDetailResponse)
 def gene(gene_symbol: str):
     symbol = gene_symbol.strip().upper()
     return guard(lambda: gene_service.detail(symbol))
