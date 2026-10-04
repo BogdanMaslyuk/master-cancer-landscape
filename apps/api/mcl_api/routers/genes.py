@@ -1,190 +1,27 @@
 from __future__ import annotations
 
-from functools import lru_cache
+from fastapi import APIRouter, Query
 
-from fastapi import APIRouter, HTTPException, Query
-
-from ..state import gene_explorer_store, store
-from ..store import MCLDataError
+from ..api_utils import guard
+from ..state import gene_service
 
 
 router = APIRouter()
 
 
-def _guard(call):
-    try:
-        return call()
-    except MCLDataError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except (ValueError, KeyError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@lru_cache(maxsize=256)
-def _genes_cached(search: str | None, limit: int):
-    return store.genes(search=search, limit=limit)
-
-
-@lru_cache(maxsize=1)
-def _stable_genes_cached():
-    return store.stable_genes()
-
-
-@lru_cache(maxsize=512)
-def _gene_cached(gene_symbol: str):
-    base = gene_explorer_store.identity(gene_symbol)
-    legacy = store.gene(gene_symbol)
-    return {
-        **base,
-        "comparisons": legacy.get("comparisons") or [],
-        "pathways": legacy.get("pathways") or [],
-    }
-
-
-@lru_cache(maxsize=512)
-def _gene_suggest_cached(query: str, limit: int):
-    return gene_explorer_store.suggest(query, limit)
-
-
-@lru_cache(maxsize=1)
-def _gene_facets_cached():
-    return gene_explorer_store.facets()
-
-
-@lru_cache(maxsize=4096)
-def _gene_search_cached(
-    query: str | None,
-    domain: str | None,
-    subdomain: str | None,
-    pathway: str | None,
-    annotation_source: str | None,
-    protein_class: str | None,
-    compartment: str | None,
-    hallmark: str | None,
-    cancer_id: str | None,
-    comparison_id: str | None,
-    gene_effect_max: float | None,
-    delta_gene_effect_max: float | None,
-    q_value_max: float | None,
-    cliffs_delta_abs_min: float | None,
-    stable_only: bool,
-    exclude_broad: bool,
-    exclude_low_sample: bool,
-    page: int,
-    page_size: int,
-    sort_by: str,
-    sort_order: str,
-):
-    return gene_explorer_store.search(
-        query=query,
-        domain=domain,
-        subdomain=subdomain,
-        pathway=pathway,
-        annotation_source=annotation_source,
-        protein_class=protein_class,
-        compartment=compartment,
-        hallmark=hallmark,
-        cancer_id=cancer_id,
-        comparison_id=comparison_id,
-        gene_effect_max=gene_effect_max,
-        delta_gene_effect_max=delta_gene_effect_max,
-        q_value_max=q_value_max,
-        cliffs_delta_abs_min=cliffs_delta_abs_min,
-        stable_only=stable_only,
-        exclude_broad=exclude_broad,
-        exclude_low_sample=exclude_low_sample,
-        page=page,
-        page_size=page_size,
-        sort_by=sort_by,
-        sort_order=sort_order,
-    )
-
-
-@lru_cache(maxsize=1024)
-def _gene_matrix_cached(
-    query: str | None,
-    domain: str | None,
-    subdomain: str | None,
-    protein_class: str | None,
-    compartment: str | None,
-    hallmark: str | None,
-    cancer_id: str | None,
-    gene_effect_max: float | None,
-    delta_gene_effect_max: float | None,
-    q_value_max: float | None,
-    cliffs_delta_abs_min: float | None,
-    stable_only: bool,
-    exclude_broad: bool,
-    exclude_low_sample: bool,
-    limit: int,
-    sort_by: str,
-    sort_order: str,
-):
-    return gene_explorer_store.matrix(
-        query=query,
-        domain=domain,
-        subdomain=subdomain,
-        protein_class=protein_class,
-        compartment=compartment,
-        hallmark=hallmark,
-        cancer_id=cancer_id,
-        gene_effect_max=gene_effect_max,
-        delta_gene_effect_max=delta_gene_effect_max,
-        q_value_max=q_value_max,
-        cliffs_delta_abs_min=cliffs_delta_abs_min,
-        stable_only=stable_only,
-        exclude_broad=exclude_broad,
-        exclude_low_sample=exclude_low_sample,
-        limit=limit,
-        sort_by=sort_by,
-        sort_order=sort_order,
-    )
-
-
-@lru_cache(maxsize=512)
-def _gene_contexts_cached(gene_symbol: str):
-    return gene_explorer_store.contexts(gene_symbol)
-
-
-@lru_cache(maxsize=2048)
-def _gene_models_cached(
-    gene_symbol: str,
-    cancer_id: str | None,
-    gene_effect_max: float | None,
-    page: int,
-    page_size: int,
-    sort_by: str,
-    sort_order: str,
-):
-    return gene_explorer_store.models(
-        gene_symbol,
-        cancer_id=cancer_id,
-        gene_effect_max=gene_effect_max,
-        page=page,
-        page_size=page_size,
-        sort_by=sort_by,
-        sort_order=sort_order,
-    )
-
-
-@lru_cache(maxsize=512)
-def _gene_annotations_cached(gene_symbol: str):
-    return gene_explorer_store.annotations(gene_symbol)
-
-
 @router.get("/api/genes")
 def genes(search: str | None = None, limit: int = Query(200, ge=1, le=2000)):
-    return _guard(lambda: _genes_cached(search, limit))
+    return guard(lambda: gene_service.genes(search, limit))
 
 
 @router.get("/api/genes/suggest")
 def gene_suggest(q: str = Query(..., min_length=1), limit: int = Query(12, ge=1, le=30)):
-    return _guard(lambda: _gene_suggest_cached(q.strip(), limit))
+    return guard(lambda: gene_service.suggest(q.strip(), limit))
 
 
 @router.get("/api/genes/facets")
 def gene_facets():
-    return _guard(_gene_facets_cached)
+    return guard(gene_service.facets)
 
 
 @router.get("/api/genes/search")
@@ -211,8 +48,8 @@ def gene_search(
     sort_by: str = "best_delta_gene_effect",
     sort_order: str = "asc",
 ):
-    return _guard(
-        lambda: _gene_search_cached(
+    return guard(
+        lambda: gene_service.search(
             q,
             domain,
             subdomain,
@@ -258,8 +95,8 @@ def gene_matrix(
     sort_by: str = "best_delta_gene_effect",
     sort_order: str = "asc",
 ):
-    return _guard(
-        lambda: _gene_matrix_cached(
+    return guard(
+        lambda: gene_service.matrix(
             q,
             domain,
             subdomain,
@@ -283,12 +120,13 @@ def gene_matrix(
 
 @router.get("/api/genes/stable")
 def stable_genes():
-    return _guard(_stable_genes_cached)
+    return guard(gene_service.stable_genes)
 
 
 @router.get("/api/genes/{gene_symbol}/contexts")
 def gene_contexts(gene_symbol: str):
-    return _guard(lambda: _gene_contexts_cached(gene_symbol.strip().upper()))
+    symbol = gene_symbol.strip().upper()
+    return guard(lambda: gene_service.contexts(symbol))
 
 
 @router.get("/api/genes/{gene_symbol}/models")
@@ -301,18 +139,36 @@ def gene_models(
     sort_by: str = "gene_effect",
     sort_order: str = "asc",
 ):
-    return _guard(
-        lambda: _gene_models_cached(
-            gene_symbol.strip().upper(), cancer_id, gene_effect_max, page, page_size, sort_by, sort_order
+    symbol = gene_symbol.strip().upper()
+    return guard(
+        lambda: gene_service.models(
+            symbol,
+            cancer_id,
+            gene_effect_max,
+            page,
+            page_size,
+            sort_by,
+            sort_order,
         )
     )
 
 
 @router.get("/api/genes/{gene_symbol}/annotations")
 def gene_annotations(gene_symbol: str):
-    return _guard(lambda: _gene_annotations_cached(gene_symbol.strip().upper()))
+    symbol = gene_symbol.strip().upper()
+    return guard(lambda: gene_service.annotations(symbol))
+
+
+@router.get("/api/genes/{gene_symbol}/mutation-associations")
+def gene_mutation_associations(
+    gene_symbol: str,
+    limit: int = Query(30, ge=1, le=100),
+):
+    symbol = gene_symbol.strip().upper()
+    return guard(lambda: gene_service.mutation_associations(symbol, limit))
 
 
 @router.get("/api/genes/{gene_symbol}")
 def gene(gene_symbol: str):
-    return _guard(lambda: _gene_cached(gene_symbol.strip().upper()))
+    symbol = gene_symbol.strip().upper()
+    return guard(lambda: gene_service.detail(symbol))
