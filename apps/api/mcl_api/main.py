@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from time import perf_counter
 
 from fastapi import FastAPI, Request
@@ -9,18 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api_utils import guard
 from .routers.atlas import router as atlas_router
 from .routers.comparisons import router as comparisons_router
-from .routers.gene_insights import router as gene_insights_router
 from .routers.genes import router as genes_router
 from .routers.models import router as models_router
 from .routers.pathways import router as pathways_router
 from .routers.qc import router as qc_router
+from .schemas.overview import OverviewResponse
 from .settings import MCL_ROOT
-from .state import store
+from .state import overview_service
 
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.7.0",
+    version="0.8.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -35,7 +34,6 @@ for router in (
     atlas_router,
     models_router,
     comparisons_router,
-    gene_insights_router,
     genes_router,
     pathways_router,
     qc_router,
@@ -54,16 +52,11 @@ async def add_mcl_timing(request: Request, call_next):
     return response
 
 
-@lru_cache(maxsize=1)
-def _summary_cached():
-    return store.summary()
-
-
 @app.get("/health")
 def health():
     return {"status": "ok", "mcl_root": str(MCL_ROOT)}
 
 
-@app.get("/api/summary")
+@app.get("/api/summary", response_model=OverviewResponse)
 def summary():
-    return guard(_summary_cached)
+    return guard(overview_service.summary)
