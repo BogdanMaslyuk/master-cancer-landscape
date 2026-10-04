@@ -69,6 +69,10 @@ data/processed/depmap_model_multiomics_manifest.json
 # Generated Gene Explorer indexes
 data/processed/gene_explorer/
 
+# Generated Explorer readiness/QC reports
+outputs/qc/gene_explorer_genomewide_expansion_readiness.json
+outputs/qc/gene_explorer_genomewide_expansion_readiness.tsv
+
 # Secrets
 .env
 .env.*
