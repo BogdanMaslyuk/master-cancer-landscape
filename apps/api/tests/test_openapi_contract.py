@@ -4,6 +4,7 @@ from mcl_api.main import app
 
 
 EXPECTED_RESPONSE_MODELS = {
+    "/api/summary": "OverviewResponse",
     "/api/genes/search": "GeneSearchResponse",
     "/api/genes/facets": "GeneFacetResponse",
     "/api/gene-matrix": "GeneMatrixResponse",
