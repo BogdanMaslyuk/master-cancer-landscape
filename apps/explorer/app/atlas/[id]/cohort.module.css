@@ -1,0 +1,262 @@
+.panel {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.statusCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.statusCopy b {
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.statusCopy span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ready {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.caution {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.groupGrid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px;
+}
+
+.groupCard {
+  display: grid;
+  gap: 14px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-subtle);
+}
+
+.groupCard.context {
+  border-color: #cfe0f1;
+  background: #f5f9fd;
+}
+
+.groupCard.comparator {
+  border-color: #d9e6dc;
+  background: #f8fbf8;
+}
+
+.groupCard.excluded {
+  background: #fafbfc;
+}
+
+.groupHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.groupHead span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.groupHead strong {
+  color: var(--text-strong);
+  font-size: 27px;
+  line-height: 1;
+}
+
+.coverageList {
+  display: grid;
+  gap: 10px;
+}
+
+.coverageItem {
+  display: grid;
+  gap: 5px;
+}
+
+.coverageLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.coverageLabel b {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.track {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: #e9eef4;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #5c8fbe;
+}
+
+.groupCard.comparator .fill {
+  background: #6e9c7e;
+}
+
+.groupCard.excluded .fill {
+  background: #9aa7b6;
+}
+
+.flagList {
+  display: grid;
+  gap: 8px;
+}
+
+.flag {
+  display: grid;
+  grid-template-columns: 9px minmax(0,1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+}
+
+.flagDot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #7d8da0;
+}
+
+.flag.warning {
+  border-color: #f1dfb3;
+  background: #fffaf0;
+}
+
+.flag.warning .flagDot {
+  background: #d08a00;
+}
+
+.flag.info .flagDot {
+  background: #4e83b5;
+}
+
+.flagCopy {
+  display: grid;
+  gap: 3px;
+}
+
+.flagCopy b {
+  color: var(--text-strong);
+  font-size: 11px;
+}
+
+.flagCopy span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.representativeness {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px 15px;
+  border: 1px solid #d8e2ec;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.representativeness > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #eaf1f8;
+  color: #41698f;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.representativeness div {
+  display: grid;
+  gap: 4px;
+}
+
+.representativeness b {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.representativeness p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.provenance {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted-2);
+  font-size: 10px;
+}
+
+.provenance span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+@media (max-width: 900px) {
+  .groupGrid {
+    grid-template-columns: 1fr;
+  }
+}
