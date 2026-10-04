@@ -15,7 +15,7 @@ ATLAS = PROCESSED / "depmap_crispr_model_atlas.parquet"
 OUTPUT = RUNTIME / "gene_dependency_summary.parquet"
 MANIFEST = RUNTIME / "gene_dependency_summary.json"
 DEPENDENCY_THRESHOLD = -0.5
-MIN_CANCER_MODELS = 3
+MIN_CANCER_MODELS = 5
 
 
 def _dependency_type(global_fraction: float, best_fraction: float | None, enrichment: float | None) -> tuple[str, str]:
@@ -110,8 +110,16 @@ def main() -> None:
             continue
 
         meta_rows = meta.loc[row_mask]
-        cancer_name = str(meta_rows.get("mcl_cancer_name", pd.Series(dtype=object)).dropna().iloc[0]) if "mcl_cancer_name" in meta_rows and meta_rows["mcl_cancer_name"].notna().any() else cancer_id
-        organ = str(meta_rows.get("mcl_organ_ru", pd.Series(dtype=object)).dropna().iloc[0]) if "mcl_organ_ru" in meta_rows and meta_rows["mcl_organ_ru"].notna().any() else None
+        cancer_name = (
+            str(meta_rows["mcl_cancer_name"].dropna().iloc[0])
+            if "mcl_cancer_name" in meta_rows.columns and meta_rows["mcl_cancer_name"].notna().any()
+            else cancer_id
+        )
+        organ = (
+            str(meta_rows["mcl_organ_ru"].dropna().iloc[0])
+            if "mcl_organ_ru" in meta_rows.columns and meta_rows["mcl_organ_ru"].notna().any()
+            else None
+        )
 
         best_fraction[better] = frac[better]
         best_median[better] = median[better]
@@ -168,6 +176,7 @@ def main() -> None:
 
     print(f"Gene dependency summary: {len(genes)} genes × {len(model_ids)} models")
     print(f"Operational dependency threshold: Gene Effect <= {DEPENDENCY_THRESHOLD}")
+    print(f"Minimum cancer-group size for specificity labels: {MIN_CANCER_MODELS}")
     print(f"Wrote {OUTPUT.relative_to(ROOT)}")
 
 
