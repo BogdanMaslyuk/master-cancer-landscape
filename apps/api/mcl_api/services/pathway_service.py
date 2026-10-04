@@ -30,9 +30,18 @@ class PathwayService:
             limit=limit,
         )
 
-    @lru_cache(maxsize=1)
-    def stability(self):
-        return self.repository.stability()
+    @lru_cache(maxsize=32)
+    def stability(
+        self,
+        stable_only: bool = False,
+        min_significant_thresholds: int | None = None,
+        limit: int = 5000,
+    ):
+        return self.repository.stability(
+            stable_only=stable_only,
+            min_significant_thresholds=min_significant_thresholds,
+            limit=limit,
+        )
 
     @lru_cache(maxsize=32)
     def network(self, stable_only: bool, limit_terms: int):
