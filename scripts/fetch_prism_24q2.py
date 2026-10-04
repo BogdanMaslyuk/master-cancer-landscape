@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -13,7 +15,7 @@ API_URL = f"https://api.figshare.com/v2/articles/{FIGSHARE_ARTICLE_ID}"
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / "data" / "raw" / "pharmacology" / "prism_24q2"
 VALID_SUFFIXES = (".csv", ".txt", ".tsv")
-DOWNLOAD_TIMEOUT = httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0)
+DOWNLOAD_TIMEOUT = httpx.Timeout(connect=30.0, read=20.0, write=60.0, pool=30.0)
 MAX_RETRIES = 8
 CHUNK_SIZE = 1024 * 1024
 
@@ -28,9 +30,6 @@ def _select_files(all_files: list[dict[str, Any]]) -> tuple[list[dict[str, Any]]
     treatment = [row for row in files if "treatment_info" in _key(row)]
     cell_info = [row for row in files if "cell_line_info" in _key(row)]
 
-    # Prefer the long-format release because it is the smallest sufficient input
-    # and already carries DepMap/ACH model identifiers. Cell-line metadata is useful
-    # for QC but not required to build the response table.
     if lfc and treatment:
         selected = [*lfc, *treatment]
         if cell_info:
@@ -58,8 +57,7 @@ def _prepare_partial(target: Path, expected_size: int) -> Path:
     if target.exists() and expected_size and target.stat().st_size == expected_size:
         return target
 
-    # Earlier versions wrote directly to the final file. Preserve that progress by
-    # converting an incomplete final file into the resumable .part file.
+    # Preserve progress created by older versions that wrote directly to the final file.
     if target.exists():
         target_size = target.stat().st_size
         part_size = part.stat().st_size if part.exists() else -1
@@ -73,7 +71,76 @@ def _prepare_partial(target: Path, expected_size: int) -> Path:
     return part
 
 
-def _download_with_resume(client: httpx.Client, url: str, target: Path, expected_size: int) -> None:
+def _validate_and_finalize(working: Path, target: Path, expected_size: int) -> None:
+    actual_size = working.stat().st_size if working.exists() else 0
+    if expected_size and actual_size != expected_size:
+        raise IOError(
+            f"Downloaded size mismatch: got {actual_size} bytes, expected {expected_size} bytes"
+        )
+    working.replace(target)
+    print(f"  wrote {target.relative_to(ROOT)} ({_mb(actual_size):.1f} MB)")
+
+
+def _curl_executable() -> str | None:
+    # Modern Windows ships curl.exe. Prefer it for large Figshare downloads because
+    # its Range resume/retry handling is more robust than a long-lived Python stream.
+    return shutil.which("curl.exe") or shutil.which("curl")
+
+
+def _download_with_curl(url: str, target: Path, expected_size: int) -> bool:
+    curl = _curl_executable()
+    if not curl:
+        return False
+
+    working = _prepare_partial(target, expected_size)
+    if working == target:
+        print(f"Already present: {target.name}")
+        return True
+
+    offset = working.stat().st_size if working.exists() else 0
+    if offset:
+        print(f"  curl: continuing from {_mb(offset):.1f} MB")
+    else:
+        print("  curl: robust resumable download")
+
+    command = [
+        curl,
+        "-L",
+        "--fail",
+        "--show-error",
+        "--progress-bar",
+        "--retry", "20",
+        "--retry-delay", "2",
+        "--retry-all-errors",
+        "--connect-timeout", "20",
+        # Abort a genuinely stalled transfer instead of hanging forever. curl will
+        # then retry and resume from the bytes already written.
+        "--speed-limit", "1024",
+        "--speed-time", "20",
+        "-C", "-",
+        "-o", str(working),
+        url,
+    ]
+
+    result = subprocess.run(command, check=False)
+    if result.returncode != 0:
+        partial_size = working.stat().st_size if working.exists() else 0
+        raise SystemExit(
+            f"curl download failed with exit code {result.returncode}. "
+            f"Partial file preserved at {working} ({_mb(partial_size):.1f} MB). "
+            "Re-run the same command to continue."
+        )
+
+    try:
+        _validate_and_finalize(working, target, expected_size)
+    except OSError as exc:
+        raise SystemExit(
+            f"Download finished but validation failed: {exc}. Partial file preserved at {working}."
+        ) from exc
+    return True
+
+
+def _download_with_httpx(client: httpx.Client, url: str, target: Path, expected_size: int) -> None:
     working = _prepare_partial(target, expected_size)
     if working == target:
         print(f"Already present: {target.name}")
@@ -89,8 +156,6 @@ def _download_with_resume(client: httpx.Client, url: str, target: Path, expected
 
         try:
             with client.stream("GET", url, headers=headers, timeout=DOWNLOAD_TIMEOUT) as response:
-                # A compliant server returns 206 for a Range request. If it ignores
-                # Range and returns 200, restart safely instead of appending duplicate bytes.
                 if offset > 0 and response.status_code == 200:
                     offset = 0
                     if working.exists():
@@ -116,14 +181,7 @@ def _download_with_resume(client: httpx.Client, url: str, target: Path, expected
                         else:
                             print(f"  {_mb(written):.1f} MB", end="\r", flush=True)
 
-            actual_size = working.stat().st_size if working.exists() else 0
-            if expected_size and actual_size != expected_size:
-                raise IOError(
-                    f"Downloaded size mismatch: got {actual_size} bytes, expected {expected_size} bytes"
-                )
-
-            working.replace(target)
-            print(f"\n  wrote {target.relative_to(ROOT)} ({_mb(actual_size):.1f} MB){' ' * 12}")
+            _validate_and_finalize(working, target, expected_size)
             return
 
         except (httpx.HTTPError, OSError) as exc:
@@ -139,6 +197,13 @@ def _download_with_resume(client: httpx.Client, url: str, target: Path, expected
             delay = min(30, 2 ** (attempt - 1))
             print(f"  retrying in {delay} s ...")
             time.sleep(delay)
+
+
+def _download(client: httpx.Client, url: str, target: Path, expected_size: int) -> None:
+    if _download_with_curl(url, target, expected_size):
+        return
+    print("  curl.exe not found; falling back to Python resumable downloader")
+    _download_with_httpx(client, url, target, expected_size)
 
 
 def main() -> None:
@@ -178,7 +243,7 @@ def main() -> None:
                 print(f"Skip {name}: Figshare did not provide download_url")
                 continue
             print(f"Downloading {name} ...")
-            _download_with_resume(client, str(url), target, expected_size)
+            _download(client, str(url), target, expected_size)
 
 
 if __name__ == "__main__":
