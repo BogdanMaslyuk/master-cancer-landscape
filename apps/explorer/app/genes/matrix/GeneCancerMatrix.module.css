@@ -1,0 +1,92 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 26px 30px;
+  border: 1px solid #dbe5ef;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fafdff 0%, #f2f7fc 100%);
+}
+
+.header h1 { margin-top: 5px; }
+.header p { max-width: 820px; margin: 9px 0 0; color: #60758a; font-size: 13.5px; }
+.back { color: #225c8f; font-size: 11px; font-weight: 800; white-space: nowrap; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.filters {
+  position: sticky;
+  top: 76px;
+  padding: 17px;
+  border: 1px solid #dfe7ef;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.group { display: grid; gap: 8px; padding: 13px 0; border-top: 1px solid #edf1f5; }
+.group:first-child { border-top: 0; padding-top: 0; }
+.groupTitle { color: #788a9d; font-size: 9.5px; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.field { display: grid; gap: 5px; }
+.field span { color: #667a8e; font-size: 10.5px; font-weight: 720; }
+.field input, .field select { width: 100%; min-height: 36px; padding: 7px 9px; font-size: 11.5px; }
+.check { display: grid; grid-template-columns: 16px 1fr; gap: 8px; color: #50667c; font-size: 11px; line-height: 1.35; }
+.check input { width: 15px; height: 15px; min-height: auto; margin: 0; }
+.apply { width: 100%; margin-top: 8px; }
+
+.content { min-width: 0; }
+.summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.summary strong { display: block; color: #122a43; font-size: 19px; }
+.summary span { display: block; margin-top: 4px; color: #718397; font-size: 11px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.legend span { padding: 5px 8px; border-radius: 999px; border: 1px solid #dde6ef; font-size: 9.5px; color: #5c7186; }
+
+.matrixWrap { overflow: auto; border: 1px solid #dfe7ef; border-radius: 18px; background: #fff; }
+.matrix { border-collapse: separate; border-spacing: 0; min-width: 960px; width: 100%; }
+.matrix th, .matrix td { border-bottom: 1px solid #edf1f5; border-right: 1px solid #edf1f5; padding: 9px 10px; }
+.matrix th:last-child, .matrix td:last-child { border-right: 0; }
+.matrix tr:last-child td { border-bottom: 0; }
+.matrix thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #627489; font-size: 10px; vertical-align: bottom; }
+.geneHead, .geneCell { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 175px; }
+.matrix thead .geneHead { z-index: 4; background: #f8fafc; }
+.geneLink { color: #15538c; font-size: 12.5px; font-weight: 850; }
+.geneName { display: block; max-width: 170px; margin-top: 3px; color: #8795a5; font-size: 9.5px; }
+.comparisonHead { min-width: 150px; max-width: 180px; }
+.comparisonHead b { display: block; color: #263f58; font-size: 10.5px; }
+.comparisonHead small { display: block; margin-top: 4px; font-weight: 600; color: #8a98a7; line-height: 1.35; }
+
+.cell { min-width: 126px; text-align: center; }
+.cellValue { display: block; font-size: 14px; font-weight: 850; color: #173d60; }
+.cellMeta { display: block; margin-top: 3px; font-size: 9px; color: #718497; }
+.strongNegative { background: #e6f1fb; }
+.mediumNegative { background: #f0f6fc; }
+.weakNegative { background: #f8fbfe; }
+.positive { background: #fff8ee; }
+.noData { background: #fbfcfd; color: #a0aab5; }
+.significant .cellValue::after { content: " •"; color: #176aa2; }
+.warning { box-shadow: inset 0 -2px 0 #e6b66e; }
+
+.noteGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 16px; }
+.noteGrid div { padding: 13px 14px; border: 1px solid #e3e9ef; border-radius: 13px; background: #f8fafc; color: #64788c; font-size: 10.5px; line-height: 1.45; }
+.noteGrid b { display: block; margin-bottom: 3px; color: #314c67; }
+.empty { padding: 40px 20px; color: #6d8094; text-align: center; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .filters { position: static; }
+  .header, .summary { align-items: flex-start; flex-direction: column; }
+  .legend { justify-content: flex-start; }
+  .noteGrid { grid-template-columns: 1fr; }
+}
