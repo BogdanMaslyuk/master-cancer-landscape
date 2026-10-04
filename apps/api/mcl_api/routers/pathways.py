@@ -5,6 +5,7 @@ from functools import lru_cache
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard
+from ..schemas.pathways import NetworkResponse, PathwayListResponse, PathwayStabilityResponse
 from ..state import store
 
 
@@ -40,7 +41,7 @@ def _network_cached(stable_only: bool, limit_terms: int):
     return store.network(stable_only=stable_only, limit_terms=limit_terms)
 
 
-@router.get("/api/pathways")
+@router.get("/api/pathways", response_model=PathwayListResponse)
 def pathways(
     top_n: int | None = None,
     source: str | None = None,
@@ -52,11 +53,11 @@ def pathways(
     return guard(lambda: _pathways_cached(top_n, source, stable_only, significant_only, search, limit))
 
 
-@router.get("/api/pathways/stability")
+@router.get("/api/pathways/stability", response_model=PathwayStabilityResponse)
 def pathway_stability():
     return guard(_pathway_stability_cached)
 
 
-@router.get("/api/network")
+@router.get("/api/network", response_model=NetworkResponse)
 def network(stable_only: bool = True, limit_terms: int = Query(100, ge=1, le=500)):
     return guard(lambda: _network_cached(stable_only, limit_terms))
