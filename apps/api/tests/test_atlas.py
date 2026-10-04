@@ -77,6 +77,8 @@ def test_atlas_builds_disease_model_hierarchy(tmp_path: Path):
     assert overview["organs_n"] == 1
     assert overview["contexts_n"] == 1
     assert overview["models_n"] == 2
+    overview_context = overview["organs"][0]["contexts"][0]
+    assert overview_context["model_genetics"]["status"] == "deferred"
 
     context = atlas.context("C1")
     assert context["analysis_available"] is True
@@ -89,6 +91,19 @@ def test_atlas_builds_disease_model_hierarchy(tmp_path: Path):
     assert models["total"] == 2
     assert models["items"][0]["variants"][0]["gene"] == "KRAS"
     assert models["items"][0]["variants"][0]["protein_change"] == "p.G12C"
+
+
+def test_atlas_overview_does_not_load_full_mutation_profiles(tmp_path: Path, monkeypatch):
+    atlas = _build_fixture(tmp_path)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Atlas overview must not load full mutation profiles")
+
+    monkeypatch.setattr(atlas, "_context_model_genetics", fail_if_called)
+
+    overview = atlas.atlas()
+    context = overview["organs"][0]["contexts"][0]
+    assert context["model_genetics"]["status"] == "deferred"
 
 
 def test_model_uses_full_indexed_mutation_profile_when_available(tmp_path: Path):
@@ -124,7 +139,6 @@ def test_model_uses_full_indexed_mutation_profile_when_available(tmp_path: Path)
         ],
     )
 
-    # Cached empty optional tables may have been read while building the fixture context.
     atlas._model_metadata.cache_clear()
     atlas._model_mutations.cache_clear()
 
