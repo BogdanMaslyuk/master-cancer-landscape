@@ -25,19 +25,33 @@ if ($Recreate -and (Test-Path $Venv)) {
 }
 
 if (-not (Test-Path $Python)) {
-    $Launcher = Get-Command py.exe -ErrorAction SilentlyContinue
-    if ($Launcher) {
-        Run "Create Python 3.13 environment" { & py.exe -3.13 -m venv $Venv }
+    $Uv = Get-Command uv -ErrorAction SilentlyContinue
+    if ($Uv) {
+        # uv can use an already managed Python 3.13 or download one when it is absent.
+        Run "Create Python 3.13 environment with uv" { & $Uv.Source venv --python 3.13 $Venv }
     } else {
-        $SystemPython = Get-Command python.exe -ErrorAction SilentlyContinue
-        if (-not $SystemPython) {
-            throw "Python 3.13 was not found. Install Python 3.13 or make py.exe available."
+        $Launcher = Get-Command py.exe -ErrorAction SilentlyContinue
+        $Py313Available = $false
+        if ($Launcher) {
+            & py.exe -3.13 -c "import sys; print(sys.version)" *> $null
+            $Py313Available = ($LASTEXITCODE -eq 0)
         }
-        $Version = & python.exe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-        if ($Version.Trim() -ne "3.13") {
-            throw "python.exe is Python $Version; MCL Architecture v1 requires Python 3.13 for the locked environment."
+
+        if ($Py313Available) {
+            Run "Create Python 3.13 environment" { & py.exe -3.13 -m venv $Venv }
+        } else {
+            $SystemPython = Get-Command python.exe -ErrorAction SilentlyContinue
+            if ($SystemPython) {
+                $Version = & python.exe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+                if ($Version.Trim() -eq "3.13") {
+                    Run "Create Python 3.13 environment" { & python.exe -m venv $Venv }
+                } else {
+                    throw "python.exe is Python $Version and py.exe has no Python 3.13. Install uv (recommended) or Python 3.13, then re-run .\scripts\bootstrap.ps1 -Recreate."
+                }
+            } else {
+                throw "Python 3.13 was not found. Install uv (recommended; it can provision Python 3.13 automatically) or install Python 3.13, then re-run .\scripts\bootstrap.ps1 -Recreate."
+            }
         }
-        Run "Create Python 3.13 environment" { & python.exe -m venv $Venv }
     }
 }
 
