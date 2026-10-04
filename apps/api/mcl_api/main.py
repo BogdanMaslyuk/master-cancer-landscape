@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
-from .gene_explorer import GeneExplorerStore
+from .functional_gene_explorer import FunctionalGeneExplorerStore
 from .multiomics import MCLMultiOmicsStore
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
@@ -16,7 +16,7 @@ from .store import MCLDataError, MCLDataStore
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.4.0",
+    version="0.5.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -30,7 +30,7 @@ store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
-gene_explorer_store = GeneExplorerStore(MCL_ROOT, store)
+gene_explorer_store = FunctionalGeneExplorerStore(MCL_ROOT, store)
 
 
 @app.middleware("http")
@@ -175,7 +175,7 @@ def _stable_genes_cached():
 
 @lru_cache(maxsize=512)
 def _gene_cached(gene_symbol: str):
-    # Preserve legacy comparison/pathway fields while adding the new Gene Explorer
+    # Preserve legacy comparison/pathway fields while adding the Gene Explorer
     # identity/summary contract.
     base = gene_explorer_store.identity(gene_symbol)
     legacy = store.gene(gene_symbol)
@@ -191,9 +191,18 @@ def _gene_suggest_cached(query: str, limit: int):
     return gene_explorer_store.suggest(query, limit)
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=1)
+def _gene_facets_cached():
+    return gene_explorer_store.facets()
+
+
+@lru_cache(maxsize=2048)
 def _gene_search_cached(
     query: str | None,
+    domain: str | None,
+    subdomain: str | None,
+    pathway: str | None,
+    annotation_source: str | None,
     cancer_id: str | None,
     comparison_id: str | None,
     gene_effect_max: float | None,
@@ -210,6 +219,10 @@ def _gene_search_cached(
 ):
     return gene_explorer_store.search(
         query=query,
+        domain=domain,
+        subdomain=subdomain,
+        pathway=pathway,
+        annotation_source=annotation_source,
         cancer_id=cancer_id,
         comparison_id=comparison_id,
         gene_effect_max=gene_effect_max,
@@ -412,9 +425,18 @@ def gene_suggest(q: str = Query(..., min_length=1), limit: int = Query(12, ge=1,
     return _guard(lambda: _gene_suggest_cached(q.strip().upper(), limit))
 
 
+@app.get("/api/genes/facets")
+def gene_facets():
+    return _guard(_gene_facets_cached)
+
+
 @app.get("/api/genes/search")
 def gene_search(
     q: str | None = None,
+    domain: str | None = None,
+    subdomain: str | None = None,
+    pathway: str | None = None,
+    annotation_source: str | None = None,
     cancer_id: str | None = None,
     comparison_id: str | None = None,
     gene_effect_max: float | None = None,
@@ -432,6 +454,10 @@ def gene_search(
     return _guard(
         lambda: _gene_search_cached(
             q,
+            domain,
+            subdomain,
+            pathway,
+            annotation_source,
             cancer_id,
             comparison_id,
             gene_effect_max,
