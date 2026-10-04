@@ -15,7 +15,7 @@ const russianMeaning: Record<string, {title:string; text:string}> = {
 };
 
 export default async function PathwaysPage(){
-  const stability=await apiGet<Term[]>("/api/pathways/stability");
+  const stability=await apiGet<Term[]>("/api/pathways/stability?min_significant_thresholds=2&limit=500");
   const all=await apiGet<Term[]>("/api/pathways?significant_only=true&limit=500");
   const stable=stability.filter((x:any)=>String(x.significant_all_thresholds).toLowerCase()==="true");
   const recurrent=stability.filter((x:any)=>Number(x.significant_thresholds_n)>=2 && String(x.significant_all_thresholds).toLowerCase()!=="true");
