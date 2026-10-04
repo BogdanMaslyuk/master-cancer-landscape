@@ -43,3 +43,7 @@ class ModelDetailResponse(ApiResponseModel):
 
 class ModelMultiomicsResponse(ApiResponseModel):
     pass
+
+
+class ModelDependenciesResponse(ApiResponseModel):
+    pass
