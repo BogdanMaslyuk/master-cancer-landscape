@@ -1,0 +1,124 @@
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.layerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.layerCard {
+  min-width: 0;
+  padding: 18px 20px;
+  background: #fbfcfe;
+}
+
+.layerCard + .layerCard { border-left: 1px solid var(--line); }
+.layerCard strong { display: block; color: var(--text-strong); font-size: 13px; }
+.layerCard span { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+
+.layerState {
+  display: inline-flex !important;
+  width: fit-content;
+  margin: 0 0 9px !important;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 9.5px !important;
+  font-weight: 850;
+  letter-spacing: .02em;
+}
+
+.ready { background: var(--success-soft); color: var(--success) !important; }
+.missing { background: var(--surface-muted); color: var(--muted) !important; }
+
+.content { padding: 20px; }
+
+.note {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f6f9fc;
+  color: #5e7087;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.tableWrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.table { min-width: 760px; }
+.table th { position: static; }
+.table td:first-child { font-weight: 850; }
+.geneLink { color: var(--accent); font-weight: 850; }
+.numeric { font-variant-numeric: tabular-nums; }
+.strongDependency { color: #9b2c2c; font-weight: 800; }
+
+.subheader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 20px 0 10px;
+}
+
+.subheader h3 { font-size: 14px; }
+.subheader span { color: var(--muted); font-size: 10.5px; }
+
+.coverageGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.coverageCard {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcfe;
+}
+
+.coverageCard strong { display: block; font-size: 13px; color: var(--text-strong); }
+.coverageCard b { display: block; margin-top: 7px; font-size: 22px; letter-spacing: -.03em; }
+.coverageCard span { display: block; margin-top: 4px; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
+
+.empty {
+  padding: 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  background: #fafbfd;
+}
+
+.empty strong { display: block; color: var(--text-strong); }
+.empty p { margin: 6px 0 12px; color: var(--muted); font-size: 12px; }
+.empty code { display: block; padding: 10px 12px; border-radius: 10px; background: #edf2f7; color: #33465d; font-size: 11px; overflow-x: auto; }
+
+.interpretation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.interpretation div {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--accent-softer);
+}
+
+.interpretation b { display: block; color: var(--accent-dark); font-size: 10.5px; }
+.interpretation span { display: block; margin-top: 4px; color: #60748c; font-size: 10.5px; line-height: 1.45; }
+
+@media (max-width: 900px) {
+  .layerGrid, .coverageGrid, .interpretation { grid-template-columns: 1fr; }
+  .layerCard + .layerCard { border-left: 0; border-top: 1px solid var(--line); }
+}
