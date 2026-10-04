@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { ModelMultiOmicsPanel } from "../../../components/MultiOmicsPanels";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
 import readiness from "./readiness.module.css";
 
 type Model = Record<string, any>;
+type MultiOmics = Record<string, any>;
 
 function variantLabel(variants:any[]|undefined){
   if(!variants?.length) return "Определяющие варианты не зарегистрированы";
@@ -19,7 +21,11 @@ function impactRu(value:any){
 
 export default async function ModelPage({params}:{params:Promise<{id:string}>}){
   const {id}=await params;
-  const model=await apiGet<Model>(`/api/models/${encodeURIComponent(decodeURIComponent(id))}`);
+  const modelId=decodeURIComponent(id);
+  const [model, omics]=await Promise.all([
+    apiGet<Model>(`/api/models/${encodeURIComponent(modelId)}`),
+    apiGet<MultiOmics>(`/api/models/${encodeURIComponent(modelId)}/multiomics?limit=30`),
+  ]);
   const genetics=model.genetics || {};
   const metadata=model.metadata || {};
   const priority=genetics.priority_variants || [];
@@ -89,7 +95,7 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
           <strong>{membershipsN} контекст{membershipsN === 1 ? "" : "а"}</strong>
         </article>
       </div>
-      <div className={readiness.note}><b>Ещё не означает «полная модель»:</b> экспрессия RNA, число копий, индивидуальный CRISPR-профиль и репрезентативность относительно пациентских опухолей будут подключаться отдельными слоями. Их отсутствие здесь не трактуется как отсутствие биологического эффекта.</div>
+      <div className={readiness.note}><b>Multi-omics слои показываются отдельно ниже:</b> RNA expression, относительное число копий и индивидуальный CRISPR Gene Effect отмечаются как доступные только после локальной индексации. Репрезентативность относительно пациентских опухолей остаётся отдельной задачей и пока не оценивается.</div>
     </section>
 
     <section className="section">
@@ -135,6 +141,17 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
       <p className={styles.sourceNote}><b>Источник:</b> {genetics.source || "—"}. {genetics.note}</p>
     </section>
 
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">MULTI-OMICS ПРОФИЛЬ МОДЕЛИ</div>
+          <h2>Что ещё объясняет индивидуальную зависимость?</h2>
+          <div className="section-copy">Совмещаем индивидуальный CRISPR Gene Effect, RNA expression и относительное copy number, чтобы видеть функциональную зависимость на фоне экспрессии и геномной дозировки того же гена.</div>
+        </div>
+      </div>
+      <ModelMultiOmicsPanel omics={omics}/>
+    </section>
+
     <section className="section split">
       <div className="card">
         <div className="eyebrow">ПРОИСХОЖДЕНИЕ И ОБРАЗЕЦ</div>
@@ -171,6 +188,6 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
       </div>
     </section>
 
-    <section className="section technical-note"><b>Следующий функциональный слой:</b> RNA-экспрессия, число копий и индивидуальный CRISPR Gene Effect будут добавляться поверх уже завершённой идентичности, происхождения, принадлежности к контекстам и мутационного профиля модели.</section>
+    <section className="section technical-note"><b>Граница интерпретации:</b> мутации, RNA expression, относительное copy number и CRISPR Gene Effect описывают экспериментальную модель DepMap. Они не заменяют пациентские когорты и не доказывают фармакологическую ингибируемость выбранного белка.</section>
   </>;
 }
