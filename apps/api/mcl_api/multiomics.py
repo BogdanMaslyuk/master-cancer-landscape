@@ -5,7 +5,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from .store import MCLDataError
@@ -235,8 +234,13 @@ class MCLMultiOmicsStore:
             raise MCLDataError(f"Unknown cancer context: {cancer_id}")
 
         sub["model_id"] = sub["model_id"].astype(str)
-        context_ids = sub.loc[sub.get("assigned_group", "").astype(str) == "context", "model_id"].drop_duplicates().tolist()
-        comparator_ids = sub.loc[sub.get("assigned_group", "").astype(str) == "comparator", "model_id"].drop_duplicates().tolist()
+        groups = (
+            sub["assigned_group"].astype(str)
+            if "assigned_group" in sub.columns
+            else pd.Series("", index=sub.index, dtype=str)
+        )
+        context_ids = sub.loc[groups == "context", "model_id"].drop_duplicates().tolist()
+        comparator_ids = sub.loc[groups == "comparator", "model_id"].drop_duplicates().tolist()
         all_ids = sub["model_id"].drop_duplicates().tolist()
         availability = self.availability()
 
