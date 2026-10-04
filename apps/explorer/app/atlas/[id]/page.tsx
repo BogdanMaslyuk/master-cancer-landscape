@@ -1,6 +1,7 @@
 import Link from "next/link";
 import CellModelTable from "../../../components/CellModelTable";
 import DependencyScatter from "../../../components/DependencyScatter";
+import { ContextMultiOmicsPanel } from "../../../components/MultiOmicsPanels";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
 import cohortStyles from "./cohort.module.css";
@@ -8,6 +9,7 @@ import cohortStyles from "./cohort.module.css";
 type Context = Record<string, any>;
 type ModelsPayload = { total:number; items:Record<string,any>[] };
 type Cohort = Record<string, any>;
+type MultiOmics = Record<string, any>;
 type GenePage = { comparison_id:string; total:number; items:Record<string,any>[] };
 
 function statusCopy(ctx: Context){
@@ -34,10 +36,11 @@ function groupLabel(group:string){
 export default async function AtlasContextPage({params}:{params:Promise<{id:string}>}){
   const {id}=await params;
   const cancerId=decodeURIComponent(id);
-  const [ctx, models, cohort]=await Promise.all([
+  const [ctx, models, cohort, omics]=await Promise.all([
     apiGet<Context>(`/api/atlas/${encodeURIComponent(cancerId)}`),
     apiGet<ModelsPayload>(`/api/models?cancer_id=${encodeURIComponent(cancerId)}&limit=5000`),
     apiGet<Cohort>(`/api/atlas/${encodeURIComponent(cancerId)}/cohort`),
+    apiGet<MultiOmics>(`/api/atlas/${encodeURIComponent(cancerId)}/multiomics?limit=12`),
   ]);
   const previewComparison=ctx.comparisons?.[0];
   const preview:GenePage|null=previewComparison?.id
@@ -223,6 +226,17 @@ export default async function AtlasContextPage({params}:{params:Promise<{id:stri
       </div>}
     </section>
 
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">MULTI-OMICS ЭКСПЕРИМЕНТАЛЬНЫХ МОДЕЛЕЙ</div>
+          <h2>Что может объяснять контекстную CRISPR-зависимость?</h2>
+          <div className="section-copy">Для устойчивых кандидатов MCL сопоставляем Gene Effect с RNA expression и относительным copy number в той же целевой и контрольной группе. Это помогает отделять функциональную зависимость от простых различий в экспрессии или геномной дозировке.</div>
+        </div>
+      </div>
+      <ContextMultiOmicsPanel omics={omics}/>
+    </section>
+
     <section className="section context-science-grid">
       <div className="card context-definition-card">
         <div className="eyebrow">ЦЕЛЕВАЯ ГРУППА</div>
@@ -286,7 +300,7 @@ export default async function AtlasContextPage({params}:{params:Promise<{id:stri
     </section>
 
     <section className="section technical-note context-provenance">
-      <b>Происхождение данных:</b> заболевание и подтип — конфигурация MCL и OncoTree; клеточные модели — DepMap; индивидуальные мутации — DepMap OmicsSomaticMutations после локальной индексации. Пациентская геномика пока не подключена и не подменяется статистикой клеточных линий. Внутренний идентификатор: {ctx.id}.
+      <b>Происхождение данных:</b> заболевание и подтип — конфигурация MCL и OncoTree; клеточные модели и multi-omics — DepMap; индивидуальные мутации — DepMap OmicsSomaticMutations после локальной индексации. RNA expression, относительное copy number и CRISPR Gene Effect относятся к экспериментальным моделям и не подменяют пациентскую геномику. Внутренний идентификатор: {ctx.id}.
     </section>
   </>;
 }
