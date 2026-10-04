@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from .annotated_gene_explorer import AnnotatedGeneExplorerStore
 from .gene_explorer import _clean, _records
 from .matrix_gene_explorer import MatrixGeneExplorerStore
 from .store import MCLDataError
@@ -264,3 +265,24 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
                 "note": "Annotations are served only from the materialized provenance-aware Gene Explorer index.",
             }
         )
+
+    def identity(self, gene_symbol: str) -> dict[str, Any]:
+        """Return the fast gene-detail payload used during initial page rendering.
+
+        Mutation-association screening can require thousands of statistical tests and
+        previously blocked the first visit to an arbitrary gene for tens of seconds.
+        It is intentionally excluded from this critical path and exposed separately.
+        """
+        payload = AnnotatedGeneExplorerStore.identity(self, gene_symbol)
+        symbol = str(payload["identity"]["gene_symbol"]).upper()
+        payload["model_insights"] = {
+            "descriptive_contexts": self.descriptive_contexts(symbol),
+            "correlations": self.correlations(symbol),
+            "mutation_associations": {
+                "available": False,
+                "deferred": True,
+                "items": [],
+                "note": "Мутационный скрининг вынесен из первичной загрузки карточки, чтобы не блокировать интерфейс; расчёт доступен отдельным API-запросом.",
+            },
+        }
+        return _clean(payload)
