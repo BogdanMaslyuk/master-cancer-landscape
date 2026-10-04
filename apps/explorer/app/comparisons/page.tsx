@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { apiGet } from "../../lib/api";
+import type { ComparisonListResponse } from "../../lib/generated/api-types";
 import ResearchTrail from "../../components/ResearchTrail";
-
-type Comparison = { id:string; label:string; cancer_id:string; comparison:string; context_models_n?:number; comparator_models_n?:number; genes_analyzed_n?:number; depmap_release?:string; qc_status:string; context_definition?:string; comparator_definition?:string };
 
 function statusLabel(status:string){
   const s=status.toUpperCase();
@@ -12,7 +11,7 @@ function statusLabel(status:string){
 }
 
 export default async function ComparisonsPage(){
-  const items = await apiGet<Comparison[]>("/api/comparisons");
+  const items = await apiGet<ComparisonListResponse>("/api/comparisons");
   return <>
     <div className="section-header" style={{marginBottom:18}}>
       <div>
