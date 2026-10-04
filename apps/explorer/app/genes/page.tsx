@@ -17,11 +17,16 @@ type SearchPayload = {
 
 type Comparison = { id:string; label:string; cancer_id:string };
 type AtlasContext = { id:string; cancer_ru?:string; molecular_ru?:string; short_ru?:string };
-type AtlasPayload = { contexts?:AtlasContext[] } | AtlasContext[];
+type AtlasPayload = { contexts?:AtlasContext[]; organs?:{contexts?:AtlasContext[]}[] } | AtlasContext[];
 type Params = Record<string, string | string[] | undefined>;
 
 function one(value:string|string[]|undefined){ return Array.isArray(value) ? value[0] : value; }
 function on(value:string|undefined){ return value === "true" || value === "1" || value === "on"; }
+function atlasContexts(value:AtlasPayload):AtlasContext[]{
+  if(Array.isArray(value)) return value;
+  if(value.contexts?.length) return value.contexts;
+  return (value.organs || []).flatMap((organ)=>organ.contexts || []);
+}
 
 function apiQuery(searchParams:Params){
   const out=new URLSearchParams();
@@ -61,7 +66,7 @@ export default async function GenesPage({searchParams}:{searchParams:Promise<Par
     apiGet<Comparison[]>("/api/comparisons"),
     apiGet<AtlasPayload>("/api/atlas"),
   ]);
-  const contexts=Array.isArray(atlasRaw) ? atlasRaw : (atlasRaw.contexts || []);
+  const contexts=atlasContexts(atlasRaw);
   const active=activeFilterLabels(sp,contexts,comparisons);
   const currentCancer=one(sp.cancer_id) || "";
   const availableComparisons=currentCancer ? comparisons.filter(x=>x.cancer_id===currentCancer) : comparisons;
