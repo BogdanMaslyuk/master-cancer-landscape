@@ -12,6 +12,7 @@ from .routers.crispr_catalog import router as crispr_catalog_router
 from .routers.genes import router as genes_router
 from .routers.models import router as models_router
 from .routers.pathways import router as pathways_router
+from .routers.pharmacology import router as pharmacology_router
 from .routers.qc import router as qc_router
 from .schemas.overview import OverviewResponse
 from .settings import MCL_ROOT
@@ -35,6 +36,7 @@ for router in (
     atlas_router,
     crispr_catalog_router,
     models_router,
+    pharmacology_router,
     comparisons_router,
     genes_router,
     pathways_router,
@@ -56,7 +58,7 @@ async def add_mcl_timing(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mcl_root": str(MCL_ROOT)}
+    return {"status":"ok", "mcl_root": str(MCL_ROOT)}
 
 
 @app.get("/api/summary", response_model=OverviewResponse)
