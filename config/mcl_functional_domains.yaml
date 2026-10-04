@@ -1,0 +1,169 @@
+version: "0.1"
+status: initial_rule_based_projection
+purpose: >-
+  Human-readable multi-label functional domains for MCL Gene Explorer. Domains are
+  assigned only when an existing formal GO/Reactome/KEGG/CORUM term observed in the
+  current MCL annotation layer matches an explicit rule below. These rules do not
+  create a biological annotation in the absence of a source term.
+provenance_note: >-
+  mapping_method=rule_based_from_formal_annotation. Formal source term IDs/names are
+  retained alongside every MCL-domain assignment. Coverage is intentionally partial
+  until a complete gene-to-ontology snapshot is ingested.
+
+domains:
+  - id: signaling
+    label_ru: Сигнальная трансдукция
+    label_en: Signal transduction
+    keywords:
+      - signaling
+      - signal transduction
+      - receptor signaling
+      - receptor tyrosine kinase
+      - mapk
+      - erk
+      - ras signal
+      - pi3k
+      - akt signal
+      - mtor
+      - jak-stat
+      - jak stat
+      - wnt signal
+      - tgf-beta
+      - tgf beta
+      - hippo
+      - notch
+      - nf-kappa
+      - nf-kb
+      - aryl hydrocarbon
+      - ahr signaling
+    subdomains:
+      - id: ras_mapk
+        label_ru: RAS–RAF–MEK–ERK
+        keywords: [ras signaling, mapk, erk cascade, raf, mek]
+      - id: pi3k_akt_mtor
+        label_ru: PI3K–AKT–mTOR
+        keywords: [pi3k, akt signaling, mtor]
+      - id: jak_stat
+        label_ru: JAK–STAT
+        keywords: [jak-stat, jak stat, stat signaling]
+      - id: ahr
+        label_ru: AhR-сигналинг
+        keywords: [aryl hydrocarbon, ahr signaling, xenobiotic receptor]
+
+  - id: transcription
+    label_ru: Транскрипция и регуляция генов
+    label_en: Transcription and gene regulation
+    keywords: [transcription, transcriptional, rna polymerase, gene expression, promoter]
+
+  - id: epigenetics_chromatin
+    label_ru: Эпигенетика и хроматин
+    label_en: Epigenetics and chromatin
+    keywords: [chromatin, histone, nucleosome, methylation, acetylation, epigenetic]
+
+  - id: dna_replication_repair
+    label_ru: Репликация и репарация ДНК
+    label_en: DNA replication and repair
+    keywords: [dna repair, dna replication, homologous recombination, mismatch repair, nucleotide excision, base excision, double-strand break, dna damage]
+
+  - id: cell_cycle_mitosis
+    label_ru: Клеточный цикл и митоз
+    label_en: Cell cycle and mitosis
+    keywords: [cell cycle, mitotic, mitosis, chromosome segregation, spindle, cytokinesis, g1 phase, g2 phase, s phase]
+
+  - id: rna_processing
+    label_ru: Процессинг РНК и сплайсинг
+    label_en: RNA processing and splicing
+    keywords: [rna processing, rna splicing, spliceosome, splicing, mrna processing, ribonucleoprotein]
+
+  - id: translation_ribosome
+    label_ru: Трансляция и рибосома
+    label_en: Translation and ribosome
+    keywords: [translation, ribosome, ribosomal, aminoacyl-trna, trna charging]
+
+  - id: proteostasis
+    label_ru: Протеостаз
+    label_en: Proteostasis
+    keywords: [proteasome, ubiquitin, protein folding, unfolded protein, autophagy, proteostasis, chaperone, protein degradation]
+    subdomains:
+      - id: ubiquitin_proteasome
+        label_ru: Убиквитин–протеасомная система
+        keywords: [ubiquitin, proteasome]
+      - id: autophagy
+        label_ru: Аутофагия
+        keywords: [autophagy, autophagosome]
+
+  - id: mitochondrial_biology
+    label_ru: Митохондриальная биология
+    label_en: Mitochondrial biology
+    keywords: [mitochond, oxidative phosphorylation, respiratory chain, electron transport chain, mitochondrial ribosome, mitochondrial translation]
+    subdomains:
+      - id: mitochondrial_dynamics
+        label_ru: Динамика митохондрий
+        keywords: [mitochondrial fission, mitochondrial fusion, mitochondrial dynamics]
+      - id: oxphos
+        label_ru: OXPHOS и дыхательная цепь
+        keywords: [oxidative phosphorylation, respiratory chain, electron transport chain, respiratory electron transport]
+      - id: mitochondrial_translation
+        label_ru: Митохондриальная трансляция
+        keywords: [mitochondrial ribosome, mitochondrial translation, mitochondrial rrna]
+
+  - id: metabolism
+    label_ru: Метаболизм
+    label_en: Metabolism
+    keywords: [metabolic process, metabolism, glycolysis, tricarboxylic, tca cycle, citric acid cycle, fatty acid, lipid metabolism, amino acid, nucleotide biosynthesis, one-carbon, glutamine, tryptophan, kynurenine, redox]
+    subdomains:
+      - id: glycolysis
+        label_ru: Гликолиз
+        keywords: [glycolysis, glycolytic]
+      - id: tca
+        label_ru: Цикл трикарбоновых кислот
+        keywords: [tricarboxylic, tca cycle, citric acid cycle]
+      - id: lipid_metabolism
+        label_ru: Липидный обмен
+        keywords: [fatty acid, lipid metabolism, cholesterol, phospholipid]
+      - id: tryptophan_kynurenine
+        label_ru: Триптофан–кинурениновый путь
+        keywords: [tryptophan, kynurenine]
+      - id: redox_metabolism
+        label_ru: Редокс-метаболизм
+        keywords: [redox, glutathione, reactive oxygen, oxidative stress]
+
+  - id: cell_death_survival
+    label_ru: Клеточная гибель и выживание
+    label_en: Cell death and survival
+    keywords: [apoptosis, apoptotic, ferroptosis, necroptosis, cell death, survival signaling]
+
+  - id: membrane_transport
+    label_ru: Мембранный транспорт и ионный гомеостаз
+    label_en: Membrane transport and ion homeostasis
+    keywords: [transmembrane transport, ion transport, transporter, channel activity, vesicle-mediated transport, endocytosis, exocytosis]
+
+  - id: cytoskeleton_adhesion_migration
+    label_ru: Цитоскелет, адгезия и миграция
+    label_en: Cytoskeleton, adhesion and migration
+    keywords: [cytoskeleton, actin, focal adhesion, cell adhesion, cell migration, motility, extracellular matrix, integrin]
+
+  - id: immune_inflammation
+    label_ru: Иммунная и воспалительная регуляция
+    label_en: Immune and inflammatory regulation
+    keywords: [immune response, immune system, inflammatory, inflammation, cytokine, interferon, antigen processing, t cell, nk cell, innate immune]
+
+  - id: hypoxia_stress_redox
+    label_ru: Гипоксия, стресс и редокс-регуляция
+    label_en: Hypoxia, stress and redox regulation
+    keywords: [hypoxia, cellular stress, stress response, oxidative stress, reactive oxygen, unfolded protein response]
+
+  - id: differentiation_plasticity
+    label_ru: Дифференцировка, пластичность и stemness
+    label_en: Differentiation, plasticity and stemness
+    keywords: [cell differentiation, stem cell, stemness, epithelial mesenchymal, epithelial-mesenchymal, developmental process, cell fate, plasticity]
+
+  - id: vesicle_organelle_trafficking
+    label_ru: Везикулярный и органелльный транспорт
+    label_en: Vesicle and organelle trafficking
+    keywords: [vesicle, golgi, endosome, lysosome, organelle organization, intracellular transport, protein localization]
+
+  - id: extracellular_matrix_microenvironment
+    label_ru: Внеклеточный матрикс и микроокружение
+    label_en: Extracellular matrix and microenvironment
+    keywords: [extracellular matrix, matrix organization, collagen, basement membrane, cell-matrix]
