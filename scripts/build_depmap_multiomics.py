@@ -82,16 +82,34 @@ def _resolve_release(explicit: str | None) -> str:
     raise SystemExit("Cannot infer DepMap release. Pass --release, e.g. --release 26Q1")
 
 
-def _load_audit_models() -> set[str]:
-    parquet = PROCESSED / "depmap_context_audit.parquet"
-    tsv = PROCESSED / "depmap_context_audit.tsv"
-    if parquet.exists():
-        audit = pd.read_parquet(parquet, columns=["model_id"])
-    elif tsv.exists():
-        audit = pd.read_csv(tsv, sep="\t", usecols=["model_id"], low_memory=False)
+def _load_model_universe() -> tuple[set[str], str]:
+    """Prefer the full CRISPR Atlas; retain the older Wave 1 audit as fallback."""
+    atlas_parquet = PROCESSED / "depmap_crispr_model_atlas.parquet"
+    atlas_tsv = PROCESSED / "depmap_crispr_model_atlas.tsv"
+    audit_parquet = PROCESSED / "depmap_context_audit.parquet"
+    audit_tsv = PROCESSED / "depmap_context_audit.tsv"
+
+    if atlas_parquet.exists():
+        frame = pd.read_parquet(atlas_parquet, columns=["model_id"])
+        source = atlas_parquet.name
+    elif atlas_tsv.exists():
+        frame = pd.read_csv(atlas_tsv, sep="\t", usecols=["model_id"], low_memory=False)
+        source = atlas_tsv.name
+    elif audit_parquet.exists():
+        frame = pd.read_parquet(audit_parquet, columns=["model_id"])
+        source = audit_parquet.name
+    elif audit_tsv.exists():
+        frame = pd.read_csv(audit_tsv, sep="\t", usecols=["model_id"], low_memory=False)
+        source = audit_tsv.name
     else:
-        raise SystemExit("Missing data/processed/depmap_context_audit.tsv/parquet. Build the DepMap context audit first.")
-    return set(audit["model_id"].dropna().astype(str).str.strip())
+        raise SystemExit(
+            "Missing CRISPR model universe. Build scripts/build_crispr_cancer_atlas.py first "
+            "or provide the legacy depmap_context_audit.tsv/parquet."
+        )
+
+    ids = set(frame["model_id"].dropna().astype(str).str.strip())
+    ids.discard("")
+    return ids, source
 
 
 def _resolve_source(release_dir: Path, candidates: Iterable[str]) -> Path | None:
@@ -172,7 +190,7 @@ def _write_layer(layer: str, frame: pd.DataFrame) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Build compact model-level DepMap expression, relative copy-number and CRISPR Gene Effect indexes for MCL Explorer."
+        description="Build model-level DepMap expression, relative copy-number and CRISPR Gene Effect indexes for the full MCL CRISPR model universe."
     )
     parser.add_argument("--release", default=None, help="DepMap release directory, e.g. 26Q1. Inferred by default.")
     parser.add_argument("--chunksize", type=int, default=48, help="Rows per wide-matrix CSV chunk. Lower this if memory is limited.")
@@ -185,14 +203,15 @@ def main() -> None:
 
     release = _resolve_release(args.release)
     release_dir = RAW_DEPMAP / release
-    model_ids = _load_audit_models()
+    model_ids, universe_source = _load_model_universe()
     print(f"DepMap release: {release}")
-    print(f"MCL audit models requested: {len(model_ids)}")
+    print(f"MCL model universe: {len(model_ids)} models from {universe_source}")
 
     manifest: dict[str, object] = {
         "depmap_release": release,
         "built_at": _utc_now(),
-        "audit_models_n": len(model_ids),
+        "model_universe_n": len(model_ids),
+        "model_universe_source": universe_source,
         "raw_dir": str(release_dir),
         "layers": {},
     }
@@ -242,7 +261,7 @@ def main() -> None:
             "Multi-omics index is incomplete because source files are missing.\n"
             "Download the missing files from the same pinned DepMap release and rerun:\n"
             f"{expected}\n"
-            "CRISPRGeneEffect may already be present from M3.2. Use --allow-partial only if you intentionally want the available layers."
+            "CRISPRGeneEffect may already be present. Use --allow-partial only if you intentionally want the available layers."
         )
 
 
