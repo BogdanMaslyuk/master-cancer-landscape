@@ -6,9 +6,9 @@ from time import perf_counter
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .annotated_gene_explorer import AnnotatedGeneExplorerStore
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
+from .matrix_gene_explorer import MatrixGeneExplorerStore
 from .multiomics import MCLMultiOmicsStore
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
@@ -16,7 +16,7 @@ from .store import MCLDataError, MCLDataStore
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.6.0",
+    version="0.7.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -30,7 +30,7 @@ store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
-gene_explorer_store = AnnotatedGeneExplorerStore(MCL_ROOT, store)
+gene_explorer_store = MatrixGeneExplorerStore(MCL_ROOT, store)
 
 
 @app.middleware("http")
@@ -64,9 +64,6 @@ def _split_genes(value: str | None) -> tuple[str, ...]:
     return tuple(genes[:100])
 
 
-# The Explorer reads versioned processed outputs. Keeping response objects in memory
-# removes repeated pandas filtering/JSON conversion during route navigation. Restarting
-# the backend invalidates all caches after a new pipeline/index build.
 @lru_cache(maxsize=1)
 def _summary_cached():
     return store.summary()
@@ -238,6 +235,47 @@ def _gene_search_cached(
         exclude_low_sample=exclude_low_sample,
         page=page,
         page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@lru_cache(maxsize=1024)
+def _gene_matrix_cached(
+    query: str | None,
+    domain: str | None,
+    subdomain: str | None,
+    protein_class: str | None,
+    compartment: str | None,
+    hallmark: str | None,
+    cancer_id: str | None,
+    gene_effect_max: float | None,
+    delta_gene_effect_max: float | None,
+    q_value_max: float | None,
+    cliffs_delta_abs_min: float | None,
+    stable_only: bool,
+    exclude_broad: bool,
+    exclude_low_sample: bool,
+    limit: int,
+    sort_by: str,
+    sort_order: str,
+):
+    return gene_explorer_store.matrix(
+        query=query,
+        domain=domain,
+        subdomain=subdomain,
+        protein_class=protein_class,
+        compartment=compartment,
+        hallmark=hallmark,
+        cancer_id=cancer_id,
+        gene_effect_max=gene_effect_max,
+        delta_gene_effect_max=delta_gene_effect_max,
+        q_value_max=q_value_max,
+        cliffs_delta_abs_min=cliffs_delta_abs_min,
+        stable_only=stable_only,
+        exclude_broad=exclude_broad,
+        exclude_low_sample=exclude_low_sample,
+        limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
     )
@@ -475,6 +513,49 @@ def gene_search(
             exclude_low_sample,
             page,
             page_size,
+            sort_by,
+            sort_order,
+        )
+    )
+
+
+@app.get("/api/gene-matrix")
+def gene_matrix(
+    q: str | None = None,
+    domain: str | None = None,
+    subdomain: str | None = None,
+    protein_class: str | None = None,
+    compartment: str | None = None,
+    hallmark: str | None = None,
+    cancer_id: str | None = None,
+    gene_effect_max: float | None = None,
+    delta_gene_effect_max: float | None = None,
+    q_value_max: float | None = None,
+    cliffs_delta_abs_min: float | None = None,
+    stable_only: bool = False,
+    exclude_broad: bool = True,
+    exclude_low_sample: bool = True,
+    limit: int = Query(60, ge=1, le=120),
+    sort_by: str = "best_delta_gene_effect",
+    sort_order: str = "asc",
+):
+    return _guard(
+        lambda: _gene_matrix_cached(
+            q,
+            domain,
+            subdomain,
+            protein_class,
+            compartment,
+            hallmark,
+            cancer_id,
+            gene_effect_max,
+            delta_gene_effect_max,
+            q_value_max,
+            cliffs_delta_abs_min,
+            stable_only,
+            exclude_broad,
+            exclude_low_sample,
+            limit,
             sort_by,
             sort_order,
         )
