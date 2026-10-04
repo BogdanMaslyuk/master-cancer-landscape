@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import GeneSearch from "./GeneSearch";
 
 const researchLinks = [
   { href: "/", label: "Обзор", index: "01", note: "Сводка проекта" },
   { href: "/atlas", label: "Атлас опухолей", index: "02", note: "Орган → опухоль → контекст" },
   { href: "/models", label: "Клеточные линии", index: "03", note: "Модели DepMap" },
-  { href: "/genes", label: "Гены-кандидаты", index: "04", note: "Устойчивые зависимости" },
+  { href: "/genes", label: "Гены и мишени", index: "04", note: "Любой ген → контексты" },
   { href: "/pathways", label: "Функциональные модули", index: "05", note: "Пути и комплексы" },
   { href: "/network", label: "Карта связей", index: "06", note: "Гены ↔ модули" },
 ];
@@ -48,6 +49,7 @@ function NavGroup({ title, items, pathname }: { title: string; items: typeof res
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const inAtlas = pathname.startsWith("/atlas") || pathname.startsWith("/models") || pathname.startsWith("/comparisons");
+  const inGenes = pathname.startsWith("/genes");
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -67,7 +69,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-footer">
           <div className="status-dot" />
           <div>
-            <strong>MCL Explorer v0.2</strong>
+            <strong>MCL Explorer v0.3</strong>
             <span>Локальная исследовательская среда</span>
           </div>
         </div>
@@ -78,8 +80,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="workspace-context">
             <span className="workspace-kicker">MASTER CANCER LANDSCAPE</span>
             <span className="workspace-divider" />
-            <span>{inAtlas ? "От заболевания к клеточной модели" : "Поиск противоопухолевых зависимостей"}</span>
+            <span>{inGenes ? "От гена к опухолевому контексту" : inAtlas ? "От заболевания к клеточной модели" : "Поиск противоопухолевых зависимостей"}</span>
           </div>
+          <GeneSearch compact />
           <div className="workspace-badge">M3.3.1 · исследовательский режим</div>
         </header>
         <main className="workspace-main">{children}</main>
