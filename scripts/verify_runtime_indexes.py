@@ -7,7 +7,7 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-INDEX_DIR = ROOT / "data" / "processed" / "gene_explorer"
+INDEX_DIR = ROOT / "data" / "runtime" / "explorer"
 CONTRACT = "mcl-gene-explorer-runtime-v1"
 SCHEMA_VERSION = "1.0"
 
@@ -30,6 +30,7 @@ def main() -> None:
     manifest = json.loads((INDEX_DIR / "manifest.json").read_text(encoding="utf-8"))
     require(manifest.get("index_contract") == CONTRACT, f"Unexpected index contract: {manifest.get('index_contract')!r}")
     require(str(manifest.get("schema_version")) == SCHEMA_VERSION, f"Unexpected schema version: {manifest.get('schema_version')!r}")
+    require(manifest.get("runtime_root") == "data/runtime/explorer", f"Unexpected runtime root: {manifest.get('runtime_root')!r}")
 
     catalog = pd.read_parquet(INDEX_DIR / "gene_catalog.parquet")
     contexts = pd.read_parquet(INDEX_DIR / "gene_context_metrics.parquet")
@@ -56,12 +57,19 @@ def main() -> None:
     actual_genes = int(catalog["gene_symbol"].astype(str).nunique())
     require(manifest_genes == actual_genes, f"Manifest genes_n={manifest_genes} but catalog contains {actual_genes} unique genes")
 
+    model_layers = INDEX_DIR / "model_layers"
+    for layer in ("gene_effect", "expression", "copy_number"):
+        require((model_layers / f"{layer}.npy").exists(), f"Missing runtime model layer: {layer}.npy")
+        require((model_layers / f"{layer}.json").exists(), f"Missing runtime model layer metadata: {layer}.json")
+
     print("Explorer runtime index verification: PASS")
+    print(f"Runtime root: {INDEX_DIR.relative_to(ROOT)}")
     print(f"Contract: {CONTRACT}")
     print(f"Schema version: {SCHEMA_VERSION}")
     print(f"Genes: {actual_genes}")
     print(f"Gene x comparison rows: {len(contexts)}")
     print(f"Annotation rows: {len(annotations)}")
+    print("Fast model layers: gene_effect, expression, copy_number")
 
 
 if __name__ == "__main__":
