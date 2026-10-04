@@ -59,6 +59,9 @@ data/processed/depmap_model_copy_number_genes.json
 data/processed/depmap_model_gene_effect_genes.json
 data/processed/depmap_model_multiomics_manifest.json
 
+# Generated Gene Explorer indexes
+data/processed/gene_explorer/
+
 # Secrets
 .env
 .env.*
