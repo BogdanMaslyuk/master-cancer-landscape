@@ -1,41 +1,19 @@
-version: "0.1"
-status: initial_rule_based_projection
+version: "0.2"
+status: provenance_aware_rule_based_projection
 purpose: >-
-  Human-readable multi-label functional domains for MCL Gene Explorer. Domains are
-  assigned only when an existing formal GO/Reactome/KEGG/CORUM term observed in the
-  current MCL annotation layer matches an explicit rule below. These rules do not
-  create a biological annotation in the absence of a source term.
+  Human-readable multi-label functional groupings for MCL Gene Explorer. Groupings
+  are assigned only when an existing formal source term matches an explicit rule.
+  These rules do not create a biological annotation in the absence of a source term.
 provenance_note: >-
-  mapping_method=rule_based_from_formal_annotation. Formal source term IDs/names are
-  retained alongside every MCL-domain assignment. Coverage is intentionally partial
-  until a complete gene-to-ontology snapshot is ingested.
+  Formal source term IDs/names are retained alongside every MCL assignment. Domain,
+  protein-class, compartment and Hallmark layers are navigation/interpretation layers
+  over formal annotations and must not be treated as independent primary evidence.
 
 domains:
   - id: signaling
     label_ru: Сигнальная трансдукция
     label_en: Signal transduction
-    keywords:
-      - signaling
-      - signal transduction
-      - receptor signaling
-      - receptor tyrosine kinase
-      - mapk
-      - erk
-      - ras signal
-      - pi3k
-      - akt signal
-      - mtor
-      - jak-stat
-      - jak stat
-      - wnt signal
-      - tgf-beta
-      - tgf beta
-      - hippo
-      - notch
-      - nf-kappa
-      - nf-kb
-      - aryl hydrocarbon
-      - ahr signaling
+    keywords: [signaling, signal transduction, receptor signaling, receptor tyrosine kinase, mapk, erk, ras signal, pi3k, akt signal, mtor, jak-stat, jak stat, wnt signal, tgf-beta, tgf beta, hippo, notch, nf-kappa, nf-kb, aryl hydrocarbon, ahr signaling]
     subdomains:
       - id: ras_mapk
         label_ru: RAS–RAF–MEK–ERK
@@ -167,3 +145,129 @@ domains:
     label_ru: Внеклеточный матрикс и микроокружение
     label_en: Extracellular matrix and microenvironment
     keywords: [extracellular matrix, matrix organization, collagen, basement membrane, cell-matrix]
+
+protein_classes:
+  - id: receptor
+    label_ru: Рецептор
+    sources: [GO:MF, InterPro]
+    keywords: [receptor activity, receptor binding domain, transmembrane receptor]
+  - id: kinase
+    label_ru: Киназа
+    sources: [GO:MF, InterPro]
+    keywords: [kinase activity, protein kinase, kinase domain]
+  - id: phosphatase
+    label_ru: Фосфатаза
+    sources: [GO:MF, InterPro]
+    keywords: [phosphatase activity, protein phosphatase, phosphatase domain]
+  - id: transcription_factor
+    label_ru: Транскрипционный фактор
+    sources: [GO:MF, InterPro]
+    keywords: [dna-binding transcription factor, transcription factor activity, transcription regulator activity]
+  - id: transporter
+    label_ru: Транспортер
+    sources: [GO:MF, InterPro]
+    keywords: [transmembrane transporter activity, transporter activity, solute carrier]
+  - id: ion_channel
+    label_ru: Ионный канал
+    sources: [GO:MF, InterPro]
+    keywords: [ion channel activity, channel activity, ion channel]
+  - id: protease
+    label_ru: Протеаза
+    sources: [GO:MF, InterPro]
+    keywords: [peptidase activity, protease, endopeptidase activity]
+  - id: ubiquitin_ligase
+    label_ru: Убиквитин-лигаза
+    sources: [GO:MF, InterPro]
+    keywords: [ubiquitin-protein transferase activity, ubiquitin ligase, e3 ubiquitin]
+  - id: enzyme
+    label_ru: Фермент
+    sources: [GO:MF]
+    keywords: [catalytic activity]
+
+compartments:
+  - id: nucleus
+    label_ru: Ядро
+    sources: [GO:CC]
+    keywords: [nucleus, nuclear, nucleoplasm, chromosome]
+  - id: cytosol
+    label_ru: Цитозоль / цитоплазма
+    sources: [GO:CC]
+    keywords: [cytosol, cytoplasm]
+  - id: plasma_membrane
+    label_ru: Плазматическая мембрана
+    sources: [GO:CC]
+    keywords: [plasma membrane, cell surface]
+  - id: mitochondrion
+    label_ru: Митохондрия
+    sources: [GO:CC]
+    keywords: [mitochond]
+  - id: endoplasmic_reticulum
+    label_ru: Эндоплазматический ретикулум
+    sources: [GO:CC]
+    keywords: [endoplasmic reticulum]
+  - id: golgi
+    label_ru: Аппарат Гольджи
+    sources: [GO:CC]
+    keywords: [golgi]
+  - id: lysosome
+    label_ru: Лизосома
+    sources: [GO:CC]
+    keywords: [lysosome, lysosomal]
+  - id: endosome
+    label_ru: Эндосома
+    sources: [GO:CC]
+    keywords: [endosome, endosomal]
+  - id: ribosome
+    label_ru: Рибосома
+    sources: [GO:CC]
+    keywords: [ribosome, ribosomal]
+  - id: cytoskeleton
+    label_ru: Цитоскелет
+    sources: [GO:CC]
+    keywords: [cytoskeleton, actin filament, microtubule]
+  - id: extracellular
+    label_ru: Внеклеточное пространство / секретируемый белок
+    sources: [GO:CC]
+    keywords: [extracellular region, extracellular space, secretory granule lumen]
+
+hallmarks:
+  - id: proliferative_signaling
+    label_ru: Поддержание пролиферативного сигналинга
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [cell proliferation, growth factor, mitogenic, mapk, pi3k, cell cycle]
+  - id: resisting_cell_death
+    label_ru: Уклонение от клеточной гибели
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [apoptosis, apoptotic, cell death, ferroptosis, necroptosis]
+  - id: genome_instability
+    label_ru: Геномная нестабильность и мутагенез
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [dna repair, dna damage, chromosome segregation, replication stress, genome stability]
+  - id: invasion_metastasis
+    label_ru: Инвазия и метастазирование
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [cell migration, invasion, epithelial mesenchymal, epithelial-mesenchymal, focal adhesion, extracellular matrix]
+  - id: angiogenesis
+    label_ru: Ангиогенез
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [angiogenesis, blood vessel development, vascular endothelial]
+  - id: immune_evasion
+    label_ru: Иммунное уклонение
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [negative regulation of immune, immune checkpoint, antigen presentation, t cell inhibition, nk cell inhibition]
+  - id: metabolic_reprogramming
+    label_ru: Метаболическое перепрограммирование
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [glycolysis, metabolic process, oxidative phosphorylation, glutamine, lipid metabolism, nucleotide biosynthesis]
+  - id: tumor_promoting_inflammation
+    label_ru: Опухоль-промотирующее воспаление
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [inflammatory response, inflammation, cytokine production, nf-kappa]
+  - id: phenotypic_plasticity
+    label_ru: Фенотипическая пластичность
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [cell differentiation, stem cell, stemness, epithelial mesenchymal, epithelial-mesenchymal, cell fate]
+  - id: replicative_immortality
+    label_ru: Репликативное бессмертие
+    sources: [GO:BP, REAC, KEGG]
+    keywords: [telomere, telomerase, replicative senescence]
