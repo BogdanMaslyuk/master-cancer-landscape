@@ -9,7 +9,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
-RUNTIME_DIR = PROCESSED / "gene_explorer" / "model_layers"
+RUNTIME_DIR = ROOT / "data" / "runtime" / "explorer" / "model_layers"
 LAYERS = ("gene_effect", "expression", "copy_number")
 
 
