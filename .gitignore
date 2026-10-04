@@ -40,6 +40,9 @@ data/raw/
 data/external/
 data/cache/
 
+# Runtime serving artifacts (generated locally from processed scientific outputs)
+data/runtime/
+
 # Large DepMap source files
 *CRISPRGeneEffect*.csv
 *CRISPRGeneDependency*.csv
@@ -66,7 +69,7 @@ data/processed/depmap_model_copy_number_genes.json
 data/processed/depmap_model_gene_effect_genes.json
 data/processed/depmap_model_multiomics_manifest.json
 
-# Generated Gene Explorer indexes
+# Build-stage Gene Explorer indexes/reference snapshots
 data/processed/gene_explorer/
 
 # Generated Explorer readiness/QC reports
