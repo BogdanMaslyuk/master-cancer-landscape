@@ -3,7 +3,7 @@ from __future__ import annotations
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
 from .crispr_catalog import CRISPRModelCatalog
-from .fast_runtime_gene_explorer import FastRuntimeGeneExplorerStore
+from .dependency_gene_explorer import DependencyAwareGeneExplorerStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
 from .repositories.atlas_repository import AtlasRepository
@@ -32,7 +32,7 @@ crispr_catalog = CRISPRModelCatalog(MCL_ROOT)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
 model_dependency_store = ModelDependencyStore(MCL_ROOT)
-gene_explorer_store = FastRuntimeGeneExplorerStore(MCL_ROOT, store)
+gene_explorer_store = DependencyAwareGeneExplorerStore(MCL_ROOT, store)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
