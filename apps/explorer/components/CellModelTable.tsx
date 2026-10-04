@@ -2,27 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
-type Variant = {
-  gene?: string | null;
-  protein_change?: string | null;
-  kind?: string | null;
-};
-
-type Model = {
-  cancer_id: string;
-  cancer_ru?: string;
-  organ_ru?: string;
-  molecular_context?: string;
-  model_id: string;
-  cell_line_name: string;
-  assigned_group: string;
-  assigned_group_ru: string;
-  sequencing_available?: boolean;
-  alteration_status?: string;
-  variants?: Variant[];
-  assignment_reason?: string;
-};
+import type { ModelListItem, ModelVariant } from "../lib/generated/api-types";
 
 const tabs = [
   { id: "all", label: "Все" },
@@ -31,7 +11,7 @@ const tabs = [
   { id: "excluded", label: "Исключённые" },
 ];
 
-function variantLabel(variants: Variant[] | undefined) {
+function variantLabel(variants: ModelVariant[] | undefined) {
   if (!variants?.length) return "Определяющие варианты не зарегистрированы";
   return variants
     .map((v) => [v.gene, v.protein_change].filter(Boolean).join(" "))
@@ -39,7 +19,7 @@ function variantLabel(variants: Variant[] | undefined) {
     .join(" · ");
 }
 
-export default function CellModelTable({ models, showContext = false }: { models: Model[]; showContext?: boolean }) {
+export default function CellModelTable({ models, showContext = false }: { models: ModelListItem[]; showContext?: boolean }) {
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
 
@@ -49,7 +29,7 @@ export default function CellModelTable({ models, showContext = false }: { models
       const inTab = tab === "all" || m.assigned_group === tab;
       if (!inTab) return false;
       if (!needle) return true;
-      const haystack = `${m.cell_line_name} ${m.model_id} ${m.cancer_ru || ""} ${m.organ_ru || ""} ${m.molecular_context || ""} ${variantLabel(m.variants)}`.toLowerCase();
+      const haystack = `${m.cell_line_name || ""} ${m.model_id} ${m.cancer_ru || ""} ${m.organ_ru || ""} ${m.molecular_context || ""} ${variantLabel(m.variants)}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [models, query, tab]);
@@ -92,9 +72,9 @@ export default function CellModelTable({ models, showContext = false }: { models
           <tbody>
             {filtered.map((m) => (
               <tr key={`${m.cancer_id}-${m.model_id}`} className={m.assigned_group === "excluded" ? "row-muted" : ""}>
-                <td><div className="model-name"><strong>{m.cell_line_name}</strong><small>{m.model_id}</small></div></td>
+                <td><div className="model-name"><strong>{m.cell_line_name || m.model_id}</strong><small>{m.model_id}</small></div></td>
                 {showContext && <td><Link className="context-cell-link" href={`/atlas/${m.cancer_id}`}><strong>{m.cancer_ru || m.cancer_id}</strong><small>{m.molecular_context || "—"}</small></Link></td>}
-                <td><span className={`group-badge ${m.assigned_group}`}>{m.assigned_group_ru}</span></td>
+                <td><span className={`group-badge ${m.assigned_group}`}>{m.assigned_group_ru || m.assigned_group}</span></td>
                 <td><div className="variant-copy">{variantLabel(m.variants)}</div></td>
                 <td>{m.sequencing_available ? <span className="status-inline yes">доступно</span> : <span className="status-inline no">нет</span>}</td>
                 <td><Link className="row-link" href={`/models/${encodeURIComponent(m.model_id)}`}>Открыть →</Link></td>
