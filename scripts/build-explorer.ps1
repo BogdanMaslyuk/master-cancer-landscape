@@ -28,6 +28,7 @@ if ($AllowPartialMultiomics) {
     $MultiomicsArgs += "--allow-partial"
 }
 Run-Step "Build DepMap multi-omics indexes" $MultiomicsArgs
+Run-Step "Build fast DepMap runtime arrays" @(".\scripts\build_depmap_runtime_arrays.py")
 
 $Reference = Join-Path $Root "data\processed\gene_explorer\gene_reference.parquet"
 if ($RefreshReference -or -not (Test-Path $Reference)) {
