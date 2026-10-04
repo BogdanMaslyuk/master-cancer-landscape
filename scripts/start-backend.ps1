@@ -15,7 +15,8 @@ Set-Location $Root
 Write-Host "MCL backend" -ForegroundColor Cyan
 Write-Host "Root: $Root"
 Write-Host "API:  http://${HostAddress}:$Port"
+Write-Host "Entrypoint: mcl_api.main:app"
 Write-Host "Keep this PowerShell window open while using MCL Explorer." -ForegroundColor Yellow
 
-& $Python -m uvicorn mcl_api.main_fast:app --app-dir (Join-Path $Root "apps\api") --host $HostAddress --port $Port
+& $Python -m uvicorn mcl_api.main:app --app-dir (Join-Path $Root "apps\api") --host $HostAddress --port $Port
 exit $LASTEXITCODE
