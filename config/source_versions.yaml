@@ -44,6 +44,13 @@ depmap:
   - CRISPRGeneDependency.csv
   - OmicsSomaticMutations.csv
   - OmicsProfiles.csv
+  optional_multiomics_files:
+  - OmicsExpressionProteinCodingGenesTPMLogp1.csv
+  - OmicsCNGeneWGS.csv (OmicsCNGene.csv is accepted as a compatibility fallback)
+  multiomics_semantics:
+    expression: log2(TPM + 1) model-level protein-coding RNA expression
+    copy_number: relative copy number on the current linear DepMap scale; not treated as absolute integer copy number
+    gene_effect: Chronos CRISPR Gene Effect; more negative values indicate stronger loss-of-function dependency
   note: Files must come from the same pinned public release. sync-depmap uses the official no-CAPTCHA metadata endpoint; it never scrapes or bypasses CAPTCHA-protected downloads. If DepMap enables bearer-token file URLs, DEPMAP_BEARER_TOKEN can be used without changing the analysis layer.
 gprofiler:
   enabled: true
