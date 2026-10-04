@@ -21,6 +21,8 @@ jobs:
         run: python -m pytest ./tests -q
       - name: API tests
         run: python -m pytest ./apps/api/tests -q
+      - name: Generated API type contract
+        run: python ./scripts/generate_frontend_api_types.py --check
 
   frontend:
     runs-on: ubuntu-latest
