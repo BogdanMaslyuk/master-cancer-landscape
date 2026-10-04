@@ -50,6 +50,10 @@ class GeneMutationAssociationsResponse(RootModel[dict[str, Any]]):
     pass
 
 
+class GeneDependencyLandscapeResponse(RootModel[dict[str, Any]]):
+    pass
+
+
 class GeneSearchResponse(ApiResponseModel):
     page: int
     page_size: int
