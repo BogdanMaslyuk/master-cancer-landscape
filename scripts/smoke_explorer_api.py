@@ -18,6 +18,7 @@ from mcl_api.main import app  # noqa: E402
 CHECKS = (
     ("health", "/health"),
     ("genes", "/api/genes/search?page_size=3"),
+    ("gene detail", "/api/genes/AHR"),
     ("gene facets", "/api/genes/facets"),
     ("gene matrix", "/api/gene-matrix?limit=3"),
     ("pathways", "/api/pathways?significant_only=true&limit=5"),
