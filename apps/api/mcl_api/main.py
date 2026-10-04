@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+from functools import lru_cache
+from time import perf_counter
+
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .atlas import MCLAtlas
@@ -26,6 +29,17 @@ atlas_store = MCLAtlas(MCL_ROOT, store)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 
 
+@app.middleware("http")
+async def add_mcl_timing(request: Request, call_next):
+    start = perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (perf_counter() - start) * 1000.0
+    response.headers["X-MCL-Process-Time-Ms"] = f"{elapsed_ms:.1f}"
+    if request.method == "GET" and request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "public, max-age=300")
+    return response
+
+
 def _guard(call):
     try:
         return call()
@@ -35,6 +49,139 @@ def _guard(call):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# The Explorer reads versioned processed outputs. Keeping response objects in memory
+# removes repeated pandas filtering/JSON conversion during route navigation. Restarting
+# the backend invalidates all caches after a new pipeline build.
+@lru_cache(maxsize=1)
+def _summary_cached():
+    return store.summary()
+
+
+@lru_cache(maxsize=1)
+def _atlas_cached():
+    return atlas_store.atlas()
+
+
+@lru_cache(maxsize=32)
+def _cohort_cached(cancer_id: str):
+    return cohort_store.summary(cancer_id)
+
+
+@lru_cache(maxsize=32)
+def _context_cached(cancer_id: str):
+    return atlas_store.context(cancer_id)
+
+
+@lru_cache(maxsize=256)
+def _models_cached(
+    cancer_id: str | None,
+    group: str | None,
+    search: str | None,
+    sequencing_only: bool,
+    limit: int,
+):
+    return atlas_store.models(
+        cancer_id=cancer_id,
+        group=group,
+        search=search,
+        sequencing_only=sequencing_only,
+        limit=limit,
+    )
+
+
+@lru_cache(maxsize=512)
+def _model_cached(model_id: str):
+    return atlas_store.model(model_id)
+
+
+@lru_cache(maxsize=1)
+def _comparisons_cached():
+    return store.comparison_specs()
+
+
+@lru_cache(maxsize=64)
+def _comparison_cached(comparison_id: str):
+    return store.comparison(comparison_id)
+
+
+@lru_cache(maxsize=512)
+def _comparison_genes_cached(
+    comparison_id: str,
+    page: int,
+    page_size: int,
+    search: str | None,
+    negative_delta_only: bool,
+    exclude_broad: bool,
+    exclude_low_sample: bool,
+    fdr_only: bool,
+    stable_only: bool,
+    sort_by: str,
+    sort_order: str,
+):
+    return store.comparison_genes(
+        comparison_id,
+        page=page,
+        page_size=page_size,
+        search=search,
+        negative_delta_only=negative_delta_only,
+        exclude_broad=exclude_broad,
+        exclude_low_sample=exclude_low_sample,
+        fdr_only=fdr_only,
+        stable_only=stable_only,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@lru_cache(maxsize=256)
+def _genes_cached(search: str | None, limit: int):
+    return store.genes(search=search, limit=limit)
+
+
+@lru_cache(maxsize=1)
+def _stable_genes_cached():
+    return store.stable_genes()
+
+
+@lru_cache(maxsize=512)
+def _gene_cached(gene_symbol: str):
+    return store.gene(gene_symbol)
+
+
+@lru_cache(maxsize=256)
+def _pathways_cached(
+    top_n: int | None,
+    source: str | None,
+    stable_only: bool,
+    significant_only: bool,
+    search: str | None,
+    limit: int,
+):
+    return store.pathways(
+        top_n=top_n,
+        source=source,
+        stable_only=stable_only,
+        significant_only=significant_only,
+        search=search,
+        limit=limit,
+    )
+
+
+@lru_cache(maxsize=1)
+def _pathway_stability_cached():
+    return store.pathway_stability()
+
+
+@lru_cache(maxsize=32)
+def _network_cached(stable_only: bool, limit_terms: int):
+    return store.network(stable_only=stable_only, limit_terms=limit_terms)
+
+
+@lru_cache(maxsize=1)
+def _qc_cached():
+    return store.qc()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "mcl_root": str(MCL_ROOT)}
@@ -42,22 +189,22 @@ def health():
 
 @app.get("/api/summary")
 def summary():
-    return _guard(store.summary)
+    return _guard(_summary_cached)
 
 
 @app.get("/api/atlas")
 def atlas():
-    return _guard(atlas_store.atlas)
+    return _guard(_atlas_cached)
 
 
 @app.get("/api/atlas/{cancer_id}/cohort")
 def cancer_model_cohort(cancer_id: str):
-    return _guard(lambda: cohort_store.summary(cancer_id))
+    return _guard(lambda: _cohort_cached(cancer_id))
 
 
 @app.get("/api/atlas/{cancer_id}")
 def cancer_context(cancer_id: str):
-    return _guard(lambda: atlas_store.context(cancer_id))
+    return _guard(lambda: _context_cached(cancer_id))
 
 
 @app.get("/api/models")
@@ -69,29 +216,23 @@ def models(
     limit: int = Query(1000, ge=1, le=5000),
 ):
     return _guard(
-        lambda: atlas_store.models(
-            cancer_id=cancer_id,
-            group=group,
-            search=search,
-            sequencing_only=sequencing_only,
-            limit=limit,
-        )
+        lambda: _models_cached(cancer_id, group, search, sequencing_only, limit)
     )
 
 
 @app.get("/api/models/{model_id}")
 def model(model_id: str):
-    return _guard(lambda: atlas_store.model(model_id))
+    return _guard(lambda: _model_cached(model_id))
 
 
 @app.get("/api/comparisons")
 def comparisons():
-    return _guard(store.comparison_specs)
+    return _guard(_comparisons_cached)
 
 
 @app.get("/api/comparisons/{comparison_id}")
 def comparison(comparison_id: str):
-    return _guard(lambda: store.comparison(comparison_id))
+    return _guard(lambda: _comparison_cached(comparison_id))
 
 
 @app.get("/api/comparisons/{comparison_id}/genes")
@@ -109,35 +250,35 @@ def comparison_genes(
     sort_order: str = "asc",
 ):
     return _guard(
-        lambda: store.comparison_genes(
+        lambda: _comparison_genes_cached(
             comparison_id,
-            page=page,
-            page_size=page_size,
-            search=search,
-            negative_delta_only=negative_delta_only,
-            exclude_broad=exclude_broad,
-            exclude_low_sample=exclude_low_sample,
-            fdr_only=fdr_only,
-            stable_only=stable_only,
-            sort_by=sort_by,
-            sort_order=sort_order,
+            page,
+            page_size,
+            search,
+            negative_delta_only,
+            exclude_broad,
+            exclude_low_sample,
+            fdr_only,
+            stable_only,
+            sort_by,
+            sort_order,
         )
     )
 
 
 @app.get("/api/genes")
 def genes(search: str | None = None, limit: int = Query(200, ge=1, le=2000)):
-    return _guard(lambda: store.genes(search=search, limit=limit))
+    return _guard(lambda: _genes_cached(search, limit))
 
 
 @app.get("/api/genes/stable")
 def stable_genes():
-    return _guard(store.stable_genes)
+    return _guard(_stable_genes_cached)
 
 
 @app.get("/api/genes/{gene_symbol}")
 def gene(gene_symbol: str):
-    return _guard(lambda: store.gene(gene_symbol))
+    return _guard(lambda: _gene_cached(gene_symbol))
 
 
 @app.get("/api/pathways")
@@ -150,27 +291,27 @@ def pathways(
     limit: int = Query(1000, ge=1, le=5000),
 ):
     return _guard(
-        lambda: store.pathways(
-            top_n=top_n,
-            source=source,
-            stable_only=stable_only,
-            significant_only=significant_only,
-            search=search,
-            limit=limit,
+        lambda: _pathways_cached(
+            top_n,
+            source,
+            stable_only,
+            significant_only,
+            search,
+            limit,
         )
     )
 
 
 @app.get("/api/pathways/stability")
 def pathway_stability():
-    return _guard(store.pathway_stability)
+    return _guard(_pathway_stability_cached)
 
 
 @app.get("/api/network")
 def network(stable_only: bool = True, limit_terms: int = Query(100, ge=1, le=500)):
-    return _guard(lambda: store.network(stable_only=stable_only, limit_terms=limit_terms))
+    return _guard(lambda: _network_cached(stable_only, limit_terms))
 
 
 @app.get("/api/qc")
 def qc():
-    return _guard(store.qc)
+    return _guard(_qc_cached)
