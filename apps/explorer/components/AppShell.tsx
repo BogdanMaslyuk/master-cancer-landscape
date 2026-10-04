@@ -9,18 +9,20 @@ const researchLinks = [
   { href: "/atlas", label: "Атлас опухолей", index: "02", note: "Орган → опухоль → контекст" },
   { href: "/models", label: "Клеточные линии", index: "03", note: "Модели DepMap" },
   { href: "/genes", label: "Гены и мишени", index: "04", note: "Любой ген → функции → контексты" },
-  { href: "/pathways", label: "Функциональные модули", index: "05", note: "Пути и комплексы" },
-  { href: "/network", label: "Карта связей", index: "06", note: "Гены ↔ модули" },
+  { href: "/genes/matrix", label: "Ген × опухоль", index: "05", note: "Сравнение зависимостей" },
+  { href: "/pathways", label: "Функциональные модули", index: "06", note: "Пути и комплексы" },
+  { href: "/network", label: "Карта связей", index: "07", note: "Гены ↔ модули" },
 ];
 
 const systemLinks = [
-  { href: "/qc", label: "Контроль качества", index: "07", note: "Ошибки и ограничения" },
-  { href: "/methodology", label: "Методика и термины", index: "08", note: "Как читать MCL" },
+  { href: "/qc", label: "Контроль качества", index: "08", note: "Ошибки и ограничения" },
+  { href: "/methodology", label: "Методика и термины", index: "09", note: "Как читать MCL" },
 ];
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   if (href === "/atlas" && pathname.startsWith("/comparisons")) return true;
+  if (href === "/genes" && pathname.startsWith("/genes/matrix")) return false;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -69,7 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-footer">
           <div className="status-dot" />
           <div>
-            <strong>MCL Explorer v0.4</strong>
+            <strong>MCL Explorer v0.5</strong>
             <span>Локальная исследовательская среда</span>
           </div>
         </div>
