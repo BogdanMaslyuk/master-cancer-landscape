@@ -7,6 +7,10 @@ class PharmacologySummaryResponse(ApiResponseModel):
     pass
 
 
+class PharmacologyConcordanceResponse(ApiResponseModel):
+    pass
+
+
 class ModelPharmacologyResponse(ApiResponseModel):
     pass
 
