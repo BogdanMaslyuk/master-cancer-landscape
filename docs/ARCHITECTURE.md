@@ -119,7 +119,7 @@ Examples:
 - pathway browsing;
 - model browsing.
 
-Run-time endpoints must prefer materialized indexes and fail clearly when required indexes are missing or incompatible.
+Run-time endpoints read materialized indexes. If a required Gene Explorer runtime artifact is missing, the API fails fast with an actionable rebuild message instead of recomputing scientific layers inside the HTTP request.
 
 ## 4. Gene Explorer runtime contract
 
@@ -182,6 +182,8 @@ Normal startup should use scripts instead of memorizing long commands:
 .\scripts\start-frontend.ps1
 ```
 
+`start-backend.ps1` launches the single canonical API entrypoint `mcl_api.main:app`.
+
 `start-frontend.ps1` automatically builds the production frontend if `.next/BUILD_ID` is absent.
 
 ## 7. Verification gate
@@ -203,28 +205,41 @@ The gate includes:
 
 A feature is not considered baseline-stable until this gate passes locally.
 
-## 8. Current compatibility layer and cleanup rule
+## 8. Consolidated Gene Explorer runtime
 
-The fast materialized-index runtime currently enters through `mcl_api.main_fast:app`. This is a compatibility layer introduced after interactive Gene Explorer requests were found to rebuild expensive annotation mappings.
+The temporary `mcl_api.main_fast:app` compatibility layer has been removed.
 
-It must remain until the local clean-build gate is green. After that verification, the fast runtime will be folded into the standard `mcl_api.main:app` entrypoint and `main_fast.py` removed.
+The standard API now owns the production runtime directly:
 
-Likewise, duplicate/legacy Gene Explorer modules must not be deleted until their import/call sites and tests have been audited.
+```text
+mcl_api.main:app
+    -> RuntimeGeneExplorerStore
+    -> materialized Gene Explorer indexes
+```
 
-## 9. Planned structural cleanup
+`RuntimeGeneExplorerStore` is intentionally strict:
 
-After a green clean-build gate:
+- `gene_catalog.parquet` is the interactive gene catalog;
+- `gene_context_metrics.parquet` is the interactive Gene x Cancer evidence table;
+- `gene_annotations.parquet` is the interactive annotation/provenance table;
+- missing runtime artifacts raise a clear `MCLDataError` directing the developer to rebuild Explorer indexes;
+- runtime search and facets do not fall back to ontology projection or catalog reconstruction.
 
-1. fold the materialized-index runtime into `mcl_api.main:app`;
-2. remove `main_fast.py`;
-3. remove duplicate Gene Explorer implementations after call-site audit;
-4. split API into repositories, services, schemas, and routers;
-5. replace broad frontend `Record<string, any>` contracts with explicit/generated API types;
-6. split large gene pages into focused components;
-7. pin Python/Node dependency locks;
-8. make CI a required clean-build gate.
+The old standalone `deep_gene_explorer.py` implementation was removed because its descriptive dependency, correlation and mutation-association functionality is already implemented in `MatrixGeneExplorerStore`.
 
-Do not perform destructive consolidation before local verification.
+## 9. Remaining structural cleanup
+
+With the clean baseline and runtime consolidation complete, later refactoring can proceed incrementally:
+
+1. split the large FastAPI module into routers, services and repository dependencies;
+2. reduce inheritance inside Gene Explorer where composition provides clearer ownership;
+3. replace broad frontend `Record<string, any>` contracts with explicit/generated API types;
+4. split large gene pages into focused components;
+5. continue pinning and auditing Python/Node dependencies;
+6. make CI a required branch gate before integration;
+7. eventually move rebuildable Explorer artifacts from `data/processed/gene_explorer/` to an explicit runtime directory if that migration provides enough benefit to justify path churn.
+
+These changes should preserve the scientific data model and be performed behind the existing verification gate.
 
 ## 10. Long-term architecture
 
