@@ -6,8 +6,8 @@ import GeneSearch from "./GeneSearch";
 
 const researchLinks = [
   { href: "/", label: "Обзор", index: "01", note: "Сводка проекта" },
-  { href: "/atlas", label: "Атлас опухолей", index: "02", note: "Орган → опухоль → контекст" },
-  { href: "/models", label: "Клеточные линии", index: "03", note: "Модели DepMap" },
+  { href: "/atlas", label: "Атлас опухолей", index: "02", note: "Орган → опухоль → модели" },
+  { href: "/models", label: "Исследователь моделей", index: "03", note: "Поиск · фильтры · карточки" },
   { href: "/genes", label: "Гены и мишени", index: "04", note: "Любой ген → функции → контексты" },
   { href: "/genes/matrix", label: "Ген × опухоль", index: "05", note: "Сравнение зависимостей" },
   { href: "/pathways", label: "Функциональные модули", index: "06", note: "Пути и комплексы" },
@@ -71,7 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-footer">
           <div className="status-dot" />
           <div>
-            <strong>MCL Explorer v0.5</strong>
+            <strong>MCL Explorer v0.6</strong>
             <span>Локальная исследовательская среда</span>
           </div>
         </div>
@@ -82,7 +82,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="workspace-context">
             <span className="workspace-kicker">MASTER CANCER LANDSCAPE</span>
             <span className="workspace-divider" />
-            <span>{inGenes ? "От функции и гена к опухолевому контексту" : inAtlas ? "От заболевания к клеточной модели" : "Поиск противоопухолевых зависимостей"}</span>
+            <span>{inGenes ? "От функции и гена к опухолевому контексту" : inAtlas ? "От опухоли к модели и функциональным зависимостям" : "Поиск противоопухолевых зависимостей"}</span>
           </div>
           <GeneSearch compact />
           <div className="workspace-badge">M3.3.1 · исследовательский режим</div>
