@@ -13,9 +13,9 @@ type Point = {
 };
 
 type Relationship = {
-  layer: "expression" | "copy_number" | string;
-  label: string;
-  available: boolean;
+  layer?: "expression" | "copy_number" | string;
+  label?: string;
+  available?: boolean;
   rho?: number | null;
   p_value?: number | null;
   n?: number;
