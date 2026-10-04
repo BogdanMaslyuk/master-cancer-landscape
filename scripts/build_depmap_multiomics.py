@@ -15,7 +15,10 @@ PROCESSED = ROOT / "data" / "processed"
 RAW_DEPMAP = ROOT / "data" / "raw" / "depmap"
 
 LAYER_SOURCES: dict[str, tuple[str, ...]] = {
-    "expression": ("OmicsExpressionProteinCodingGenesTPMLogp1.csv",),
+    "expression": (
+        "OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv",
+        "OmicsExpressionProteinCodingGenesTPMLogp1.csv",
+    ),
     "copy_number": ("OmicsCNGeneWGS.csv", "OmicsCNGene.csv"),
     "gene_effect": ("CRISPRGeneEffect.csv",),
 }
