@@ -20,6 +20,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 The bootstrap script:
 
 1. creates `.venv` with Python 3.13 when it is missing;
+   - if `uv` is available, it is preferred and can provision Python 3.13 automatically;
+   - otherwise the script uses a locally installed Python 3.13 from `py.exe` or `python.exe`;
 2. pins pip to the Architecture v1 bootstrap version;
 3. installs the scientific core and API against `constraints/python-3.13.txt`;
 4. runs `pip check`;
