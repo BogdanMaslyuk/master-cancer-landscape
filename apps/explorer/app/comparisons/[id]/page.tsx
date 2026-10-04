@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DependencyScatter from "../../../components/DependencyScatter";
+import DifferentialDependencyPlot from "../../../components/DifferentialDependencyPlot";
 import ResearchTrail from "../../../components/ResearchTrail";
 import { apiGet, formatNumber } from "../../../lib/api";
 
@@ -65,11 +66,11 @@ export default async function ComparisonPage({ params }: { params: Promise<{id:s
         <div className="section-header">
           <div>
             <div className="eyebrow">КАРТА ЗАВИСИМОСТЕЙ</div>
-            <h2>Чем отличаются две группы клеток?</h2>
-            <div className="section-copy">Каждая точка — ген. По горизонтали показан медианный <abbr title="Gene Effect — изменение жизнеспособности клеток после CRISPR-выключения гена">Gene Effect</abbr> в группе сравнения, по вертикали — в целевой группе. Точки ниже диагонали сильнее необходимы целевой группе.</div>
+            <h2>Где находится каждый ген в общем ландшафте?</h2>
+            <div className="section-copy">Каждая точка — ген. По горизонтали показан медианный <abbr title="Gene Effect — изменение жизнеспособности клеток после CRISPR-выключения гена">Gene Effect</abbr> в группе сравнения, по вертикали — в целевой группе. Точки ниже диагонали сильнее необходимы целевой группе. Найдите конкретный ген через поиск или нажмите на точку, чтобы открыть его карточку.</div>
           </div>
         </div>
-        <DependencyScatter points={scatter.items} />
+        <DependencyScatter points={scatter.items} total={scatter.total} />
       </div>
       <aside className="callout">
         <div className="eyebrow">КАК ИНТЕРПРЕТИРОВАТЬ</div>
@@ -79,8 +80,21 @@ export default async function ComparisonPage({ params }: { params: Promise<{id:s
           <div><b>Ниже диагонали</b><span>выключение гена сильнее вредит целевой группе</span></div>
           <div><b>Тёмные точки</b><span>устойчивые повторяющиеся гены при Top-50/100/200</span></div>
           <div><b>Gene Effect</b><span>эффект CRISPR-выключения гена на жизнеспособность клетки</span></div>
+          <div><b>Top 200</b><span>быстрый фокус на генах с наиболее отрицательным Δ Gene Effect среди отображаемого набора</span></div>
         </div>
       </aside>
+    </section>
+
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">ДИФФЕРЕНЦИАЛЬНАЯ ЗАВИСИМОСТЬ</div>
+          <h2>Насколько велико различие и насколько оно статистически убедительно?</h2>
+          <div className="section-copy">По горизонтали — Δ Gene Effect между целевой и контрольной группами. Чем левее точка, тем сильнее зависимость смещена в сторону целевого контекста. По вертикали — −log10(q-value): чем выше точка, тем сильнее статистическая поддержка после поправки на множественные сравнения.</div>
+        </div>
+      </div>
+      <DifferentialDependencyPlot points={scatter.items} />
+      <div className="technical-note" style={{marginTop:10}}>Горизонтальная пунктирная линия соответствует FDR = 0,05. Этот график не заменяет оценку биологической величины эффекта: статистически значимая точка с малым Δ Gene Effect не становится автоматически приоритетной мишенью.</div>
     </section>
 
     <section className="section">
@@ -97,7 +111,7 @@ export default async function ComparisonPage({ params }: { params: Promise<{id:s
     </section>
 
     <section className="section next-step-banner">
-      <div><div className="eyebrow">СЛЕДУЮЩИЙ ШАГ</div><h3>Не выбирайте мишень только по этой таблице</h3><p className="section-copy">Перейдите к устойчивым генам: там мы проверяем, сохраняется ли кандидат при разных порогах отбора и повторяется ли в нескольких сравнениях.</p></div>
+      <div><div className="eyebrow">СЛЕДУЮЩИЙ ШАГ</div><h3>Не выбирайте мишень только по этим графикам</h3><p className="section-copy">Перейдите к устойчивым генам: там мы проверяем, сохраняется ли кандидат при разных порогах отбора и повторяется ли в нескольких сравнениях.</p></div>
       <Link href="/genes" className="primary-link">Перейти к устойчивым генам →</Link>
     </section>
   </>;
