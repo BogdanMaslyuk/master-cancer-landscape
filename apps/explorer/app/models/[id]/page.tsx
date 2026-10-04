@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ModelDependencyPanel from "../../../components/ModelDependencyPanel";
 import { ModelMultiOmicsPanel } from "../../../components/MultiOmicsPanels";
+import PharmacologyPanel from "../../../components/PharmacologyPanel";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
 import readiness from "./readiness.module.css";
@@ -8,6 +9,7 @@ import readiness from "./readiness.module.css";
 type Model = Record<string, any>;
 type MultiOmics = Record<string, any>;
 type Dependencies = Record<string, any>;
+type Pharmacology = Record<string, any>;
 type Params = Record<string,string|string[]|undefined>;
 
 function one(value:string|string[]|undefined){ return Array.isArray(value) ? value[0] : value; }
@@ -36,15 +38,15 @@ export default async function ModelPage({params,searchParams}:{params:Promise<{i
   if(depType)depQuery.set("dependency_type",depType);
   if(depDomain)depQuery.set("domain",depDomain);
 
-  const [model, omics, dependencies]=await Promise.all([
+  const [model, omics, dependencies, pharmacology]=await Promise.all([
     apiGet<Model>(`/api/models/${encodeURIComponent(modelId)}`),
     apiGet<MultiOmics>(`/api/models/${encodeURIComponent(modelId)}/multiomics?limit=30`),
     apiGet<Dependencies>(`/api/models/${encodeURIComponent(modelId)}/dependencies?${depQuery.toString()}`),
+    apiGet<Pharmacology>(`/api/models/${encodeURIComponent(modelId)}/pharmacology?limit=100`),
   ]);
   const genetics=model.genetics || {};
   const metadata=model.metadata || {};
   const priority=genetics.priority_variants || [];
-  const metadataAvailable=Object.keys(metadata).length > 0;
   const membershipsN=model.memberships?.length || 0;
   const fullGenetics=genetics.availability === "full";
 
@@ -94,6 +96,17 @@ export default async function ModelPage({params,searchParams}:{params:Promise<{i
     <section className="section">
       <div className="section-header">
         <div>
+          <div className="eyebrow">ФАРМАКОЛОГИЯ МОДЕЛИ</div>
+          <h2>Какие вещества уже проверялись на этой клеточной линии?</h2>
+          <div className="section-copy">MCL хранит экспериментальный ответ клетки отдельно от известных мишеней вещества. Если мишень аннотирована, рядом показывается Gene Effect этого белка в той же модели — это позволяет быстро увидеть согласованность фармакологии и CRISPR, не выдавая её за доказанный механизм.</div>
+        </div>
+      </div>
+      <PharmacologyPanel payload={pharmacology}/>
+    </section>
+
+    <section className="section">
+      <div className="section-header">
+        <div>
           <div className="eyebrow">ПОКРЫТИЕ ДАННЫХ</div>
           <h2>Что мы реально знаем об этой модели?</h2>
           <div className="section-copy">MCL разделяет доступные и ещё не подключённые слои, чтобы отсутствие одного типа данных не выглядело как отрицательный биологический результат.</div>
@@ -119,10 +132,10 @@ export default async function ModelPage({params,searchParams}:{params:Promise<{i
           <strong>{genetics.mutations_n ?? 0} записей · {genetics.mutated_genes_n ?? 0} генов</strong>
         </article>
         <article className={readiness.card}>
-          <div className={readiness.cardTop}><span className={readiness.index}>04</span><span className={`${readiness.badge} ${membershipsN ? readiness.available : readiness.pending}`}>{membershipsN ? "доступно" : "нет назначений"}</span></div>
-          <h3>Роль в MCL</h3>
-          <p>В каких опухолевых контекстах модель используется и относится ли она к целевой, контрольной или исключённой группе.</p>
-          <strong>{membershipsN} контекст{membershipsN === 1 ? "" : "а"}</strong>
+          <div className={readiness.cardTop}><span className={readiness.index}>04</span><span className={`${readiness.badge} ${pharmacology.available ? readiness.available : readiness.pending}`}>{pharmacology.available ? "доступно" : "не загружено"}</span></div>
+          <h3>Фармакология</h3>
+          <p>Экспериментальные ответы на вещества и их отдельные target-аннотации с CRISPR-согласованностью.</p>
+          <strong>{pharmacology.available ? `${Number(pharmacology.compounds_n||0).toLocaleString("ru-RU")} веществ` : "Источник нужно подключить"}</strong>
         </article>
       </div>
     </section>
@@ -217,6 +230,6 @@ export default async function ModelPage({params,searchParams}:{params:Promise<{i
       </div>
     </section>
 
-    <section className="section technical-note"><b>Граница интерпретации:</b> мутации, RNA expression, относительное copy number и CRISPR Gene Effect описывают экспериментальную модель DepMap. Они не заменяют пациентские когорты и не доказывают фармакологическую ингибируемость выбранного белка.</section>
+    <section className="section technical-note"><b>Граница интерпретации:</b> мутации, RNA expression, относительное copy number, CRISPR Gene Effect и лекарственная чувствительность описывают экспериментальную модель. Они не заменяют пациентские когорты; совпадение чувствительности к препарату с CRISPR-зависимостью аннотированной мишени поддерживает, но не доказывает механизм действия.</section>
   </>;
 }
