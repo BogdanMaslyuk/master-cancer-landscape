@@ -18,17 +18,19 @@ Open `http://127.0.0.1:8000/docs` for interactive API documentation.
 
 Set `MCL_ROOT` only if the API is launched outside the repository layout.
 
-## Current runtime entrypoint
+## Runtime entrypoint
 
-The current compatibility entrypoint is:
+The canonical entrypoint is now:
 
 ```text
-mcl_api.main_fast:app
+mcl_api.main:app
 ```
 
-It uses the same API routes as `main.py` but replaces the Gene Explorer store with a materialized-index runtime so `/api/genes/search`, `/api/genes/facets` and `/api/gene-matrix` do not rebuild ontology mappings on request.
+`main.py` instantiates `RuntimeGeneExplorerStore` directly. Gene search, facets, annotations and the Gene x Cancer matrix read materialized Explorer indexes rather than rebuilding ontology projections during HTTP requests.
 
-After the clean-build verification gate is green, this behavior should be folded into the standard `mcl_api.main:app` entrypoint and `main_fast.py` removed.
+There is no separate `main_fast.py` compatibility entrypoint anymore.
+
+If required Gene Explorer indexes are missing, runtime access fails fast with an actionable message directing the developer to rebuild them with `scripts/build-explorer.ps1`.
 
 ## Explorer runtime indexes
 
