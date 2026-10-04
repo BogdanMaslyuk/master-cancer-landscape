@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ModelDependencyPanel from "../../../components/ModelDependencyPanel";
 import { ModelMultiOmicsPanel } from "../../../components/MultiOmicsPanels";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
@@ -6,6 +7,10 @@ import readiness from "./readiness.module.css";
 
 type Model = Record<string, any>;
 type MultiOmics = Record<string, any>;
+type Dependencies = Record<string, any>;
+type Params = Record<string,string|string[]|undefined>;
+
+function one(value:string|string[]|undefined){ return Array.isArray(value) ? value[0] : value; }
 
 function variantLabel(variants:any[]|undefined){
   if(!variants?.length) return "Определяющие варианты не зарегистрированы";
@@ -19,12 +24,22 @@ function impactRu(value:any){
   return ({HIGH:"высокое",MODERATE:"умеренное",LOW:"низкое",MODIFIER:"модификатор"} as Record<string,string>)[key] || value || "—";
 }
 
-export default async function ModelPage({params}:{params:Promise<{id:string}>}){
-  const {id}=await params;
+export default async function ModelPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<Params>}){
+  const [{id},sp]=await Promise.all([params,searchParams]);
   const modelId=decodeURIComponent(id);
-  const [model, omics]=await Promise.all([
+  const depQ=one(sp.dep_q)||"";
+  const depType=one(sp.dep_type)||"";
+  const depDomain=one(sp.dep_domain)||"";
+  const depOffset=Math.max(0,Number(one(sp.dep_offset)||"0")||0);
+  const depQuery=new URLSearchParams({limit:"200",offset:String(depOffset)});
+  if(depQ)depQuery.set("search",depQ);
+  if(depType)depQuery.set("dependency_type",depType);
+  if(depDomain)depQuery.set("domain",depDomain);
+
+  const [model, omics, dependencies]=await Promise.all([
     apiGet<Model>(`/api/models/${encodeURIComponent(modelId)}`),
     apiGet<MultiOmics>(`/api/models/${encodeURIComponent(modelId)}/multiomics?limit=30`),
+    apiGet<Dependencies>(`/api/models/${encodeURIComponent(modelId)}/dependencies?${depQuery.toString()}`),
   ]);
   const genetics=model.genetics || {};
   const metadata=model.metadata || {};
@@ -34,7 +49,7 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
   const fullGenetics=genetics.availability === "full";
 
   return <>
-    <div className="breadcrumbs"><Link href="/models">Клеточные линии</Link><span>›</span><strong>{model.cell_line_name}</strong></div>
+    <div className="breadcrumbs"><Link href="/models">Исследователь моделей</Link><span>›</span><strong>{model.cell_line_name}</strong></div>
 
     <section className="model-hero">
       <div>
@@ -45,7 +60,7 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
       <div className="model-hero-meta">
         <div><span>Тип модели</span><b>{model.depmap_model_type || "—"}</b></div>
         <div><span>OncoTree</span><b>{model.oncotree_code || model.oncotree_subtype || "—"}</b></div>
-        <div><span>Мутационное профилирование</span><b>{model.sequencing_available ? "доступно" : "нет"}</b></div>
+        <div><span>CRISPR Gene Effect</span><b>{dependencies.available ? "полный профиль" : "нужно индексировать"}</b></div>
       </div>
     </section>
 
@@ -56,9 +71,24 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
       <div><span>Источник образца</span><b>{metadata.sample_collection_site || metadata.tissue_origin || "—"}</b></div>
     </section>
 
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">ФУНКЦИОНАЛЬНЫЙ CRISPR-ПРОФИЛЬ</div>
+          <h2>Что поддерживает жизнеспособность этой модели?</h2>
+          <div className="section-copy">Все гены с доступным Chronos Gene Effect расположены от наиболее сильного влияния CRISPR-нокаута на рост и выживание клетки к наиболее слабому. Рядом показано, насколько зависимость распространена среди других моделей DepMap и к какому функциональному кластеру относится ген.</div>
+        </div>
+      </div>
+      <ModelDependencyPanel
+        payload={dependencies}
+        modelId={modelId}
+        filters={{q:depQ,type:depType,domain:depDomain,offset:depOffset}}
+      />
+    </section>
+
     <section className={styles.scopeWarning}>
-      <span>Модель</span>
-      <div><b>Ниже показана генетика именно {model.cell_line_name}</b><p>Эти варианты характеризуют конкретную экспериментальную линию. Их нельзя трактовать как частоту или типичный генетический профиль всех пациентов с {model.oncotree_subtype || model.oncotree_primary_disease}.</p></div>
+      <span>Важно</span>
+      <div><b>Сильная CRISPR-зависимость не равна готовой лекарственной мишени</b><p>Gene Effect показывает последствия потери функции гена в экспериментальной модели. Для выбора терапевтической мишени отдельно оцениваются селективность для опухоли, нормальные ткани, лекарственная доступность белка и воспроизводимость эффекта.</p></div>
     </section>
 
     <section className="section">
@@ -77,10 +107,10 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
           <strong>{model.oncotree_code || model.depmap_model_type || "DepMap model"}</strong>
         </article>
         <article className={readiness.card}>
-          <div className={readiness.cardTop}><span className={readiness.index}>02</span><span className={`${readiness.badge} ${metadataAvailable ? readiness.available : readiness.partial}`}>{metadataAvailable ? "доступно" : "частично"}</span></div>
-          <h3>Метаданные образца</h3>
-          <p>Происхождение, место получения, пол, возраст и внешние идентификаторы — если они есть в Model.csv.</p>
-          <strong>{metadataAvailable ? "Model.csv проиндексирован" : "Только базовый аудит"}</strong>
+          <div className={readiness.cardTop}><span className={readiness.index}>02</span><span className={`${readiness.badge} ${dependencies.available ? readiness.available : readiness.partial}`}>{dependencies.available ? "доступно" : "нужно перестроить"}</span></div>
+          <h3>CRISPR-зависимости</h3>
+          <p>Полногеномный Chronos Gene Effect с рангом каждого гена и оценкой распространённости зависимости.</p>
+          <strong>{dependencies.available ? `${Number(dependencies.genes_measured_n||0).toLocaleString("ru-RU")} генов` : "Индекс не готов"}</strong>
         </article>
         <article className={readiness.card}>
           <div className={readiness.cardTop}><span className={readiness.index}>03</span><span className={`${readiness.badge} ${fullGenetics ? readiness.available : readiness.partial}`}>{fullGenetics ? "полный профиль" : "ограничено"}</span></div>
@@ -95,7 +125,6 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
           <strong>{membershipsN} контекст{membershipsN === 1 ? "" : "а"}</strong>
         </article>
       </div>
-      <div className={readiness.note}><b>Multi-omics слои показываются отдельно ниже:</b> RNA expression, относительное число копий и индивидуальный CRISPR Gene Effect отмечаются как доступные только после локальной индексации. Репрезентативность относительно пациентских опухолей остаётся отдельной задачей и пока не оценивается.</div>
     </section>
 
     <section className="section">
