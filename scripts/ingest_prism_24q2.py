@@ -23,15 +23,25 @@ def _find(directory: Path, tokens: tuple[str, ...]) -> Path | None:
     return None
 
 
+def _norm_col_name(value: object) -> str:
+    return str(value).strip().lower().replace(".", "_").replace("-", "_").replace(" ", "_")
+
+
 def _col(frame: pd.DataFrame, *names: str) -> str | None:
-    lookup = {
-        str(c).strip().lower().replace(".", "_").replace("-", "_"): str(c)
-        for c in frame.columns
-    }
+    lookup = {_norm_col_name(c): str(c) for c in frame.columns}
     for name in names:
-        key = name.strip().lower().replace(".", "_").replace("-", "_")
+        key = _norm_col_name(name)
         if key in lookup:
             return lookup[key]
+    return None
+
+
+def _col_contains(frame: pd.DataFrame, *tokens: str) -> str | None:
+    wanted = tuple(_norm_col_name(x) for x in tokens)
+    for column in frame.columns:
+        key = _norm_col_name(column)
+        if all(token in key for token in wanted):
+            return str(column)
     return None
 
 
@@ -51,8 +61,6 @@ def _targets(value: object) -> list[str]:
         gene = part.strip().upper()
         if not gene or gene in {"NA", "NAN", "NONE", "UNKNOWN"}:
             continue
-        # Repurposing Hub target annotations are normally compact gene symbols.
-        # Verbose mechanism text remains in the separate MOA/action field.
         if " " in gene or len(gene) > 30:
             continue
         if gene not in output:
@@ -85,20 +93,22 @@ def _long_lfc(frame: pd.DataFrame) -> pd.DataFrame:
     profile_col = _col(frame, "profile_id", "broad_id", "compound_id")
     lfc_col = _col(frame, "LFC", "logfold_change", "log_fold_change", "value")
     if not row_col or not profile_col or not lfc_col:
-        # Fallback for an extended wide matrix: ACH-* columns are models and the
-        # remaining identifier column identifies the treatment/compound profile.
         ach_cols = [c for c in frame.columns if str(c).upper().startswith("ACH-")]
         if not ach_cols:
             raise SystemExit(
                 f"Unsupported PRISM response schema. Columns: {list(frame.columns)[:20]}"
             )
         id_candidates = [c for c in frame.columns if c not in ach_cols]
+        if not id_candidates:
+            raise SystemExit("PRISM wide matrix has ACH-* columns but no compound identifier column")
         id_col = id_candidates[0]
+        print(f"Detected wide PRISM matrix: compound ID column = {id_col!r}; model columns = {len(ach_cols)}")
         melted = frame[[id_col, *ach_cols]].melt(
             id_vars=[id_col], var_name="model_id", value_name="LFC"
         )
         melted = melted.rename(columns={id_col: "profile_id"})
         melted["profile_id"] = melted["profile_id"].map(_text)
+        melted["LFC"] = pd.to_numeric(melted["LFC"], errors="coerce")
         return melted.dropna(subset=["LFC"])
 
     out = pd.DataFrame()
@@ -116,6 +126,33 @@ def _long_lfc(frame: pd.DataFrame) -> pd.DataFrame:
         )
         out = out[truth].copy()
     return out.dropna(subset=["LFC"])
+
+
+def _infer_profile_column(treatment: pd.DataFrame, response_profiles: set[str]) -> tuple[str | None, int]:
+    """Resolve the compound ID column by actual overlap with the PRISM response matrix.
+
+    Extended PRISM exports have changed header names across releases. Matching values
+    is safer than hard-coding one header and also surfaces malformed metadata clearly.
+    """
+    explicit = _col(
+        treatment,
+        "profile_id", "compound_id", "broad_id", "id", "ids", "pert_id", "perturbation_id",
+    )
+    if explicit:
+        values = set(treatment[explicit].map(_text))
+        overlap = len(response_profiles & values)
+        if overlap:
+            return explicit, overlap
+
+    best_column: str | None = None
+    best_overlap = 0
+    for column in treatment.columns:
+        values = set(treatment[column].map(_text))
+        overlap = len(response_profiles & values)
+        if overlap > best_overlap:
+            best_column = str(column)
+            best_overlap = overlap
+    return best_column, best_overlap
 
 
 def _compound_id(profile_id: object) -> str:
@@ -139,30 +176,67 @@ def main() -> None:
     treatment = _load_csv(treatment_path)
     response = _long_lfc(raw)
 
-    profile_t = _col(treatment, "profile_id", "compound_id", "broad_id")
-    broad_t = _col(treatment, "broad_id")
-    name_t = _col(treatment, "name", "compound_name", "drug_name")
-    moa_t = _col(treatment, "moa", "mechanism_of_action", "mechanism")
-    target_t = _col(treatment, "target", "targets", "gene_targets")
-    smiles_t = _col(treatment, "smiles", "canonical_smiles")
-    if not profile_t:
+    response_profiles = set(response["profile_id"].map(_text)) - {""}
+    profile_t, profile_overlap = _infer_profile_column(treatment, response_profiles)
+    if not profile_t or profile_overlap == 0:
         raise SystemExit(
-            "PRISM treatment metadata has no profile_id/compound_id/broad_id column"
+            "Could not map PRISM compound metadata to the response matrix. "
+            f"Response compound IDs: {len(response_profiles)}; metadata columns: {list(treatment.columns)}"
         )
+
+    print(
+        f"Detected compound metadata ID column = {profile_t!r}; "
+        f"matched {profile_overlap}/{len(response_profiles)} matrix compound IDs"
+    )
+
+    broad_t = _col(treatment, "broad_id", "broad id") or _col_contains(treatment, "broad", "id")
+    name_t = _col(
+        treatment,
+        "name", "compound_name", "drug_name", "pert_iname", "compound", "drug",
+    ) or _col_contains(treatment, "compound", "name")
+    moa_t = _col(
+        treatment, "moa", "mechanism_of_action", "mechanism", "mechanism of action"
+    ) or _col_contains(treatment, "mechanism")
+    target_t = _col(
+        treatment, "target", "targets", "gene_targets", "gene_target", "target_gene"
+    ) or _col_contains(treatment, "target")
+    smiles_t = _col(
+        treatment, "smiles", "canonical_smiles", "canonical smiles"
+    ) or _col_contains(treatment, "smiles")
+
+    print(
+        "Detected metadata fields: "
+        f"name={name_t!r}, broad_id={broad_t!r}, moa={moa_t!r}, target={target_t!r}, smiles={smiles_t!r}"
+    )
 
     meta = treatment.copy()
     meta["_profile"] = meta[profile_t].map(_text)
     meta = meta[meta["_profile"] != ""].copy()
     meta["_compound_id"] = meta["_profile"].map(_compound_id)
-    meta["_broad_id"] = meta[broad_t].map(_text) if broad_t else ""
+    if broad_t:
+        meta["_broad_id"] = meta[broad_t].map(_text)
+    else:
+        # The extended primary matrix itself commonly uses BRD identifiers as the
+        # treatment profile ID. Preserve that external ID when it is recognizable.
+        meta["_broad_id"] = meta["_profile"].map(
+            lambda x: x if str(x).upper().startswith(("BRD:", "BRD-")) else ""
+        )
+
     keep_cols = ["_profile", "_compound_id", "_broad_id"] + [
         c for c in (name_t, moa_t, target_t, smiles_t) if c
     ]
+    keep_cols = list(dict.fromkeys(keep_cols))
     meta = meta[keep_cols].drop_duplicates("_profile", keep="first")
 
     response = response[response["profile_id"].map(_text) != ""].copy()
     response = response.merge(meta, left_on="profile_id", right_on="_profile", how="left")
     response["compound_id"] = response["profile_id"].map(_compound_id)
+
+    mapped_profiles = set(meta["_profile"])
+    unmatched_profiles = sorted(response_profiles - mapped_profiles)
+    print(f"Unmatched matrix compound IDs after metadata join: {len(unmatched_profiles)}")
+    if unmatched_profiles:
+        print(f"  examples: {unmatched_profiles[:5]}")
 
     compounds = pd.DataFrame(
         {
@@ -176,10 +250,7 @@ def main() -> None:
             "gdsc_id": "",
             "source_ids_json": [
                 json.dumps(
-                    {
-                        "prism_profile_id": profile,
-                        "broad_id": broad or None,
-                    },
+                    {"prism_profile_id": profile, "broad_id": broad or None},
                     ensure_ascii=False,
                 )
                 for profile, broad in zip(meta["_profile"], meta["_broad_id"])
