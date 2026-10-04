@@ -32,7 +32,10 @@ type AnnotationPayload = {
   protein_classes:string[];
   compartments:string[];
   hallmarks:string[];
+  mcl_domain_details?:Record<string,any>[];
   formal_annotations:Record<string,any>[];
+  coverage?:{annotated_genes_n:number;gene_universe_n:number;coverage_fraction:number|null;status:string;reason:string};
+  taxonomy_version?:string;
   note?:string;
 };
 type AtlasContext = { id:string; short_ru?:string; cancer_ru?:string; molecular_ru?:string };
@@ -68,7 +71,8 @@ export default async function GenePage({params,searchParams}:{params:Promise<{ge
   const bestDelta=base.summary?.best_delta_gene_effect;
   const bestModel=base.summary?.best_model_gene_effect;
   const bestQ=base.summary?.best_q_value;
-  const formal=(annotations.formal_annotations||[]).slice(0,30);
+  const formal=(annotations.formal_annotations||[]).slice(0,40);
+  const domainDetails=(annotations.mcl_domain_details||[]).slice(0,20);
 
   return <>
     <div className="breadcrumbs"><Link href="/genes">Гены и мишени</Link><span>›</span><strong>{symbol}</strong></div>
@@ -77,7 +81,7 @@ export default async function GenePage({params,searchParams}:{params:Promise<{ge
       <div>
         <div className="eyebrow" style={{color:"#b9d5ee"}}>GENE WORKBENCH · TARGET → CANCER</div>
         <h1>{symbol}</h1>
-        <p>Карточка показывает не только место гена среди текущих кандидатов, но и весь доступный обратный маршрут: опухолевые сравнения → отдельные клеточные модели → Gene Effect → RNA → copy number → функциональные связи.</p>
+        <p>Карточка показывает обратный маршрут: функциональная принадлежность → опухолевые сравнения → отдельные клеточные модели → Gene Effect → RNA → copy number.</p>
       </div>
       <div className={styles.heroMeta}>
         <div><span>HGNC</span><b>{base.identity?.hgnc_id || "—"}</b></div>
@@ -93,6 +97,32 @@ export default async function GenePage({params,searchParams}:{params:Promise<{ge
       <div className={styles.metric}><span>Минимальный q-value</span><strong>{formatNumber(bestQ,4)}</strong></div>
       <div className={styles.metric}><span>Значимые сравнения</span><strong>{significant}/{comparisonN}</strong></div>
       <div className={styles.metric}><span>Клеточные модели с доступными слоями</span><strong>{models.total}</strong></div>
+    </section>
+
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <div><div className="eyebrow">ФУНКЦИОНАЛЬНАЯ ПРИНАДЛЕЖНОСТЬ</div><h2>К каким биологическим процессам относится {symbol}?</h2><p>MCL Functional Domains — человекочитаемый multi-label слой над формальными терминами. Домен назначается только тогда, когда существующий GO/Reactome/KEGG/CORUM-термин удовлетворяет прозрачному правилу; исходный термин сохраняется как provenance.</p></div>
+        <span className={styles.badge}>{annotations.mcl_domains?.length ? `${annotations.mcl_domains.length} доменов` : "нет доменной разметки"}</span>
+      </div>
+      <div className={styles.annotationBox}>
+        {annotations.mcl_domains?.length ? <>
+          <div className={styles.annotationList}>{annotations.mcl_domains.map((domain)=><span className={styles.annotation} key={domain}><b>MCL domain</b>{domain}</span>)}</div>
+          {annotations.subdomains?.length>0 && <div className={styles.annotationList} style={{marginTop:10}}>{annotations.subdomains.map((sub)=><span className={styles.annotation} key={sub}><b>Подфункция</b>{sub}</span>)}</div>}
+        </> : <div className={styles.annotationEmpty}>Для {symbol} доменная разметка пока отсутствует. Это означает неполное покрытие текущего аннотационного слоя, а не отсутствие фундаментальной функции.</div>}
+
+        {domainDetails.length>0 && <div style={{marginTop:16}}>
+          <div className="eyebrow">ПРОИСХОЖДЕНИЕ ДОМЕННОЙ РАЗМЕТКИ</div>
+          <div className={styles.annotationList} style={{marginTop:8}}>{domainDetails.map((item:any,index:number)=><span className={styles.annotation} key={`${item.annotation_id}-${item.source_id}-${index}`}><b>{item.source || "source"} · {item.source_id || "—"}</b>{item.source_term_name || item.annotation_label_ru}</span>)}</div>
+        </div>}
+
+        <div style={{marginTop:18}}>
+          <div className="eyebrow">ФОРМАЛЬНЫЕ ТЕРМИНЫ</div>
+          {formal.length ? <div className={styles.annotationList} style={{marginTop:8}}>{formal.map((item:any,index:number)=><span className={styles.annotation} key={`${item.source}-${item.term_id}-${index}`}><b>{item.source} · {item.term_id || "—"}</b>{item.term_name || item.source_term_name || item.term_id}</span>)}</div> : <div className={styles.annotationEmpty}>В текущем MCL enrichment-layer для {symbol} формальных терминов не найдено. Полное gene-to-ontology покрытие ещё не загружено.</div>}
+        </div>
+
+        {annotations.coverage&&<p className={styles.annotationEmpty} style={{marginBottom:0}}>Текущее функциональное покрытие: {annotations.coverage.annotated_genes_n} из {annotations.coverage.gene_universe_n} генов. Непокрытые гены нельзя интерпретировать как «не относящиеся» к функциям.</p>}
+        {annotations.note&&<p className={styles.annotationEmpty} style={{marginBottom:0}}>{annotations.note}</p>}
+      </div>
     </section>
 
     <section className={styles.section}>
@@ -148,18 +178,8 @@ export default async function GenePage({params,searchParams}:{params:Promise<{ge
       </table></div> : <div className={styles.empty}>{models.note || `Для ${symbol} model-level multi-omics данные пока не подключены.`} {models.available && !models.items.length ? "По текущим фильтрам моделей не найдено." : ""}</div>}
     </section>
 
-    <section className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div><div className="eyebrow">ФУНКЦИОНАЛЬНАЯ ПРИНАДЛЕЖНОСТЬ</div><h2>Какие процессы уже связаны с {symbol}?</h2><p>В первой версии показываются только связи, реально поддержанные текущим MCL pathway analysis. MCL Functional Domains, protein class, compartments и полные GO/Reactome/KEGG/CORUM mappings добавляются отдельным provenance-aware слоем.</p></div>
-        <span className={styles.badge}>{annotations.status === "partial" ? "частичное покрытие" : annotations.status}</span>
-      </div>
-      <div className={styles.annotationBox}>
-        {formal.length ? <div className={styles.annotationList}>{formal.map((item:any,index:number)=><span className={styles.annotation} key={`${item.source}-${item.term_id}-${index}`}><b>{item.source}</b>{item.term_name || item.term_id}</span>)}</div> : <div className={styles.annotationEmpty}>В текущем статистически значимом pathway-наборе MCL для {symbol} связей не найдено. Это не означает отсутствие известных биологических функций гена; полный аннотационный слой ещё не подключён.</div>}
-        {annotations.note&&<p className={styles.annotationEmpty} style={{marginBottom:0}}>{annotations.note}</p>}
-      </div>
-    </section>
-
     <section className={styles.guardrails}>
+      <div><b>Домен ≠ новое биологическое доказательство</b>MCL Functional Domain — навигационная проекция формального термина; исходный GO/Reactome/KEGG/CORUM-термин остаётся первичным доказательным слоем.</div>
       <div><b>CRISPR knockout ≠ ингибитор</b>Gene Effect описывает генетическое выключение функции и не доказывает воспроизводимость эффекта малой молекулой.</div>
       <div><b>RNA ≠ активный белок</b>Экспрессия помогает интерпретации модели, но сама по себе не подтверждает уровень, локализацию или активность белка.</div>
       <div><b>Модели ≠ пациентская частота</b>Данные DepMap характеризуют экспериментальные клеточные линии и не подменяют реальные пациентские когорты.</div>
