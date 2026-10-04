@@ -26,11 +26,10 @@ const russianModule: Record<string, { title: string; meaning: string }> = {
 };
 
 export default async function OverviewPage() {
-  const [s, stability] = await Promise.all([
+  const [s, stableTerms] = await Promise.all([
     apiGet<Summary>("/api/summary"),
-    apiGet<Term[]>("/api/pathways/stability"),
+    apiGet<Term[]>("/api/pathways/stability?stable_only=true&limit=50"),
   ]);
-  const stableTerms = stability.filter((x:any) => String(x.significant_all_thresholds).toLowerCase() === "true");
 
   return <>
     <section className="hero">
