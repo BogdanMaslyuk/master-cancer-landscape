@@ -1,6 +1,6 @@
-# Master Cancer Landscape — Architecture
+# Master Cancer Landscape — Architecture v1
 
-Status: clean-baseline architecture for `mcl-explorer-v0.1`.
+Status: Architecture v1 migration in progress on `mcl-explorer-v0.1`.
 
 ## 1. Core rule
 
@@ -11,12 +11,13 @@ official sources
     -> immutable/raw snapshots
     -> normalized scientific tables
     -> QC + provenance
-    -> materialized Explorer indexes
+    -> canonical processed scientific outputs
+    -> runtime serving snapshot
     -> read-only API
     -> MCL Explorer UI
 ```
 
-Interactive HTTP requests must not rebuild ontologies, recompute enrichment, or re-run genome-wide statistics.
+Interactive HTTP requests must not rebuild ontologies, recompute enrichment, re-run genome-wide statistics, or parse very wide scientific matrices merely to render a page.
 
 ## 2. Repository layers
 
@@ -53,42 +54,67 @@ Configuration changes are scientific changes and must be reviewable in Git.
 data/input/       manually curated project inputs
 data/raw/         immutable source snapshots; local/ignored when large
 data/interim/     rebuildable intermediate calculations
-data/processed/   canonical scientific outputs
+data/processed/   canonical scientific outputs and build-stage derived tables
+data/runtime/     rebuildable serving artifacts optimized for Explorer latency
 ```
 
-Explorer materialized indexes currently live under:
+Architecture v1 defines a hard semantic boundary:
+
+- `processed/` answers **what did the scientific pipeline produce?**
+- `runtime/` answers **how can Explorer serve that result quickly?**
+
+Runtime artifacts are derived, disposable and ignored by Git. Deleting `data/runtime/` must never delete scientific truth; it only requires rebuilding Explorer serving artifacts.
+
+## 3. API architecture
+
+The canonical API entrypoint is:
 
 ```text
-data/processed/gene_explorer/
+mcl_api.main:app
 ```
 
-They are rebuildable runtime artifacts and are ignored by Git. A future migration may move them to `data/runtime/explorer/`; until then the contract, not the folder name, defines their role.
+Request flow:
 
-### API — `apps/api/`
+```text
+FastAPI router
+    -> service
+    -> repository
+    -> scientific/runtime stores
+    -> materialized data
+```
 
-Read-only presentation layer over processed outputs and materialized indexes.
+Current Gene Explorer path follows this pattern. Other domains are migrated incrementally behind the existing API contract.
 
-The API may:
+### Routers
 
-- read Parquet/TSV/JSON/YAML;
-- filter and paginate;
-- join already-materialized lightweight tables;
-- perform explicitly designed small model-level exploratory calculations.
+Own HTTP concerns only:
 
-The API must not:
+- path/query parameters;
+- HTTP status mapping;
+- response model binding;
+- no scientific orchestration.
 
-- download external resources;
-- rebuild GO/Reactome/KEGG/CORUM projections during requests;
-- run full genome-wide analyses during requests;
-- mutate scientific source tables.
+### Services
 
-### Explorer — `apps/explorer/`
+Own use-case orchestration and request-level caching:
 
-Next.js scientific decision-support interface.
+- combine repository results;
+- define lightweight interactive workflows;
+- keep heavy analyses out of the page critical path.
 
-The UI presents separate evidence axes rather than a hidden target score. Missing data remain missing.
+### Repositories
 
-## 3. Build-time vs run-time boundary
+Own access to stores/materialized data:
+
+- runtime Gene Explorer indexes;
+- processed scientific evidence;
+- no HTTP knowledge.
+
+### Stores
+
+Own concrete file/data semantics and scientific guardrails.
+
+## 4. Build-time vs run-time boundary
 
 ### Build time
 
@@ -100,7 +126,8 @@ Examples:
 - MCL Functional Domain projection;
 - Gene Explorer catalog generation;
 - Gene x comparison metrics;
-- annotation provenance materialization.
+- annotation provenance materialization;
+- transposition of wide model x gene Parquet matrices into fast gene x model runtime arrays.
 
 Canonical command:
 
@@ -117,11 +144,18 @@ Examples:
 - Gene x Cancer matrix;
 - gene card;
 - pathway browsing;
-- model browsing.
+- model browsing;
+- explicitly requested deep analyses.
 
-Run-time endpoints read materialized indexes. If a required Gene Explorer runtime artifact is missing, the API fails fast with an actionable rebuild message instead of recomputing scientific layers inside the HTTP request.
+Run-time endpoints read prebuilt serving artifacts. If a required runtime artifact is missing, the API fails fast with an actionable rebuild message instead of recomputing scientific layers inside the HTTP request.
 
-## 4. Gene Explorer runtime contract
+## 5. Explorer runtime contract
+
+Canonical runtime root:
+
+```text
+data/runtime/explorer/
+```
 
 Current contract:
 
@@ -130,14 +164,26 @@ index_contract = mcl-gene-explorer-runtime-v1
 schema_version = 1.0
 ```
 
-Required files:
+Required serving snapshot:
 
 ```text
-gene_catalog.parquet
-gene_context_metrics.parquet
-gene_annotations.parquet
-manifest.json
+data/runtime/explorer/
+├── gene_catalog.parquet
+├── gene_context_metrics.parquet
+├── gene_annotations.parquet
+├── manifest.json
+├── gene_reference.parquet              # when reference snapshot is available
+├── gene_reference_terms.parquet        # when reference terms are available
+└── model_layers/
+    ├── gene_effect.npy
+    ├── gene_effect.json
+    ├── expression.npy
+    ├── expression.json
+    ├── copy_number.npy
+    └── copy_number.json
 ```
+
+The `.npy` matrices are `gene x model` float32 arrays designed for memory-mapped access. They exist because opening an arbitrary gene from a ~20k-column scientific Parquet matrix caused tens-of-seconds cold latency on Windows. Scientific source matrices remain under `data/processed/`.
 
 Validate with:
 
@@ -147,7 +193,27 @@ Validate with:
 
 The manifest is part of the runtime API contract, not decorative metadata.
 
-## 5. Scientific guardrails
+## 6. Processed -> runtime publication
+
+Gene Explorer is built in two stages:
+
+```text
+processed scientific/build-stage outputs
+        ↓
+build_gene_explorer_index.py
+        ↓
+data/processed/gene_explorer/     build-stage materialization/reference snapshot
+        ↓
+publish serving snapshot
+        ↓
+data/runtime/explorer/            canonical API runtime
+```
+
+Model-level fast arrays are generated directly from processed DepMap multi-omics matrices into `data/runtime/explorer/model_layers/`.
+
+This preserves provenance and rebuildability while preventing UI optimizations from becoming scientific source data.
+
+## 7. Scientific guardrails
 
 These rules are architectural invariants:
 
@@ -161,18 +227,32 @@ These rules are architectural invariants:
 - Broad dependency and low sample size are visible flags, not hidden penalties.
 - No opaque global target score.
 - Functional categories preserve provenance to formal source terms.
+- Heavy exploratory mutation screens are not part of the default gene-page critical path.
 
-## 6. Local operation
+## 8. Performance rule
+
+Anything that can be deterministically derived once after data refresh should be considered for build-time materialization rather than repeated request-time computation.
+
+Current examples:
+
+- materialized gene catalog;
+- materialized Gene x Cancer metrics;
+- materialized annotation mappings;
+- memory-mapped model-level multi-omics arrays.
+
+Performance optimizations must not alter scientific meaning.
+
+## 9. Local operation
 
 Use three stable roles when debugging manually:
 
 ```text
 PowerShell #1  backend
 PowerShell #2  frontend
-PowerShell #3  diagnostics
+PowerShell #3  diagnostics / Git / builds
 ```
 
-Normal startup should use scripts instead of memorizing long commands:
+Normal startup:
 
 ```powershell
 # PowerShell #1
@@ -184,11 +264,9 @@ Normal startup should use scripts instead of memorizing long commands:
 
 `start-backend.ps1` launches the single canonical API entrypoint `mcl_api.main:app`.
 
-`start-frontend.ps1` automatically builds the production frontend if `.next/BUILD_ID` is absent.
+## 10. Verification gate
 
-## 7. Verification gate
-
-Before adding a new major biological layer, run:
+Before accepting an Architecture v1 migration step, run:
 
 ```powershell
 .\scripts\verify.ps1
@@ -196,52 +274,40 @@ Before adding a new major biological layer, run:
 
 The gate includes:
 
-- scientific-core tests when present;
+- scientific-core tests;
 - API tests;
-- runtime-index schema verification;
-- API smoke checks;
+- runtime-index contract verification;
+- API smoke checks including gene detail latency;
 - frontend TypeScript check;
 - frontend production build.
 
-A feature is not considered baseline-stable until this gate passes locally.
+A migration step is not baseline-stable until this gate passes locally.
 
-## 8. Consolidated Gene Explorer runtime
+## 11. Dependency reproducibility
 
-The temporary `mcl_api.main_fast:app` compatibility layer has been removed.
-
-The standard API now owns the production runtime directly:
+Frontend dependencies are locked with `apps/explorer/package-lock.json` and CI uses:
 
 ```text
-mcl_api.main:app
-    -> RuntimeGeneExplorerStore
-    -> materialized Gene Explorer indexes
+npm ci
 ```
 
-`RuntimeGeneExplorerStore` is intentionally strict:
+Python dependency locking remains an Architecture v1 task. The declared Python version range is currently 3.12–3.13.
 
-- `gene_catalog.parquet` is the interactive gene catalog;
-- `gene_context_metrics.parquet` is the interactive Gene x Cancer evidence table;
-- `gene_annotations.parquet` is the interactive annotation/provenance table;
-- missing runtime artifacts raise a clear `MCLDataError` directing the developer to rebuild Explorer indexes;
-- runtime search and facets do not fall back to ontology projection or catalog reconstruction.
+## 12. Architecture v1 completion criteria
 
-The old standalone `deep_gene_explorer.py` implementation was removed because its descriptive dependency, correlation and mutation-association functionality is already implemented in `MatrixGeneExplorerStore`.
+Architecture v1 is complete when all of the following hold:
 
-## 9. Remaining structural cleanup
+1. canonical router -> service -> repository boundaries for major API domains;
+2. runtime serving files live only under `data/runtime/explorer/` from the API perspective;
+3. API responses use explicit Pydantic schemas for stable public contracts;
+4. frontend types are generated or mechanically synchronized from OpenAPI;
+5. Node and Python dependency resolution is reproducible;
+6. a clean checkout can rebuild runtime artifacts through documented commands;
+7. tests prevent heavy scientific rebuilds from occurring during ordinary HTTP requests;
+8. local verification and CI are green;
+9. the baseline receives an Architecture v1 tag before major scientific expansion resumes.
 
-With the clean baseline and runtime consolidation complete, later refactoring can proceed incrementally:
-
-1. split the large FastAPI module into routers, services and repository dependencies;
-2. reduce inheritance inside Gene Explorer where composition provides clearer ownership;
-3. replace broad frontend `Record<string, any>` contracts with explicit/generated API types;
-4. split large gene pages into focused components;
-5. continue pinning and auditing Python/Node dependencies;
-6. make CI a required branch gate before integration;
-7. eventually move rebuildable Explorer artifacts from `data/processed/gene_explorer/` to an explicit runtime directory if that migration provides enough benefit to justify path churn.
-
-These changes should preserve the scientific data model and be performed behind the existing verification gate.
-
-## 10. Long-term architecture
+## 13. Long-term architecture
 
 ```text
 Cancer context
@@ -256,4 +322,4 @@ Cancer context
   -> validation planning
 ```
 
-MCL should remain an evidence-navigation and hypothesis-generation system, not a black-box ranking engine.
+MCL remains an evidence-navigation and hypothesis-generation system, not a black-box ranking engine.
