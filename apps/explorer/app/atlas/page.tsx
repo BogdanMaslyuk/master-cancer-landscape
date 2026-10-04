@@ -2,6 +2,8 @@ import Link from "next/link";
 import AtlasIcon from "../../components/AtlasIcon";
 import { apiGet } from "../../lib/api";
 
+export const dynamic = "force-dynamic";
+
 type Context = Record<string, any>;
 type Organ = { id:string; name_ru:string; name_en?:string; icon:string; contexts_n:number; models_n:number; analyses_n:number; contexts:Context[] };
 type Atlas = { organs_n:number; contexts_n:number; models_n:number; analyses_n:number; organs:Organ[] };
