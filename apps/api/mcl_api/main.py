@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api_utils import guard
 from .routers.atlas import router as atlas_router
 from .routers.comparisons import router as comparisons_router
+from .routers.crispr_catalog import router as crispr_catalog_router
 from .routers.genes import router as genes_router
 from .routers.models import router as models_router
 from .routers.pathways import router as pathways_router
@@ -19,7 +20,7 @@ from .state import overview_service
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.8.0",
+    version="0.9.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -32,6 +33,7 @@ app.add_middleware(
 
 for router in (
     atlas_router,
+    crispr_catalog_router,
     models_router,
     comparisons_router,
     genes_router,
