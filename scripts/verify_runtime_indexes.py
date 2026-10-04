@@ -1,0 +1,68 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+
+
+ROOT = Path(__file__).resolve().parents[1]
+INDEX_DIR = ROOT / "data" / "processed" / "gene_explorer"
+CONTRACT = "mcl-gene-explorer-runtime-v1"
+SCHEMA_VERSION = "1.0"
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(f"ERROR: {message}")
+
+
+def main() -> None:
+    required_files = {
+        "gene_catalog.parquet",
+        "gene_context_metrics.parquet",
+        "gene_annotations.parquet",
+        "manifest.json",
+    }
+    missing = sorted(name for name in required_files if not (INDEX_DIR / name).exists())
+    require(not missing, f"Missing Explorer runtime indexes: {', '.join(missing)}. Run scripts/build-explorer.ps1")
+
+    manifest = json.loads((INDEX_DIR / "manifest.json").read_text(encoding="utf-8"))
+    require(manifest.get("index_contract") == CONTRACT, f"Unexpected index contract: {manifest.get('index_contract')!r}")
+    require(str(manifest.get("schema_version")) == SCHEMA_VERSION, f"Unexpected schema version: {manifest.get('schema_version')!r}")
+
+    catalog = pd.read_parquet(INDEX_DIR / "gene_catalog.parquet")
+    contexts = pd.read_parquet(INDEX_DIR / "gene_context_metrics.parquet")
+    annotations = pd.read_parquet(INDEX_DIR / "gene_annotations.parquet")
+
+    catalog_required = {
+        "gene_symbol",
+        "mcl_domains_json",
+        "protein_classes_json",
+        "compartments_json",
+        "hallmarks_json",
+    }
+    context_required = {"gene_symbol", "comparison_id", "delta_gene_effect"}
+    annotation_required = {"gene_symbol", "annotation_type", "annotation_id"}
+
+    require(catalog_required.issubset(catalog.columns), f"gene_catalog.parquet missing columns: {sorted(catalog_required - set(catalog.columns))}")
+    require(context_required.issubset(contexts.columns), f"gene_context_metrics.parquet missing columns: {sorted(context_required - set(contexts.columns))}")
+    require(annotation_required.issubset(annotations.columns), f"gene_annotations.parquet missing columns: {sorted(annotation_required - set(annotations.columns))}")
+    require(not catalog.empty, "gene_catalog.parquet is empty")
+    require(catalog["gene_symbol"].notna().all(), "gene_catalog.parquet contains null gene_symbol values")
+    require(catalog["gene_symbol"].astype(str).str.len().gt(0).all(), "gene_catalog.parquet contains empty gene_symbol values")
+
+    manifest_genes = int(manifest.get("genes_n") or 0)
+    actual_genes = int(catalog["gene_symbol"].astype(str).nunique())
+    require(manifest_genes == actual_genes, f"Manifest genes_n={manifest_genes} but catalog contains {actual_genes} unique genes")
+
+    print("Explorer runtime index verification: PASS")
+    print(f"Contract: {CONTRACT}")
+    print(f"Schema version: {SCHEMA_VERSION}")
+    print(f"Genes: {actual_genes}")
+    print(f"Gene x comparison rows: {len(contexts)}")
+    print(f"Annotation rows: {len(annotations)}")
+
+
+if __name__ == "__main__":
+    main()
