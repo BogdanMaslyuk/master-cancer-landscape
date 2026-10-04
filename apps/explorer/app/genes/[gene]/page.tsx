@@ -36,11 +36,16 @@ type AnnotationPayload = {
   note?:string;
 };
 type AtlasContext = { id:string; short_ru?:string; cancer_ru?:string; molecular_ru?:string };
-type AtlasPayload = { contexts?:AtlasContext[] } | AtlasContext[];
+type AtlasPayload = { contexts?:AtlasContext[]; organs?:{contexts?:AtlasContext[]}[] } | AtlasContext[];
 type SearchParams = Record<string,string|string[]|undefined>;
 
 function one(value:string|string[]|undefined){ return Array.isArray(value)?value[0]:value; }
 function yes(value:unknown){ return String(value).toLowerCase()==="true"; }
+function atlasContexts(value:AtlasPayload):AtlasContext[]{
+  if(Array.isArray(value)) return value;
+  if(value.contexts?.length) return value.contexts;
+  return (value.organs || []).flatMap((organ)=>organ.contexts || []);
+}
 
 export default async function GenePage({params,searchParams}:{params:Promise<{gene:string}>;searchParams:Promise<SearchParams>}){
   const [{gene},sp]=await Promise.all([params,searchParams]);
@@ -56,7 +61,7 @@ export default async function GenePage({params,searchParams}:{params:Promise<{ge
     apiGet<AnnotationPayload>(`/api/genes/${encodeURIComponent(symbol)}/annotations`),
     apiGet<AtlasPayload>("/api/atlas"),
   ]);
-  const atlas=Array.isArray(atlasRaw)?atlasRaw:(atlasRaw.contexts||[]);
+  const atlas=atlasContexts(atlasRaw);
   const stable=yes(base.stability?.present_all_thresholds);
   const significant=Number(base.summary?.significant_comparisons_n||0);
   const comparisonN=Number(base.summary?.comparisons_n||0);
