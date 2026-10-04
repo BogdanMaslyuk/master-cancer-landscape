@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CellModelTable from "../../../components/CellModelTable";
+import DependencyScatter from "../../../components/DependencyScatter";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
 import cohortStyles from "./cohort.module.css";
@@ -7,6 +8,7 @@ import cohortStyles from "./cohort.module.css";
 type Context = Record<string, any>;
 type ModelsPayload = { total:number; items:Record<string,any>[] };
 type Cohort = Record<string, any>;
+type GenePage = { comparison_id:string; total:number; items:Record<string,any>[] };
 
 function statusCopy(ctx: Context){
   if(ctx.analysis_available) return {cls:"ready", title:"Функциональный анализ доступен", text:"Для этого контекста уже рассчитаны полногеномные сравнения CRISPR-зависимостей."};
@@ -37,6 +39,10 @@ export default async function AtlasContextPage({params}:{params:Promise<{id:stri
     apiGet<ModelsPayload>(`/api/models?cancer_id=${encodeURIComponent(cancerId)}&limit=5000`),
     apiGet<Cohort>(`/api/atlas/${encodeURIComponent(cancerId)}/cohort`),
   ]);
+  const previewComparison=ctx.comparisons?.[0];
+  const preview:GenePage|null=previewComparison?.id
+    ? await apiGet<GenePage>(`/api/comparisons/${encodeURIComponent(previewComparison.id)}/genes?page_size=350&exclude_broad=true&exclude_low_sample=true`)
+    : null;
   const status=statusCopy(ctx);
   const sequencedPct=ctx.models_n ? Math.round((Number(ctx.sequenced_models_n||0)/Number(ctx.models_n))*100) : 0;
   const patient=ctx.patient_layer || {};
@@ -243,6 +249,18 @@ export default async function AtlasContextPage({params}:{params:Promise<{id:stri
       </div>
       <CellModelTable models={models.items as any[]}/>
     </section>
+
+    {preview && previewComparison && <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">ПРЕДПРОСМОТР ФУНКЦИОНАЛЬНОГО ЛАНДШАФТА</div>
+          <h2>Как распределяются CRISPR-зависимости?</h2>
+          <div className="section-copy">Это компактный обзор первого доступного сравнения — {previewComparison.label}. Каждая точка представляет ген; полный экран анализа позволяет искать конкретные гены, выделять наиболее контекстные зависимости и оценивать статистическую поддержку.</div>
+        </div>
+        <Link className="primary-link" href={`/comparisons/${encodeURIComponent(previewComparison.id)}`}>Открыть полный анализ →</Link>
+      </div>
+      <DependencyScatter points={preview.items} total={preview.total} compact />
+    </section>}
 
     <section className="section">
       <div className="section-header">
