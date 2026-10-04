@@ -8,7 +8,7 @@ from mcl_api.store import MCLDataError, MCLDataStore
 
 
 def _runtime_store(tmp_path):
-    (tmp_path / "data" / "processed" / "gene_explorer").mkdir(parents=True)
+    (tmp_path / "data" / "runtime" / "explorer").mkdir(parents=True)
     return RuntimeGeneExplorerStore(tmp_path, MCLDataStore(tmp_path))
 
 
@@ -21,7 +21,7 @@ def test_runtime_catalog_fails_fast_without_materialized_index(tmp_path):
 
 def test_runtime_reads_only_materialized_gene_indexes(tmp_path):
     runtime = _runtime_store(tmp_path)
-    index_dir = tmp_path / "data" / "processed" / "gene_explorer"
+    index_dir = tmp_path / "data" / "runtime" / "explorer"
 
     pd.DataFrame(
         [
@@ -68,6 +68,7 @@ def test_runtime_reads_only_materialized_gene_indexes(tmp_path):
     metrics = runtime.context_metrics_frame()
     formal = runtime.formal_annotation_frame()
 
+    assert runtime.index_dir == index_dir
     assert catalog["gene_symbol"].tolist() == ["AHR"]
     assert metrics["comparison_id"].tolist() == ["TEST"]
     assert formal[["source", "term_id", "term_name"]].to_dict("records") == [
