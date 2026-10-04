@@ -162,6 +162,19 @@ export type MultiomicsResponse = Record<string, unknown>;
 
 export type NetworkResponse = Record<string, unknown>;
 
+export type OverviewResponse = {
+  [key: string]: unknown;
+  "genes_analyzed_n": number;
+  "comparisons_n": number;
+  "stable_recurrent_genes_n": number;
+  "stable_pathways_n": number;
+  "thresholds"?: number[];
+  "per_threshold"?: Record<string, unknown>;
+  "analysis_version"?: string | null;
+  "generated_at"?: string | null;
+  "data_release"?: string | null;
+};
+
 export type PathwayListResponse = Record<string, unknown>[];
 
 export type PathwayStabilityResponse = Record<string, unknown>[];
