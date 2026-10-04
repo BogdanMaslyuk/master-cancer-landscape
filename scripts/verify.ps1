@@ -24,6 +24,7 @@ if (Test-Path (Join-Path $Root "tests")) {
     Run "Scientific core tests" { & $Python -m pytest .\tests -q }
 }
 Run "API tests" { & $Python -m pytest .\apps\api\tests -q }
+Run "Generated API type contract" { & $Python .\scripts\generate_frontend_api_types.py --check }
 Run "Runtime index contract" { & $Python .\scripts\verify_runtime_indexes.py }
 Run "Explorer API smoke checks" { & $Python .\scripts\smoke_explorer_api.py }
 
