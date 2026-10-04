@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
+from .crispr_catalog import CRISPRModelCatalog
 from .fast_runtime_gene_explorer import FastRuntimeGeneExplorerStore
 from .multiomics import MCLMultiOmicsStore
 from .repositories.atlas_repository import AtlasRepository
@@ -26,6 +27,7 @@ from .store import MCLDataStore
 # HTTP routers never need to instantiate data-access objects themselves.
 store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
+crispr_catalog = CRISPRModelCatalog(MCL_ROOT)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
 gene_explorer_store = FastRuntimeGeneExplorerStore(MCL_ROOT, store)
