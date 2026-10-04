@@ -1,44 +1,13 @@
 from __future__ import annotations
 
-from functools import lru_cache
-
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard
 from ..schemas.pathways import NetworkResponse, PathwayListResponse, PathwayStabilityResponse
-from ..state import store
+from ..state import pathway_service
 
 
 router = APIRouter()
-
-
-@lru_cache(maxsize=256)
-def _pathways_cached(
-    top_n: int | None,
-    source: str | None,
-    stable_only: bool,
-    significant_only: bool,
-    search: str | None,
-    limit: int,
-):
-    return store.pathways(
-        top_n=top_n,
-        source=source,
-        stable_only=stable_only,
-        significant_only=significant_only,
-        search=search,
-        limit=limit,
-    )
-
-
-@lru_cache(maxsize=1)
-def _pathway_stability_cached():
-    return store.pathway_stability()
-
-
-@lru_cache(maxsize=32)
-def _network_cached(stable_only: bool, limit_terms: int):
-    return store.network(stable_only=stable_only, limit_terms=limit_terms)
 
 
 @router.get("/api/pathways", response_model=PathwayListResponse)
@@ -50,14 +19,14 @@ def pathways(
     search: str | None = None,
     limit: int = Query(1000, ge=1, le=5000),
 ):
-    return guard(lambda: _pathways_cached(top_n, source, stable_only, significant_only, search, limit))
+    return guard(lambda: pathway_service.pathways(top_n, source, stable_only, significant_only, search, limit))
 
 
 @router.get("/api/pathways/stability", response_model=PathwayStabilityResponse)
 def pathway_stability():
-    return guard(_pathway_stability_cached)
+    return guard(pathway_service.stability)
 
 
 @router.get("/api/network", response_model=NetworkResponse)
 def network(stable_only: bool = True, limit_terms: int = Query(100, ge=1, le=500)):
-    return guard(lambda: _network_cached(stable_only, limit_terms))
+    return guard(lambda: pathway_service.network(stable_only, limit_terms))
