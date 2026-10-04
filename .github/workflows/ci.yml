@@ -32,8 +32,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/explorer/package-lock.json
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
       - name: TypeScript contract check
         run: npm run typecheck
       - name: Production build
