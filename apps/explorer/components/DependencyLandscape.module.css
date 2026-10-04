@@ -1,6 +1,6 @@
 .toolbar {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   padding: 2px 5px 12px;
@@ -21,117 +21,162 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #66778c;
-  box-shadow: none;
-  font-size: 10px;
-  font-weight: 800;
+  color: #5e6d7f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .modeButton:hover {
-  background: rgba(255,255,255,.65);
-  color: #234f7c;
-  transform: none;
+  color: #173f70;
 }
 
-.modeButtonActive {
+.modeActive {
   background: #fff;
-  color: #174d82;
-  box-shadow: 0 2px 8px rgba(20,52,85,.08);
+  color: #174d87;
+  box-shadow: 0 1px 4px rgba(39, 66, 100, 0.1);
 }
 
-.search {
+.searchBox {
+  min-width: 230px;
   display: grid;
-  gap: 4px;
-  min-width: min(100%, 230px);
+  gap: 5px;
 }
 
-.search span {
-  color: #7c8999;
-  font-size: 9px;
-  font-weight: 850;
-  letter-spacing: .065em;
+.searchBox span {
+  font-size: 10px;
+  font-weight: 800;
+  color: #8b97a5;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.search input {
-  min-height: 34px;
-  padding: 6px 10px;
+.searchBox input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid #d8e0e8;
+  border-radius: 10px;
+  padding: 0 11px;
+  background: #fff;
+  color: #22344b;
+  font: inherit;
+  outline: none;
+}
+
+.searchBox input:focus {
+  border-color: #91b6df;
+  box-shadow: 0 0 0 3px rgba(43, 105, 175, 0.08);
+}
+
+.chartWrap {
+  position: relative;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.point {
+  cursor: pointer;
+  transition: opacity 120ms ease, r 120ms ease;
+}
+
+.point:hover {
+  opacity: 1;
+}
+
+.foundLabel {
+  font-size: 10px;
+  font-weight: 800;
+  fill: #173f70;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  transform: translate(12px, 12px);
+  min-width: 190px;
+  max-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid #dce4ec;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 32px rgba(32, 53, 78, 0.14);
+  pointer-events: none;
+}
+
+.tooltip strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #173f70;
+}
+
+.tooltip div {
+  color: #58697b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.legendRow {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 5px 0;
+  color: #6b7988;
   font-size: 11px;
 }
 
-.metaRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 5px 7px;
-  color: #7b899a;
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.metaRow b {
-  color: #244a71;
-}
-
-.hint {
-  color: #8a97a6;
-}
-
-.highlightLegend {
+.legendRow span {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
 }
 
-.highlightDot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-right: 5px;
+.legendDot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #d97706;
-  box-shadow: 0 0 0 3px rgba(217,119,6,.12);
+  background: #96a5b5;
 }
 
-.compactShell {
-  padding-top: 10px;
+.legendStable {
+  background: #185a97;
 }
 
-.compactLegend {
-  padding-bottom: 4px;
+.legendFound {
+  background: #d06436;
 }
 
-.previewFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 10px;
-  color: #718096;
-  font-size: 10px;
+.note {
+  margin: 8px 5px 0;
+  color: #84909d;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
-.previewFooter strong {
-  color: #315d88;
-}
-
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .toolbar {
     align-items: stretch;
-    flex-direction: column;
+  }
+
+  .modeGroup,
+  .searchBox {
+    width: 100%;
   }
 
   .modeGroup {
     overflow-x: auto;
   }
 
-  .search {
-    min-width: 0;
-  }
-
-  .metaRow,
-  .previewFooter {
-    align-items: flex-start;
-    flex-direction: column;
+  .modeButton {
+    white-space: nowrap;
   }
 }
