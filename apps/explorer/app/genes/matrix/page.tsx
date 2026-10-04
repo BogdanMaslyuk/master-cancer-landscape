@@ -91,8 +91,8 @@ export default async function MatrixPage({searchParams}:{searchParams:Promise<Pa
           </div>
           <div className={styles.group}><div className={styles.groupTitle}>Надёжность</div>
             <label className={styles.check}><input name="stable_only" type="checkbox" value="true" defaultChecked={on(one(sp.stable_only))}/><span>Только устойчивые Top-50/100/200</span></label>
-            <label className={styles.check}><input name="exclude_broad" type="checkbox" value="true" defaultChecked={on(one(sp.exclude_broad),true)}/><span>Исключить broad dependency</span></label>
-            <label className={styles.check}><input name="exclude_low_sample" type="checkbox" value="true" defaultChecked={on(one(sp.exclude_low_sample),true)}/><span>Исключить low sample</span></label>
+            <label className={styles.check}><input name="exclude_broad" type="checkbox" value="true" defaultChecked={on(one(sp.exclude_broad),true)}/><span>Исключить broad dependency</span></label><input type="hidden" name="exclude_broad" value="false"/>
+            <label className={styles.check}><input name="exclude_low_sample" type="checkbox" value="true" defaultChecked={on(one(sp.exclude_low_sample),true)}/><span>Исключить low sample</span></label><input type="hidden" name="exclude_low_sample" value="false"/>
           </div>
           <div className={styles.group}><div className={styles.groupTitle}>Отображение</div><label className={styles.field}><span>Генов</span><select name="limit" defaultValue={one(sp.limit)||"60"}><option value="30">30</option><option value="60">60</option><option value="100">100</option><option value="120">120</option></select></label></div>
           <button className={styles.apply} type="submit">Обновить матрицу</button>
