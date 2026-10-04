@@ -8,19 +8,71 @@ import pandas as pd
 
 from .gene_explorer import _clean, _records
 from .matrix_gene_explorer import MatrixGeneExplorerStore
+from .store import MCLDataError
 
 
 class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
-    """Fast read-only runtime over materialized Gene Explorer indexes.
+    """Fast read-only Gene Explorer over materialized runtime indexes.
 
-    Expensive ontology projection belongs to build_gene_explorer_index.py, not to
-    interactive HTTP requests. Runtime methods below prefer gene_catalog.parquet and
-    gene_annotations.parquet and fall back to the original implementation only when
-    the materialized index is absent.
+    Build-time code owns ontology projection and catalog construction. Interactive
+    requests must never fall back to rebuilding those layers from scientific source
+    tables. Missing runtime artifacts therefore fail fast with an actionable error.
     """
 
+    def _runtime_path(self, name: str):
+        path = self.index_dir / name
+        if not path.exists():
+            raise MCLDataError(
+                f"Gene Explorer runtime index is missing: {name}. "
+                "Run scripts/build-explorer.ps1 before starting MCL Explorer."
+            )
+        return path
+
     def _annotation_path(self):
-        return self.index_dir / "gene_annotations.parquet"
+        return self._runtime_path("gene_annotations.parquet")
+
+    @lru_cache(maxsize=1)
+    def catalog_frame(self) -> pd.DataFrame:
+        return pd.read_parquet(self._runtime_path("gene_catalog.parquet"))
+
+    @lru_cache(maxsize=1)
+    def context_metrics_frame(self) -> pd.DataFrame:
+        return pd.read_parquet(self._runtime_path("gene_context_metrics.parquet"))
+
+    @lru_cache(maxsize=1)
+    def _annotation_frame(self) -> pd.DataFrame:
+        return pd.read_parquet(self._annotation_path())
+
+    @lru_cache(maxsize=1)
+    def formal_annotation_frame(self) -> pd.DataFrame:
+        rows = self._annotation_frame()
+        columns = [
+            "gene_symbol",
+            "source",
+            "term_id",
+            "term_name",
+            "significant",
+            "top_n",
+            "source_version",
+        ]
+        if rows.empty or "annotation_type" not in rows.columns:
+            return pd.DataFrame(columns=columns)
+
+        formal = rows[rows["annotation_type"].astype(str) == "formal_term"].copy()
+        if formal.empty:
+            return pd.DataFrame(columns=columns)
+
+        out = pd.DataFrame(index=formal.index)
+        out["gene_symbol"] = formal["gene_symbol"].astype(str).str.upper()
+        out["source"] = formal.get("source")
+        out["term_id"] = formal.get("source_id")
+        out["term_name"] = formal.get("source_term_name")
+        out["significant"] = formal.get("source_significant", False)
+        out["top_n"] = None
+        out["source_version"] = formal.get("source_version")
+        return out[columns].drop_duplicates(
+            ["gene_symbol", "source", "term_id", "term_name"], keep="first"
+        ).reset_index(drop=True)
 
     @staticmethod
     def _json_ids(value: Any) -> list[str]:
@@ -35,11 +87,11 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
     def functional_coverage(self) -> dict[str, Any]:
         catalog = self.catalog_frame()
         total = int(catalog["gene_symbol"].nunique()) if not catalog.empty else 0
-        if catalog.empty or "mcl_domains_json" not in catalog.columns:
-            return super().functional_coverage()
-        annotated = int(
-            catalog["mcl_domains_json"].map(lambda value: bool(self._json_ids(value))).sum()
-        )
+        annotated = 0
+        if not catalog.empty and "mcl_domains_json" in catalog.columns:
+            annotated = int(
+                catalog["mcl_domains_json"].map(lambda value: bool(self._json_ids(value))).sum()
+            )
         return {
             "annotated_genes_n": annotated,
             "gene_universe_n": total,
@@ -50,13 +102,7 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
 
     @lru_cache(maxsize=1)
     def _source_facets(self) -> list[dict[str, Any]]:
-        path = self._annotation_path()
-        if not path.exists():
-            return []
-        try:
-            frame = pd.read_parquet(path, columns=["gene_symbol", "annotation_type", "source"])
-        except Exception:
-            return []
+        frame = self._annotation_frame()
         if frame.empty or "source" not in frame.columns:
             return []
         if "annotation_type" in frame.columns:
@@ -132,19 +178,16 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
             }
         )
 
-    def _read_annotation_rows(self, gene_symbol: str, annotation_types: set[str] | None = None) -> pd.DataFrame:
-        path = self._annotation_path()
-        if not path.exists():
-            return pd.DataFrame()
+    def _read_annotation_rows(
+        self,
+        gene_symbol: str,
+        annotation_types: set[str] | None = None,
+    ) -> pd.DataFrame:
+        rows = self._annotation_frame()
         symbol = str(gene_symbol).strip().upper()
-        try:
-            frame = pd.read_parquet(path, filters=[("gene_symbol", "==", symbol)])
-        except Exception:
-            try:
-                frame = pd.read_parquet(path)
-                frame = frame[frame["gene_symbol"].astype(str).str.upper() == symbol]
-            except Exception:
-                return pd.DataFrame()
+        if rows.empty or "gene_symbol" not in rows.columns:
+            return rows.iloc[0:0].copy()
+        frame = rows[rows["gene_symbol"].astype(str).str.upper() == symbol].copy()
         if annotation_types and "annotation_type" in frame.columns:
             frame = frame[frame["annotation_type"].astype(str).isin(annotation_types)]
         return frame.reset_index(drop=True)
@@ -152,10 +195,10 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
     def annotations(self, gene_symbol: str) -> dict[str, Any]:
         symbol, _ = self._gene_or_raise(gene_symbol)
         rows = self._read_annotation_rows(symbol)
-        if rows.empty:
-            return super().annotations(symbol)
 
         def labels(annotation_type: str) -> list[str]:
+            if rows.empty or "annotation_type" not in rows.columns:
+                return []
             sub = rows[rows["annotation_type"].astype(str) == annotation_type]
             if sub.empty:
                 return []
@@ -167,7 +210,11 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
         protein_classes = labels("protein_class")
         compartments = labels("compartment")
         hallmarks = labels("hallmark")
-        formal = rows[rows["annotation_type"].astype(str) == "formal_term"].copy()
+        formal = (
+            rows[rows["annotation_type"].astype(str) == "formal_term"].copy()
+            if not rows.empty and "annotation_type" in rows.columns
+            else rows.iloc[0:0].copy()
+        )
         formal_records: list[dict[str, Any]] = []
         for _, row in formal.iterrows():
             formal_records.append(
@@ -190,14 +237,30 @@ class RuntimeGeneExplorerStore(MatrixGeneExplorerStore):
                 "protein_classes": protein_classes,
                 "compartments": compartments,
                 "hallmarks": hallmarks,
-                "mcl_domain_details": _records(rows[rows["annotation_type"].astype(str).isin(["mcl_domain", "mcl_subdomain"])]),
-                "protein_class_details": _records(rows[rows["annotation_type"].astype(str) == "protein_class"]),
-                "compartment_details": _records(rows[rows["annotation_type"].astype(str) == "compartment"]),
-                "hallmark_details": _records(rows[rows["annotation_type"].astype(str) == "hallmark"]),
+                "mcl_domain_details": _records(
+                    rows[rows["annotation_type"].astype(str).isin(["mcl_domain", "mcl_subdomain"])]
+                )
+                if not rows.empty and "annotation_type" in rows.columns
+                else [],
+                "protein_class_details": _records(
+                    rows[rows["annotation_type"].astype(str) == "protein_class"]
+                )
+                if not rows.empty and "annotation_type" in rows.columns
+                else [],
+                "compartment_details": _records(
+                    rows[rows["annotation_type"].astype(str) == "compartment"]
+                )
+                if not rows.empty and "annotation_type" in rows.columns
+                else [],
+                "hallmark_details": _records(
+                    rows[rows["annotation_type"].astype(str) == "hallmark"]
+                )
+                if not rows.empty and "annotation_type" in rows.columns
+                else [],
                 "formal_annotations": formal_records,
                 "coverage": self.functional_coverage(),
                 "reference_coverage": self.reference_coverage(),
                 "reference_available": bool(self.reference_coverage().get("available")),
-                "note": "Annotations are served from the materialized provenance-aware Gene Explorer index.",
+                "note": "Annotations are served only from the materialized provenance-aware Gene Explorer index.",
             }
         )
