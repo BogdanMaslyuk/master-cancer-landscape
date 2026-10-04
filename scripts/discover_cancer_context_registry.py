@@ -73,7 +73,7 @@ def _load_models(path: Path) -> pd.DataFrame:
 
 def _load_crispr_model_ids(path: Path) -> set[str]:
     header = pd.read_csv(path, nrows=0)
-    if header.empty:
+    if len(header.columns) == 0:
         raise SystemExit("CRISPRGeneEffect.csv has no columns")
     first = header.columns[0]
     frame = pd.read_csv(path, usecols=[first], low_memory=False)
