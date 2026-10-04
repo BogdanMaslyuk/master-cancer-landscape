@@ -8,49 +8,60 @@ import numpy as np
 import pandas as pd
 
 from .runtime_gene_explorer import RuntimeGeneExplorerStore
+from .store import MCLDataError
 
 
 class FastRuntimeGeneExplorerStore(RuntimeGeneExplorerStore):
-    """Runtime Gene Explorer with memory-mapped gene-by-model multi-omics arrays.
+    """Runtime Gene Explorer with required memory-mapped gene-by-model arrays.
 
     The ordinary processed Parquet matrices are intentionally wide (models x genes).
     Opening an arbitrary gene column from a ~20k-column Parquet file can spend tens
-    of seconds parsing wide-file metadata on Windows. Explorer therefore prefers a
+    of seconds parsing wide-file metadata on Windows. Explorer therefore requires a
     build-time transposed NumPy runtime array (genes x models). One gene lookup then
     reads a single contiguous row from a memory-mapped file.
 
-    When the optimized runtime array is absent we retain the parent implementation
-    as a compatibility fallback, but normal local builds should always create the
-    arrays through scripts/build_depmap_runtime_arrays.py.
+    Architecture v1 deliberately fails closed when an optimized runtime layer is
+    missing or invalid. Interactive HTTP requests must never fall back to parsing the
+    wide processed scientific matrices. Rebuild serving artifacts with
+    scripts/build-explorer.ps1 instead.
     """
 
     @lru_cache(maxsize=3)
     def _runtime_layer_bundle(
         self, layer: str
-    ) -> tuple[np.ndarray, tuple[str, ...], dict[str, int]] | None:
-        runtime_dir = self.index_dir / "model_layers"
-        metadata_path = runtime_dir / f"{layer}.json"
-        matrix_path = runtime_dir / f"{layer}.npy"
-        if not metadata_path.exists() or not matrix_path.exists():
-            return None
+    ) -> tuple[np.ndarray, tuple[str, ...], dict[str, int]]:
+        metadata_path = self._runtime_path(f"model_layers/{layer}.json")
+        matrix_path = self._runtime_path(f"model_layers/{layer}.npy")
 
         try:
             metadata: dict[str, Any] = json.loads(metadata_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return None
+        except (json.JSONDecodeError, OSError) as exc:
+            raise MCLDataError(
+                f"Gene Explorer runtime metadata is invalid for layer '{layer}'. "
+                "Run scripts/build-explorer.ps1 to rebuild serving artifacts."
+            ) from exc
 
         models = tuple(str(value) for value in (metadata.get("models") or []))
         genes = [str(value).upper() for value in (metadata.get("genes") or [])]
         if not models or not genes:
-            return None
+            raise MCLDataError(
+                f"Gene Explorer runtime metadata is incomplete for layer '{layer}'. "
+                "Run scripts/build-explorer.ps1 to rebuild serving artifacts."
+            )
 
         try:
             matrix = np.load(matrix_path, mmap_mode="r", allow_pickle=False)
-        except (OSError, ValueError):
-            return None
+        except (OSError, ValueError) as exc:
+            raise MCLDataError(
+                f"Gene Explorer runtime matrix is invalid for layer '{layer}'. "
+                "Run scripts/build-explorer.ps1 to rebuild serving artifacts."
+            ) from exc
 
         if matrix.ndim != 2 or matrix.shape != (len(genes), len(models)):
-            return None
+            raise MCLDataError(
+                f"Gene Explorer runtime matrix shape does not match metadata for layer '{layer}'. "
+                "Run scripts/build-explorer.ps1 to rebuild serving artifacts."
+            )
 
         gene_index = {symbol: index for index, symbol in enumerate(genes)}
         return matrix, models, gene_index
@@ -58,11 +69,7 @@ class FastRuntimeGeneExplorerStore(RuntimeGeneExplorerStore):
     @lru_cache(maxsize=1536)
     def _model_gene_layer(self, layer: str, gene_symbol: str) -> pd.DataFrame:
         symbol = str(gene_symbol).strip().upper()
-        bundle = self._runtime_layer_bundle(layer)
-        if bundle is None:
-            return super()._model_gene_layer(layer, symbol)
-
-        matrix, models, gene_index = bundle
+        matrix, models, gene_index = self._runtime_layer_bundle(layer)
         index = gene_index.get(symbol)
         if index is None:
             return pd.DataFrame(columns=["model_id", layer])
