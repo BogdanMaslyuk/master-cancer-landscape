@@ -12,12 +12,23 @@ type SearchPayload = {
   pages:number;
   sort_by:string;
   sort_order:string;
+  functional_coverage?:{annotated_genes_n:number;gene_universe_n:number;coverage_fraction:number|null;status:string;reason:string};
   items:Record<string,any>[];
 };
 
 type Comparison = { id:string; label:string; cancer_id:string };
 type AtlasContext = { id:string; cancer_ru?:string; molecular_ru?:string; short_ru?:string };
 type AtlasPayload = { contexts?:AtlasContext[]; organs?:{contexts?:AtlasContext[]}[] } | AtlasContext[];
+type FacetSubdomain = { id:string; label_ru:string; genes_n:number };
+type FacetDomain = { id:string; label_ru:string; label_en?:string; genes_n:number; subdomains:FacetSubdomain[] };
+type FacetPayload = {
+  taxonomy_version?:string;
+  status?:string;
+  domains:FacetDomain[];
+  sources:{id:string;genes_n:number}[];
+  coverage:{annotated_genes_n:number;gene_universe_n:number;coverage_fraction:number|null;status:string;reason:string};
+  provenance_note?:string;
+};
 type Params = Record<string, string | string[] | undefined>;
 
 function one(value:string|string[]|undefined){ return Array.isArray(value) ? value[0] : value; }
@@ -27,10 +38,15 @@ function atlasContexts(value:AtlasPayload):AtlasContext[]{
   if(value.contexts?.length) return value.contexts;
   return (value.organs || []).flatMap((organ)=>organ.contexts || []);
 }
+function jsonList(value:unknown):string[]{
+  if(Array.isArray(value)) return value.map(String);
+  try { const parsed=JSON.parse(String(value || "[]")); return Array.isArray(parsed)?parsed.map(String):[]; }
+  catch { return []; }
+}
 
 function apiQuery(searchParams:Params){
   const out=new URLSearchParams();
-  const names=["q","cancer_id","comparison_id","gene_effect_max","delta_gene_effect_max","q_value_max","cliffs_delta_abs_min","page","page_size","sort_by","sort_order"];
+  const names=["q","domain","subdomain","pathway","annotation_source","cancer_id","comparison_id","gene_effect_max","delta_gene_effect_max","q_value_max","cliffs_delta_abs_min","page","page_size","sort_by","sort_order"];
   for(const name of names){ const value=one(searchParams[name]); if(value) out.set(name,value); }
   for(const name of ["stable_only","exclude_broad","exclude_low_sample"]){ if(on(one(searchParams[name]))) out.set(name,"true"); }
   if(!out.has("page_size")) out.set("page_size","50");
@@ -43,9 +59,13 @@ function pageHref(searchParams:Params,page:number){
   return `/genes?${q.toString()}`;
 }
 
-function activeFilterLabels(searchParams:Params,contexts:AtlasContext[],comparisons:Comparison[]){
+function activeFilterLabels(searchParams:Params,contexts:AtlasContext[],comparisons:Comparison[],facets:FacetPayload){
   const labels:string[]=[];
   const q=one(searchParams.q); if(q) labels.push(`Поиск: ${q}`);
+  const domain=one(searchParams.domain); if(domain){ const found=facets.domains.find(x=>x.id===domain); labels.push(found?.label_ru || domain); }
+  const subdomain=one(searchParams.subdomain); if(subdomain){ const found=facets.domains.flatMap(x=>x.subdomains||[]).find(x=>x.id===subdomain); labels.push(found?.label_ru || subdomain); }
+  const pathway=one(searchParams.pathway); if(pathway) labels.push(`Путь/терм: ${pathway}`);
+  const source=one(searchParams.annotation_source); if(source) labels.push(`Источник: ${source}`);
   const cancer=one(searchParams.cancer_id); if(cancer){ const found=contexts.find(x=>x.id===cancer); labels.push(found?.short_ru || found?.cancer_ru || cancer); }
   const cmp=one(searchParams.comparison_id); if(cmp){ const found=comparisons.find(x=>x.id===cmp); labels.push(found?.label || cmp); }
   const ge=one(searchParams.gene_effect_max); if(ge) labels.push(`min Gene Effect ≤ ${ge}`);
@@ -61,22 +81,28 @@ function activeFilterLabels(searchParams:Params,contexts:AtlasContext[],comparis
 export default async function GenesPage({searchParams}:{searchParams:Promise<Params>}){
   const sp=await searchParams;
   const query=apiQuery(sp);
-  const [result, comparisons, atlasRaw]=await Promise.all([
+  const [result, comparisons, atlasRaw, facets]=await Promise.all([
     apiGet<SearchPayload>(`/api/genes/search?${query.toString()}`),
     apiGet<Comparison[]>("/api/comparisons"),
     apiGet<AtlasPayload>("/api/atlas"),
+    apiGet<FacetPayload>("/api/genes/facets"),
   ]);
   const contexts=atlasContexts(atlasRaw);
-  const active=activeFilterLabels(sp,contexts,comparisons);
+  const active=activeFilterLabels(sp,contexts,comparisons,facets);
   const currentCancer=one(sp.cancer_id) || "";
+  const currentDomain=one(sp.domain) || "";
   const availableComparisons=currentCancer ? comparisons.filter(x=>x.cancer_id===currentCancer) : comparisons;
+  const selectedDomain=facets.domains.find(x=>x.id===currentDomain);
+  const availableSubdomains=selectedDomain?.subdomains?.length ? selectedDomain.subdomains : facets.domains.flatMap(x=>x.subdomains||[]);
+  const domainLabels=new Map(facets.domains.map(x=>[x.id,x.label_ru]));
+  const coverage=facets.coverage;
 
   return <>
     <section className={styles.pageHeader}>
       <div>
         <div className="eyebrow">UNIVERSAL GENE EXPLORER</div>
         <h1>Гены и мишени</h1>
-        <p>Начните с любого гена и проследите обратный маршрут: в каких опухолевых контекстах возникает CRISPR-сигнал, какие клеточные модели сильнее всего зависят от гена и какие multi-omics данные поддерживают интерпретацию.</p>
+        <p>Начните с любого гена и проследите обратный маршрут: фундаментальная функция → опухолевые контексты → клеточные модели → CRISPR Gene Effect → RNA → copy number.</p>
       </div>
       <div className={styles.searchSlot}>
         <GeneSearch />
@@ -91,6 +117,15 @@ export default async function GenesPage({searchParams}:{searchParams:Promise<Par
           <div className={styles.group}>
             <div className={styles.groupTitle}>Поиск</div>
             <label className={styles.field}><span>Gene symbol содержит</span><input name="q" defaultValue={one(sp.q) || ""} placeholder="например AHR" /></label>
+          </div>
+
+          <div className={styles.group}>
+            <div className={styles.groupTitle}>Биология</div>
+            <label className={styles.field}><span>MCL Functional Domain</span><select name="domain" defaultValue={currentDomain}><option value="">Все функциональные домены</option>{facets.domains.map((domain)=><option key={domain.id} value={domain.id}>{domain.label_ru} · {domain.genes_n}</option>)}</select></label>
+            <label className={styles.field}><span>Подфункция</span><select name="subdomain" defaultValue={one(sp.subdomain) || ""}><option value="">Все подфункции</option>{availableSubdomains.map((sub)=><option key={sub.id} value={sub.id}>{sub.label_ru} · {sub.genes_n}</option>)}</select></label>
+            <label className={styles.field}><span>GO / Reactome / KEGG / CORUM термин</span><input name="pathway" defaultValue={one(sp.pathway) || ""} placeholder="например mitochondrial fission" /></label>
+            <label className={styles.field}><span>Источник аннотации</span><select name="annotation_source" defaultValue={one(sp.annotation_source) || ""}><option value="">Все источники</option>{facets.sources.map((source)=><option key={source.id} value={source.id}>{source.id} · {source.genes_n}</option>)}</select></label>
+            <div className={styles.searchHint}>Функциональная классификация сейчас имеет частичное покрытие: домен присваивается только через реально существующий формальный термин и сохраняет его provenance.</div>
           </div>
 
           <div className={styles.group}>
@@ -116,7 +151,7 @@ export default async function GenesPage({searchParams}:{searchParams:Promise<Par
 
           <div className={styles.group}>
             <div className={styles.groupTitle}>Сортировка</div>
-            <label className={styles.field}><span>Показатель</span><select name="sort_by" defaultValue={one(sp.sort_by) || "best_delta_gene_effect"}><option value="best_delta_gene_effect">Контекстная селективность ΔGE</option><option value="best_model_gene_effect">Сильнейший Gene Effect модели</option><option value="best_q_value">Минимальный q-value</option><option value="best_cliffs_delta">Cliff's δ</option><option value="significant_comparisons_n">Число значимых сравнений</option><option value="gene_symbol">Алфавит</option></select></label>
+            <label className={styles.field}><span>Показатель</span><select name="sort_by" defaultValue={one(sp.sort_by) || "best_delta_gene_effect"}><option value="best_delta_gene_effect">Контекстная селективность ΔGE</option><option value="best_model_gene_effect">Сильнейший Gene Effect модели</option><option value="best_q_value">Минимальный q-value</option><option value="best_cliffs_delta">Cliff's δ</option><option value="significant_comparisons_n">Число значимых сравнений</option><option value="functional_annotations_n">Число функциональных аннотаций</option><option value="gene_symbol">Алфавит</option></select></label>
             <label className={styles.field}><span>Порядок</span><select name="sort_order" defaultValue={one(sp.sort_order) || "asc"}><option value="asc">По возрастанию</option><option value="desc">По убыванию</option></select></label>
             <input type="hidden" name="page_size" value={one(sp.page_size) || "50"}/>
           </div>
@@ -126,19 +161,21 @@ export default async function GenesPage({searchParams}:{searchParams:Promise<Par
 
       <section className={styles.results}>
         <div className={styles.summaryBar}>
-          <div><strong>{new Intl.NumberFormat("ru-RU").format(result.total)} генов</strong><span>Показаны данные, которые реально присутствуют в текущих MCL/DepMap индексах.</span></div>
+          <div><strong>{new Intl.NumberFormat("ru-RU").format(result.total)} генов</strong><span>Функционально размечено {new Intl.NumberFormat("ru-RU").format(coverage.annotated_genes_n)} из {new Intl.NumberFormat("ru-RU").format(coverage.gene_universe_n)} генов текущего universe. Непокрытые гены не считаются функционально отрицательными.</span></div>
           {active.length>0 && <div className={styles.activeFilters}>{active.map((label)=><span className={styles.chip} key={label}>{label}</span>)}</div>}
         </div>
 
         <div className={styles.tableWrap}>
           {result.items.length ? <table className={styles.table}>
-            <thead><tr><th>Ген</th><th>Лучший контекст</th><th>Δ Gene Effect</th><th>min model GE</th><th>min q-value</th><th>Cliff's δ</th><th>Сравнения</th><th>Ограничения</th></tr></thead>
+            <thead><tr><th>Ген</th><th>Функциональные домены</th><th>Лучший контекст</th><th>Δ Gene Effect</th><th>min model GE</th><th>min q-value</th><th>Cliff's δ</th><th>Сравнения</th><th>Ограничения</th></tr></thead>
             <tbody>{result.items.map((gene:any)=>{
               const stable=String(gene.present_all_thresholds).toLowerCase()==="true";
               const delta=Number(gene.best_delta_gene_effect);
               const warnings=[gene.broad_dependency_any?"broad":null,gene.low_sample_any?"low n":null].filter(Boolean);
+              const domains=jsonList(gene.mcl_domains_json).map((id)=>domainLabels.get(id)||id).slice(0,3);
               return <tr key={gene.gene_symbol}>
                 <td><Link className={styles.geneLink} href={`/genes/${encodeURIComponent(gene.gene_symbol)}`}>{stable && <span className={styles.stableDot}/>} {gene.gene_symbol}</Link></td>
+                <td className={styles.contextCell}>{domains.length?domains.join(" · "):"—"}</td>
                 <td className={styles.contextCell}>{gene.best_context_label || "—"}</td>
                 <td className={Number.isFinite(delta)&&delta<0?styles.negative:styles.metricStrong}>{formatNumber(gene.best_delta_gene_effect)}</td>
                 <td className={styles.metricStrong}>{formatNumber(gene.best_model_gene_effect)}</td>
@@ -160,9 +197,10 @@ export default async function GenesPage({searchParams}:{searchParams:Promise<Par
         </div>
 
         <div className={styles.guardrail}>
+          <div><b>Функциональные домены — слой навигации</b>Они группируют формальные источники по понятным биологическим темам, но не заменяют GO/Reactome/KEGG/CORUM и не назначаются без исходного термина.</div>
           <div><b>CRISPR ≠ лекарство</b>Сильная зависимость после knockout не доказывает, что фармакологическое ингибирование воспроизведёт эффект.</div>
           <div><b>Клеточные линии ≠ пациенты</b>Контекстная селективность относится к экспериментальным моделям и не является частотой признака в опухолях пациентов.</div>
-          <div><b>Нет данных ≠ нет эффекта</b>RNA, CN или статистика могут отсутствовать из-за неполного покрытия конкретного слоя.</div>
+          <div><b>Нет данных ≠ нет эффекта</b>Отсутствие функциональной разметки, RNA, CN или статистики может отражать неполное покрытие слоя.</div>
         </div>
       </section>
     </div>
