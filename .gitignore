@@ -38,6 +38,9 @@ data/cache/
 *CRISPRGeneDependency*.csv
 *Model*.csv
 *OmicsSomaticMutations*.csv
+*OmicsExpressionProteinCodingGenesTPMLogp1*.csv
+*OmicsCNGeneWGS*.csv
+*OmicsCNGene.csv
 
 # Generated local cell-model indexes
 data/processed/depmap_model_metadata.parquet
@@ -46,6 +49,15 @@ data/processed/depmap_model_mutations.parquet
 data/processed/depmap_model_mutations.tsv
 data/processed/depmap_model_profile_summary.parquet
 data/processed/depmap_model_profile_summary.tsv
+
+# Generated local multi-omics indexes
+data/processed/depmap_model_expression.parquet
+data/processed/depmap_model_copy_number.parquet
+data/processed/depmap_model_gene_effect.parquet
+data/processed/depmap_model_expression_genes.json
+data/processed/depmap_model_copy_number_genes.json
+data/processed/depmap_model_gene_effect_genes.json
+data/processed/depmap_model_multiomics_manifest.json
 
 # Secrets
 .env
