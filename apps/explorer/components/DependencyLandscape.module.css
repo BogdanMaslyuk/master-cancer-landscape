@@ -1,0 +1,137 @@
+.toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 5px 12px;
+  flex-wrap: wrap;
+}
+
+.modeGroup {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #eef2f6;
+}
+
+.modeButton {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #66778c;
+  box-shadow: none;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.modeButton:hover {
+  background: rgba(255,255,255,.65);
+  color: #234f7c;
+  transform: none;
+}
+
+.modeButtonActive {
+  background: #fff;
+  color: #174d82;
+  box-shadow: 0 2px 8px rgba(20,52,85,.08);
+}
+
+.search {
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 230px);
+}
+
+.search span {
+  color: #7c8999;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+
+.search input {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 5px 7px;
+  color: #7b899a;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.metaRow b {
+  color: #244a71;
+}
+
+.hint {
+  color: #8a97a6;
+}
+
+.highlightLegend {
+  display: inline-flex;
+  align-items: center;
+}
+
+.highlightDot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: #d97706;
+  box-shadow: 0 0 0 3px rgba(217,119,6,.12);
+}
+
+.compactShell {
+  padding-top: 10px;
+}
+
+.compactLegend {
+  padding-bottom: 4px;
+}
+
+.previewFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+  color: #718096;
+  font-size: 10px;
+}
+
+.previewFooter strong {
+  color: #315d88;
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .modeGroup {
+    overflow-x: auto;
+  }
+
+  .search {
+    min-width: 0;
+  }
+
+  .metaRow,
+  .previewFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
