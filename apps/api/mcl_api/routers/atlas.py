@@ -5,6 +5,7 @@ from functools import lru_cache
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard, split_genes
+from ..schemas.atlas import AtlasResponse, CancerContextResponse, CohortResponse, MultiomicsResponse
 from ..state import atlas_store, cohort_store, multiomics_store
 
 
@@ -36,22 +37,22 @@ def _context_multiomics_cached(cancer_id: str, genes: tuple[str, ...], limit: in
     return multiomics_store.context(cancer_id, list(genes) or None, limit=limit)
 
 
-@router.get("/api/atlas")
+@router.get("/api/atlas", response_model=AtlasResponse)
 def atlas():
     return guard(_atlas_cached)
 
 
-@router.get("/api/multiomics")
+@router.get("/api/multiomics", response_model=MultiomicsResponse)
 def multiomics_availability():
     return guard(_multiomics_availability_cached)
 
 
-@router.get("/api/atlas/{cancer_id}/cohort")
+@router.get("/api/atlas/{cancer_id}/cohort", response_model=CohortResponse)
 def cancer_model_cohort(cancer_id: str):
     return guard(lambda: _cohort_cached(cancer_id))
 
 
-@router.get("/api/atlas/{cancer_id}/multiomics")
+@router.get("/api/atlas/{cancer_id}/multiomics", response_model=MultiomicsResponse)
 def cancer_multiomics(
     cancer_id: str,
     genes: str | None = None,
@@ -61,6 +62,6 @@ def cancer_multiomics(
     return guard(lambda: _context_multiomics_cached(cancer_id, gene_tuple, limit))
 
 
-@router.get("/api/atlas/{cancer_id}")
+@router.get("/api/atlas/{cancer_id}", response_model=CancerContextResponse)
 def cancer_context(cancer_id: str):
     return guard(lambda: _context_cached(cancer_id))
