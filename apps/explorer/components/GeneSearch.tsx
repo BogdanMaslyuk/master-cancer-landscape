@@ -6,6 +6,7 @@ import styles from "./GeneSearch.module.css";
 
 type Suggestion = {
   gene_symbol: string;
+  gene_name?: string | null;
   best_context_label?: string | null;
   best_delta_gene_effect?: number | null;
   best_model_gene_effect?: number | null;
@@ -14,8 +15,9 @@ type Suggestion = {
 
 const API_BASE = process.env.NEXT_PUBLIC_MCL_API_URL || "http://127.0.0.1:8000";
 
-function cleanSymbol(value: string) {
-  return value.trim().toUpperCase().replace(/\s+/g, "");
+function symbolLike(value: string) {
+  const text = value.trim();
+  return /^[A-Za-z0-9_.-]+$/.test(text) ? text.toUpperCase() : "";
 }
 
 function smallNumber(value: unknown) {
@@ -28,17 +30,17 @@ export default function GeneSearch({ compact = false }: { compact?: boolean }) {
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [focused, setFocused] = useState(false);
-  const symbol = useMemo(() => cleanSymbol(value), [value]);
+  const query = useMemo(() => value.trim(), [value]);
 
   useEffect(() => {
-    if (symbol.length < 1) {
+    if (query.length < 1) {
       setSuggestions([]);
       return;
     }
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/genes/suggest?q=${encodeURIComponent(symbol)}&limit=8`, {
+        const response = await fetch(`${API_BASE}/api/genes/suggest?q=${encodeURIComponent(query)}&limit=8`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -46,17 +48,17 @@ export default function GeneSearch({ compact = false }: { compact?: boolean }) {
         const payload = (await response.json()) as Suggestion[];
         setSuggestions(Array.isArray(payload) ? payload : []);
       } catch {
-        // Autocomplete is optional; direct submit still works if the API is warming up.
+        // Autocomplete is optional; catalog search/direct symbol submit still works.
       }
     }, 140);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [symbol]);
+  }, [query]);
 
   function openGene(next: string) {
-    const cleaned = cleanSymbol(next);
+    const cleaned = symbolLike(next);
     if (!cleaned) return;
     setFocused(false);
     setSuggestions([]);
@@ -65,7 +67,23 @@ export default function GeneSearch({ compact = false }: { compact?: boolean }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    openGene(value);
+    if (!query) return;
+    const direct = symbolLike(query);
+    const exact = suggestions.find((item) => item.gene_symbol.toUpperCase() === direct);
+    if (exact) {
+      openGene(exact.gene_symbol);
+      return;
+    }
+    if (suggestions.length === 1) {
+      openGene(suggestions[0].gene_symbol);
+      return;
+    }
+    if (direct) {
+      openGene(direct);
+      return;
+    }
+    setFocused(false);
+    router.push(`/genes?q=${encodeURIComponent(query)}`);
   }
 
   return (
@@ -77,7 +95,7 @@ export default function GeneSearch({ compact = false }: { compact?: boolean }) {
           onChange={(event) => setValue(event.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => window.setTimeout(() => setFocused(false), 120)}
-          placeholder="Найти ген: AHR, KRAS, DNM1L…"
+          placeholder="AHR или aryl hydrocarbon receptor…"
           aria-label="Найти ген или белок"
           autoComplete="off"
           spellCheck={false}
@@ -98,8 +116,8 @@ export default function GeneSearch({ compact = false }: { compact?: boolean }) {
             >
               <span className={styles.symbol}>{item.gene_symbol}</span>
               <span className={styles.meta}>
-                {item.present_all_thresholds ? <b>устойчивый</b> : <span>{item.best_context_label || "геномный набор DepMap"}</span>}
-                <small>ΔGE {smallNumber(item.best_delta_gene_effect)} · min GE {smallNumber(item.best_model_gene_effect)}</small>
+                <span>{item.gene_name || item.best_context_label || "геномный набор DepMap"}</span>
+                <small>{item.present_all_thresholds ? "устойчивый · " : ""}ΔGE {smallNumber(item.best_delta_gene_effect)} · min GE {smallNumber(item.best_model_gene_effect)}</small>
               </span>
             </button>
           ))}
