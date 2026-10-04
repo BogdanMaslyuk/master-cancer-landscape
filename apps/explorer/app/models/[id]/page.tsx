@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
+import readiness from "./readiness.module.css";
 
 type Model = Record<string, any>;
 
@@ -22,6 +23,9 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
   const genetics=model.genetics || {};
   const metadata=model.metadata || {};
   const priority=genetics.priority_variants || [];
+  const metadataAvailable=Object.keys(metadata).length > 0;
+  const membershipsN=model.memberships?.length || 0;
+  const fullGenetics=genetics.availability === "full";
 
   return <>
     <div className="breadcrumbs"><Link href="/models">Клеточные линии</Link><span>›</span><strong>{model.cell_line_name}</strong></div>
@@ -49,6 +53,43 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
     <section className={styles.scopeWarning}>
       <span>Модель</span>
       <div><b>Ниже показана генетика именно {model.cell_line_name}</b><p>Эти варианты характеризуют конкретную экспериментальную линию. Их нельзя трактовать как частоту или типичный генетический профиль всех пациентов с {model.oncotree_subtype || model.oncotree_primary_disease}.</p></div>
+    </section>
+
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">ПОКРЫТИЕ ДАННЫХ</div>
+          <h2>Что мы реально знаем об этой модели?</h2>
+          <div className="section-copy">MCL разделяет доступные и ещё не подключённые слои, чтобы отсутствие одного типа данных не выглядело как отрицательный биологический результат.</div>
+        </div>
+      </div>
+      <div className={readiness.grid}>
+        <article className={readiness.card}>
+          <div className={readiness.cardTop}><span className={readiness.index}>01</span><span className={`${readiness.badge} ${readiness.available}`}>доступно</span></div>
+          <h3>Идентичность модели</h3>
+          <p>DepMap ID, тип модели, OncoTree-аннотация и опухолевое происхождение.</p>
+          <strong>{model.oncotree_code || model.depmap_model_type || "DepMap model"}</strong>
+        </article>
+        <article className={readiness.card}>
+          <div className={readiness.cardTop}><span className={readiness.index}>02</span><span className={`${readiness.badge} ${metadataAvailable ? readiness.available : readiness.partial}`}>{metadataAvailable ? "доступно" : "частично"}</span></div>
+          <h3>Метаданные образца</h3>
+          <p>Происхождение, место получения, пол, возраст и внешние идентификаторы — если они есть в Model.csv.</p>
+          <strong>{metadataAvailable ? "Model.csv проиндексирован" : "Только базовый аудит"}</strong>
+        </article>
+        <article className={readiness.card}>
+          <div className={readiness.cardTop}><span className={readiness.index}>03</span><span className={`${readiness.badge} ${fullGenetics ? readiness.available : readiness.partial}`}>{fullGenetics ? "полный профиль" : "ограничено"}</span></div>
+          <h3>Соматические варианты</h3>
+          <p>Индивидуальный мутационный фон из DepMap OmicsSomaticMutations, а не только определяющая мутация контекста.</p>
+          <strong>{genetics.mutations_n ?? 0} записей · {genetics.mutated_genes_n ?? 0} генов</strong>
+        </article>
+        <article className={readiness.card}>
+          <div className={readiness.cardTop}><span className={readiness.index}>04</span><span className={`${readiness.badge} ${membershipsN ? readiness.available : readiness.pending}`}>{membershipsN ? "доступно" : "нет назначений"}</span></div>
+          <h3>Роль в MCL</h3>
+          <p>В каких опухолевых контекстах модель используется и относится ли она к целевой, контрольной или исключённой группе.</p>
+          <strong>{membershipsN} контекст{membershipsN === 1 ? "" : "а"}</strong>
+        </article>
+      </div>
+      <div className={readiness.note}><b>Ещё не означает «полная модель»:</b> экспрессия RNA, число копий, индивидуальный CRISPR-профиль и репрезентативность относительно пациентских опухолей будут подключаться отдельными слоями. Их отсутствие здесь не трактуется как отсутствие биологического эффекта.</div>
     </section>
 
     <section className="section">
@@ -130,6 +171,6 @@ export default async function ModelPage({params}:{params:Promise<{id:string}>}){
       </div>
     </section>
 
-    <section className="section technical-note"><b>Следующий функциональный слой:</b> к этой карточке планируется добавить индивидуальный профиль CRISPR Gene Effect, экспрессию, изменения числа копий и оценку того, насколько модель репрезентативна для соответствующей опухоли у пациентов.</section>
+    <section className="section technical-note"><b>Следующий функциональный слой:</b> RNA-экспрессия, число копий и индивидуальный CRISPR Gene Effect будут добавляться поверх уже завершённой идентичности, происхождения, принадлежности к контекстам и мутационного профиля модели.</section>
   </>;
 }
