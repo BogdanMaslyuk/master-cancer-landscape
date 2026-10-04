@@ -8,12 +8,14 @@ from .repositories.atlas_repository import AtlasRepository
 from .repositories.comparison_repository import ComparisonRepository
 from .repositories.gene_repository import GeneRepository
 from .repositories.model_repository import ModelRepository
+from .repositories.overview_repository import OverviewRepository
 from .repositories.pathway_repository import PathwayRepository
 from .repositories.qc_repository import QCRepository
 from .services.atlas_service import AtlasService
 from .services.comparison_service import ComparisonService
 from .services.gene_service import GeneService
 from .services.model_service import ModelService
+from .services.overview_service import OverviewService
 from .services.pathway_service import PathwayService
 from .services.qc_service import QCService
 from .settings import MCL_ROOT
@@ -46,3 +48,6 @@ pathway_service = PathwayService(pathway_repository)
 
 qc_repository = QCRepository(store)
 qc_service = QCService(qc_repository)
+
+overview_repository = OverviewRepository(store)
+overview_service = OverviewService(overview_repository)
