@@ -20,6 +20,8 @@ function Run([string]$Label, [scriptblock]$Command) {
     }
 }
 
+Run "Python dependency constraints" { & $Python .\scripts\verify_python_constraints.py }
+Run "Python dependency graph" { & $Python -m pip check }
 if (Test-Path (Join-Path $Root "tests")) {
     Run "Scientific core tests" { & $Python -m pytest .\tests -q }
 }
@@ -32,7 +34,7 @@ $Explorer = Join-Path $Root "apps\explorer"
 Push-Location $Explorer
 try {
     if (-not (Test-Path (Join-Path $Explorer "node_modules"))) {
-        throw "Frontend dependencies are missing. Run npm.cmd install in apps\explorer first."
+        throw "Frontend dependencies are missing. Run .\scripts\bootstrap.ps1 from the repository root."
     }
     Run "Frontend typecheck" { & npm.cmd run typecheck }
     if (-not $SkipFrontendBuild) {
