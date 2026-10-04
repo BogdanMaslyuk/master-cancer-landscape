@@ -75,6 +75,10 @@ export type CoverageSummary = {
   "reason"?: string | null;
 };
 
+export type GeneAnnotationsResponse = Record<string, unknown>;
+
+export type GeneContextsResponse = Record<string, unknown>;
+
 export type GeneDetailResponse = {
   [key: string]: unknown;
   "identity": Record<string, unknown>;
@@ -97,6 +101,8 @@ export type GeneFacetResponse = {
   "provenance_note"?: string | null;
 };
 
+export type GeneListResponse = Record<string, unknown>[];
+
 export type GeneMatrixResponse = {
   [key: string]: unknown;
   "genes_total_after_filters": number;
@@ -107,6 +113,10 @@ export type GeneMatrixResponse = {
   "filters": Record<string, unknown>;
   "interpretation": Record<string, unknown>;
 };
+
+export type GeneModelsResponse = Record<string, unknown>;
+
+export type GeneMutationAssociationsResponse = Record<string, unknown>;
 
 export type GeneSearchResponse = {
   [key: string]: unknown;
@@ -120,6 +130,8 @@ export type GeneSearchResponse = {
   "functional_coverage"?: CoverageSummary | null;
   "reference_coverage"?: ReferenceCoverageSummary | null;
 };
+
+export type GeneSuggestResponse = Record<string, unknown>[];
 
 export type ModelDetailResponse = Record<string, unknown>;
 
@@ -188,4 +200,6 @@ export type ReferenceCoverageSummary = {
   "coverage_fraction"?: number | null;
   "available"?: boolean | null;
 };
+
+export type StableGenesResponse = Record<string, unknown>[];
 
