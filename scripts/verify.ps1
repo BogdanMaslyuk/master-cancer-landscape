@@ -20,6 +20,7 @@ function Run([string]$Label, [scriptblock]$Command) {
     }
 }
 
+Run "Architecture v1 repository contract" { & $Python .\scripts\verify_architecture_v1.py }
 Run "Python dependency constraints" { & $Python .\scripts\verify_python_constraints.py }
 Run "Python dependency graph" { & $Python -m pip check }
 if (Test-Path (Join-Path $Root "tests")) {
