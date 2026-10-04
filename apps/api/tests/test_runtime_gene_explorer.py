@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from mcl_api.fast_runtime_gene_explorer import FastRuntimeGeneExplorerStore
 from mcl_api.runtime_gene_explorer import RuntimeGeneExplorerStore
 from mcl_api.store import MCLDataError, MCLDataStore
 
@@ -12,11 +13,23 @@ def _runtime_store(tmp_path):
     return RuntimeGeneExplorerStore(tmp_path, MCLDataStore(tmp_path))
 
 
+def _fast_runtime_store(tmp_path):
+    (tmp_path / "data" / "runtime" / "explorer").mkdir(parents=True)
+    return FastRuntimeGeneExplorerStore(tmp_path, MCLDataStore(tmp_path))
+
+
 def test_runtime_catalog_fails_fast_without_materialized_index(tmp_path):
     runtime = _runtime_store(tmp_path)
 
     with pytest.raises(MCLDataError, match="build-explorer.ps1"):
         runtime.catalog_frame()
+
+
+def test_fast_runtime_model_layer_fails_instead_of_reading_processed_matrix(tmp_path):
+    runtime = _fast_runtime_store(tmp_path)
+
+    with pytest.raises(MCLDataError, match="build-explorer.ps1"):
+        runtime._model_gene_layer("gene_effect", "AHR")
 
 
 def test_runtime_reads_only_materialized_gene_indexes(tmp_path):
