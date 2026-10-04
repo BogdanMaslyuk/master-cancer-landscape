@@ -6,9 +6,9 @@ from time import perf_counter
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from .annotated_gene_explorer import AnnotatedGeneExplorerStore
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
-from .functional_gene_explorer import FunctionalGeneExplorerStore
 from .multiomics import MCLMultiOmicsStore
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
@@ -16,7 +16,7 @@ from .store import MCLDataError, MCLDataStore
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.5.0",
+    version="0.6.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -30,7 +30,7 @@ store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
-gene_explorer_store = FunctionalGeneExplorerStore(MCL_ROOT, store)
+gene_explorer_store = AnnotatedGeneExplorerStore(MCL_ROOT, store)
 
 
 @app.middleware("http")
@@ -175,8 +175,6 @@ def _stable_genes_cached():
 
 @lru_cache(maxsize=512)
 def _gene_cached(gene_symbol: str):
-    # Preserve legacy comparison/pathway fields while adding the Gene Explorer
-    # identity/summary contract.
     base = gene_explorer_store.identity(gene_symbol)
     legacy = store.gene(gene_symbol)
     return {
@@ -196,13 +194,16 @@ def _gene_facets_cached():
     return gene_explorer_store.facets()
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=4096)
 def _gene_search_cached(
     query: str | None,
     domain: str | None,
     subdomain: str | None,
     pathway: str | None,
     annotation_source: str | None,
+    protein_class: str | None,
+    compartment: str | None,
+    hallmark: str | None,
     cancer_id: str | None,
     comparison_id: str | None,
     gene_effect_max: float | None,
@@ -223,6 +224,9 @@ def _gene_search_cached(
         subdomain=subdomain,
         pathway=pathway,
         annotation_source=annotation_source,
+        protein_class=protein_class,
+        compartment=compartment,
+        hallmark=hallmark,
         cancer_id=cancer_id,
         comparison_id=comparison_id,
         gene_effect_max=gene_effect_max,
@@ -352,9 +356,7 @@ def models(
     sequencing_only: bool = False,
     limit: int = Query(1000, ge=1, le=5000),
 ):
-    return _guard(
-        lambda: _models_cached(cancer_id, group, search, sequencing_only, limit)
-    )
+    return _guard(lambda: _models_cached(cancer_id, group, search, sequencing_only, limit))
 
 
 @app.get("/api/models/{model_id}/multiomics")
@@ -413,16 +415,14 @@ def comparison_genes(
     )
 
 
-# Legacy compact gene list remains available for existing pages/components.
 @app.get("/api/genes")
 def genes(search: str | None = None, limit: int = Query(200, ge=1, le=2000)):
     return _guard(lambda: _genes_cached(search, limit))
 
 
-# Universal Gene Explorer routes must be registered before /api/genes/{gene_symbol}.
 @app.get("/api/genes/suggest")
 def gene_suggest(q: str = Query(..., min_length=1), limit: int = Query(12, ge=1, le=30)):
-    return _guard(lambda: _gene_suggest_cached(q.strip().upper(), limit))
+    return _guard(lambda: _gene_suggest_cached(q.strip(), limit))
 
 
 @app.get("/api/genes/facets")
@@ -437,6 +437,9 @@ def gene_search(
     subdomain: str | None = None,
     pathway: str | None = None,
     annotation_source: str | None = None,
+    protein_class: str | None = None,
+    compartment: str | None = None,
+    hallmark: str | None = None,
     cancer_id: str | None = None,
     comparison_id: str | None = None,
     gene_effect_max: float | None = None,
@@ -458,6 +461,9 @@ def gene_search(
             subdomain,
             pathway,
             annotation_source,
+            protein_class,
+            compartment,
+            hallmark,
             cancer_id,
             comparison_id,
             gene_effect_max,
@@ -497,13 +503,7 @@ def gene_models(
 ):
     return _guard(
         lambda: _gene_models_cached(
-            gene_symbol.strip().upper(),
-            cancer_id,
-            gene_effect_max,
-            page,
-            page_size,
-            sort_by,
-            sort_order,
+            gene_symbol.strip().upper(), cancer_id, gene_effect_max, page, page_size, sort_by, sort_order
         )
     )
 
@@ -527,16 +527,7 @@ def pathways(
     search: str | None = None,
     limit: int = Query(1000, ge=1, le=5000),
 ):
-    return _guard(
-        lambda: _pathways_cached(
-            top_n,
-            source,
-            stable_only,
-            significant_only,
-            search,
-            limit,
-        )
-    )
+    return _guard(lambda: _pathways_cached(top_n, source, stable_only, significant_only, search, limit))
 
 
 @app.get("/api/pathways/stability")
