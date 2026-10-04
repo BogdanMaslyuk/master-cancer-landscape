@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api_utils import guard
 from .routers.atlas import router as atlas_router
 from .routers.comparisons import router as comparisons_router
+from .routers.gene_insights import router as gene_insights_router
 from .routers.genes import router as genes_router
 from .routers.models import router as models_router
 from .routers.pathways import router as pathways_router
@@ -34,6 +35,7 @@ for router in (
     atlas_router,
     models_router,
     comparisons_router,
+    gene_insights_router,
     genes_router,
     pathways_router,
     qc_router,
