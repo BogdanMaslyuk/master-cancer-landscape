@@ -8,6 +8,24 @@ Use the same three-window model:
 - PowerShell #2: frontend / Next.js
 - PowerShell #3: diagnostics / Git / one-off checks
 
+## First setup / dependency refresh
+
+PowerShell #3:
+
+```powershell
+cd C:\Users\Bogdan\Desktop\master-cancer-landscape
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\bootstrap.ps1
+```
+
+Use `-Recreate` only when you intentionally want to rebuild `.venv` from zero:
+
+```powershell
+.\scripts\bootstrap.ps1 -Recreate
+```
+
+Python dependencies are constrained by `constraints/python-3.13.txt`; frontend dependencies are installed with `npm ci` from `apps/explorer/package-lock.json`. See `docs/REPRODUCIBILITY.md`.
+
 ## Update code
 
 PowerShell #3:
