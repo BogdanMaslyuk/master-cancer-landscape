@@ -5,6 +5,7 @@ from functools import lru_cache
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard, split_genes
+from ..schemas.models import ModelDetailResponse, ModelMultiomicsResponse, ModelsResponse
 from ..state import atlas_store, multiomics_store
 
 
@@ -38,7 +39,7 @@ def _model_multiomics_cached(model_id: str, genes: tuple[str, ...], limit: int):
     return multiomics_store.model(model_id, list(genes) or None, limit=limit)
 
 
-@router.get("/api/models")
+@router.get("/api/models", response_model=ModelsResponse)
 def models(
     cancer_id: str | None = None,
     group: str | None = None,
@@ -49,7 +50,7 @@ def models(
     return guard(lambda: _models_cached(cancer_id, group, search, sequencing_only, limit))
 
 
-@router.get("/api/models/{model_id}/multiomics")
+@router.get("/api/models/{model_id}/multiomics", response_model=ModelMultiomicsResponse)
 def model_multiomics(
     model_id: str,
     genes: str | None = None,
@@ -59,6 +60,6 @@ def model_multiomics(
     return guard(lambda: _model_multiomics_cached(model_id, gene_tuple, limit))
 
 
-@router.get("/api/models/{model_id}")
+@router.get("/api/models/{model_id}", response_model=ModelDetailResponse)
 def model(model_id: str):
     return guard(lambda: _model_cached(model_id))
