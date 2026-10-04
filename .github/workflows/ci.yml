@@ -18,6 +18,8 @@ jobs:
           python -m pip install "pip==26.2.1"
           python -m pip install -c constraints/python-3.13.txt -e ".[dev,analysis]" -e "./apps/api[dev]"
           python -m pip check
+      - name: Architecture v1 repository contract
+        run: python ./scripts/verify_architecture_v1.py
       - name: Python dependency constraints
         run: python ./scripts/verify_python_constraints.py
       - name: Scientific core tests
