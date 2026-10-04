@@ -3,8 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard, split_genes
-from ..schemas.models import ModelDetailResponse, ModelMultiomicsResponse, ModelsResponse
-from ..state import crispr_catalog, model_service
+from ..schemas.models import (
+    ModelDependenciesResponse,
+    ModelDetailResponse,
+    ModelMultiomicsResponse,
+    ModelsResponse,
+)
+from ..state import crispr_catalog, model_dependency_store, model_service
 
 
 router = APIRouter()
@@ -45,6 +50,27 @@ def model_multiomics(
             }
 
     return guard(load)
+
+
+@router.get("/api/models/{model_id}/dependencies", response_model=ModelDependenciesResponse)
+def model_dependencies(
+    model_id: str,
+    search: str | None = None,
+    dependency_type: str | None = None,
+    domain: str | None = None,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
+    return guard(
+        lambda: model_dependency_store.model(
+            model_id,
+            search=search,
+            dependency_type=dependency_type,
+            domain=domain,
+            limit=limit,
+            offset=offset,
+        )
+    )
 
 
 @router.get("/api/models/{model_id}", response_model=ModelDetailResponse)
