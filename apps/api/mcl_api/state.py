@@ -6,12 +6,14 @@ from .crispr_catalog import CRISPRModelCatalog
 from .dependency_gene_explorer import DependencyAwareGeneExplorerStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
+from .pharmacology import MCLPharmacologyStore
 from .repositories.atlas_repository import AtlasRepository
 from .repositories.comparison_repository import ComparisonRepository
 from .repositories.gene_repository import GeneRepository
 from .repositories.model_repository import ModelRepository
 from .repositories.overview_repository import OverviewRepository
 from .repositories.pathway_repository import PathwayRepository
+from .repositories.pharmacology_repository import PharmacologyRepository
 from .repositories.qc_repository import QCRepository
 from .services.atlas_service import AtlasService
 from .services.comparison_service import ComparisonService
@@ -19,6 +21,7 @@ from .services.gene_service import GeneService
 from .services.model_service import ModelService
 from .services.overview_service import OverviewService
 from .services.pathway_service import PathwayService
+from .services.pharmacology_service import PharmacologyService
 from .services.qc_service import QCService
 from .settings import MCL_ROOT
 from .store import MCLDataStore
@@ -33,6 +36,7 @@ cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
 model_dependency_store = ModelDependencyStore(MCL_ROOT)
 gene_explorer_store = DependencyAwareGeneExplorerStore(MCL_ROOT, store)
+pharmacology_store = MCLPharmacologyStore(MCL_ROOT)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
@@ -43,6 +47,9 @@ atlas_service = AtlasService(atlas_repository)
 
 model_repository = ModelRepository(atlas_store, multiomics_store)
 model_service = ModelService(model_repository)
+
+pharmacology_repository = PharmacologyRepository(pharmacology_store)
+pharmacology_service = PharmacologyService(pharmacology_repository)
 
 comparison_repository = ComparisonRepository(store)
 comparison_service = ComparisonService(comparison_repository)
