@@ -1,0 +1,91 @@
+version: "1.0"
+depmap_release: "26Q1"
+selection_basis: >-
+  First biological-review wave from Cancer Context Registry v1. Only READY exact
+  protein-change contexts classified as DRIVER_HOTSPOT_FIRST_REVIEW are included.
+  No composite target score is used.
+scientific_guardrails:
+  - CRISPR knockout dependency is not equivalent to pharmacological inhibition.
+  - Cell-line context is not patient prevalence or clinical efficacy.
+  - Gene-wildtype comparator means no qualifying alteration under the registry discovery rules; it is an operational comparator, not proof of complete genetic wild type.
+  - Allele-specific comparisons against other variants answer a different question from mutant-versus-wildtype comparisons.
+contexts:
+  - wave1_id: W1-001
+    label: Melanoma — BRAF p.V600E
+    oncotree_code: MEL
+    gene: BRAF
+    protein_change: p.V600E
+    comparison_mode: vs_gene_wildtype
+    expected_context_n: 41
+    expected_comparator_n: 10
+    comparison_role: primary_comparator
+
+  - wave1_id: W1-002
+    label: Colon adenocarcinoma — BRAF p.V600E
+    oncotree_code: COAD
+    gene: BRAF
+    protein_change: p.V600E
+    comparison_mode: vs_gene_wildtype
+    expected_context_n: 10
+    expected_comparator_n: 35
+    comparison_role: primary_comparator
+
+  - wave1_id: W1-003
+    label: Colon adenocarcinoma — PIK3CA p.H1047R
+    oncotree_code: COAD
+    gene: PIK3CA
+    protein_change: p.H1047R
+    comparison_mode: vs_gene_wildtype
+    expected_context_n: 6
+    expected_comparator_n: 32
+    comparison_role: primary_comparator
+
+  - wave1_id: W1-004
+    label: Colon adenocarcinoma — KRAS p.G13D
+    oncotree_code: COAD
+    gene: KRAS
+    protein_change: p.G13D
+    comparison_mode: vs_gene_wildtype
+    expected_context_n: 6
+    expected_comparator_n: 24
+    comparison_role: primary_comparator
+
+  - wave1_id: W1-005
+    label: Colon adenocarcinoma — KRAS p.G12D
+    oncotree_code: COAD
+    gene: KRAS
+    protein_change: p.G12D
+    comparison_mode: vs_gene_wildtype
+    expected_context_n: 5
+    expected_comparator_n: 24
+    comparison_role: primary_comparator
+
+  - wave1_id: W1-006
+    label: Neuroblastoma — ALK p.F1174L
+    oncotree_code: NBL
+    gene: ALK
+    protein_change: p.F1174L
+    comparison_mode: vs_gene_wildtype
+    expected_context_n: 5
+    expected_comparator_n: 32
+    comparison_role: primary_comparator
+
+  - wave1_id: W1-007
+    label: Pancreatic adenocarcinoma — KRAS p.G12V
+    oncotree_code: PAAD
+    gene: KRAS
+    protein_change: p.G12V
+    comparison_mode: vs_other_gene_variants
+    expected_context_n: 15
+    expected_comparator_n: 28
+    comparison_role: primary_available_comparator
+
+  - wave1_id: W1-008
+    label: Pancreatic adenocarcinoma — KRAS p.G12R
+    oncotree_code: PAAD
+    gene: KRAS
+    protein_change: p.G12R
+    comparison_mode: vs_other_gene_variants
+    expected_context_n: 5
+    expected_comparator_n: 38
+    comparison_role: primary_available_comparator
