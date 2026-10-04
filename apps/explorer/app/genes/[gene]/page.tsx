@@ -1,73 +1,163 @@
 import Link from "next/link";
-import ResearchTrail from "../../../components/ResearchTrail";
 import { apiGet, formatNumber } from "../../../lib/api";
+import styles from "./GeneWorkbench.module.css";
 
-type Payload = { identity:Record<string,any>; stability:Record<string,any>|null; comparisons:Record<string,any>[]; pathways:Record<string,any>[] };
+export const dynamic = "force-dynamic";
 
+type BasePayload = {
+  identity:Record<string,any>;
+  summary:Record<string,any>;
+  stability:Record<string,any>;
+  comparisons?:Record<string,any>[];
+  pathways?:Record<string,any>[];
+};
+type ContextPayload = { gene_symbol:string; total:number; items:Record<string,any>[] };
+type ModelsPayload = {
+  gene_symbol:string;
+  available:boolean;
+  available_layers:Record<string,boolean>;
+  total:number;
+  page:number;
+  page_size:number;
+  pages?:number;
+  items:Record<string,any>[];
+  guardrails?:Record<string,string>;
+  note?:string;
+};
+type AnnotationPayload = {
+  gene_symbol:string;
+  status:string;
+  mcl_domains:string[];
+  subdomains:string[];
+  protein_classes:string[];
+  compartments:string[];
+  hallmarks:string[];
+  formal_annotations:Record<string,any>[];
+  note?:string;
+};
+type AtlasContext = { id:string; short_ru?:string; cancer_ru?:string; molecular_ru?:string };
+type AtlasPayload = { contexts?:AtlasContext[] } | AtlasContext[];
+type SearchParams = Record<string,string|string[]|undefined>;
+
+function one(value:string|string[]|undefined){ return Array.isArray(value)?value[0]:value; }
 function yes(value:unknown){ return String(value).toLowerCase()==="true"; }
 
-export default async function GenePage({params}:{params:Promise<{gene:string}>}){
-  const {gene}=await params;
-  const data=await apiGet<Payload>(`/api/genes/${encodeURIComponent(gene)}`);
-  const symbol=data.identity.gene_symbol || gene;
-  const stable=yes(data.stability?.present_all_thresholds);
-  const negative=data.comparisons.filter((r:any)=>Number(r.delta_gene_effect)<0).length;
-  const significantPathways=data.pathways.filter((p:any)=>yes(p.significant));
-  const broad=data.comparisons.some((r:any)=>yes(r.broad_dependency_warning));
-  const lowSample=data.comparisons.some((r:any)=>yes(r.low_sample_size));
+export default async function GenePage({params,searchParams}:{params:Promise<{gene:string}>;searchParams:Promise<SearchParams>}){
+  const [{gene},sp]=await Promise.all([params,searchParams]);
+  const symbol=decodeURIComponent(gene).trim().toUpperCase();
+  const modelQuery=new URLSearchParams({page_size:"100",sort_by:"gene_effect",sort_order:"asc"});
+  const cancerId=one(sp.cancer_id); if(cancerId) modelQuery.set("cancer_id",cancerId);
+  const geneEffectMax=one(sp.gene_effect_max); if(geneEffectMax) modelQuery.set("gene_effect_max",geneEffectMax);
+
+  const [base,contexts,models,annotations,atlasRaw]=await Promise.all([
+    apiGet<BasePayload>(`/api/genes/${encodeURIComponent(symbol)}`),
+    apiGet<ContextPayload>(`/api/genes/${encodeURIComponent(symbol)}/contexts`),
+    apiGet<ModelsPayload>(`/api/genes/${encodeURIComponent(symbol)}/models?${modelQuery.toString()}`),
+    apiGet<AnnotationPayload>(`/api/genes/${encodeURIComponent(symbol)}/annotations`),
+    apiGet<AtlasPayload>("/api/atlas"),
+  ]);
+  const atlas=Array.isArray(atlasRaw)?atlasRaw:(atlasRaw.contexts||[]);
+  const stable=yes(base.stability?.present_all_thresholds);
+  const significant=Number(base.summary?.significant_comparisons_n||0);
+  const comparisonN=Number(base.summary?.comparisons_n||0);
+  const bestDelta=base.summary?.best_delta_gene_effect;
+  const bestModel=base.summary?.best_model_gene_effect;
+  const bestQ=base.summary?.best_q_value;
+  const formal=(annotations.formal_annotations||[]).slice(0,30);
 
   return <>
-    <section className="hero">
-      <div className="eyebrow hero-eyebrow">ГЕН-КАНДИДАТ</div>
-      <h1>{symbol}</h1>
-      <p>Карточка объединяет CRISPR-зависимость, устойчивость между порогами отбора и связанные функциональные сигналы. Она помогает понять, почему ген заслуживает дальнейшей проверки, но не заменяет фармакологическую оценку.</p>
-    </section>
+    <div className="breadcrumbs"><Link href="/genes">Гены и мишени</Link><span>›</span><strong>{symbol}</strong></div>
 
-    <ResearchTrail current={3} />
-
-    <section className="grid cards">
-      <div className="card"><div className="label">Статус устойчивости</div><div className="value" style={{fontSize:22}}>{stable ? "Устойчивый повторяющийся" : "Контекстный кандидат"}</div><div className="section-copy">{stable?"Сохраняется при Top-50, Top-100 и Top-200":"Не проходит критерий устойчивости 3/3"}</div></div>
-      <div className="card"><div className="label">Сравнений с более сильной зависимостью в целевой группе</div><div className="value">{negative}</div><div className="section-copy">из {data.comparisons.length} доступных сравнений</div></div>
-      <div className="card"><div className="label">Значимых функциональных связей</div><div className="value">{significantPathways.length}</div><div className="section-copy">наблюдений обогащения при разных Top-N</div></div>
-      <div className="card"><div className="label">Технические идентификаторы</div><div className="technical-note"><b>HGNC:</b> {data.identity.hgnc_id || data.identity.HGNC_ID || "—"}<br/><b>Ensembl:</b> {data.identity.ensembl_gene_id || data.identity.ensembl_id || "—"}</div></div>
-    </section>
-
-    <section className="section split">
-      <div className="callout">
-        <div className="eyebrow">ПОЧЕМУ ГЕН ПОПАЛ В ПОЛЕ ЗРЕНИЯ</div>
-        <h3>{stable ? "Сигнал устойчив к изменению порога отбора" : "Сигнал требует более осторожной интерпретации"}</h3>
-        <div className="definition-list">
-          <div><b>Устойчивость</b><span>{stable ? "ген остаётся повторяющимся при Top-50, Top-100 и Top-200" : "ген не сохраняет повторяющийся статус при всех трёх порогах"}</span></div>
-          <div><b>Сравнения</b><span>в {negative} из {data.comparisons.length} сравнений Δ Gene Effect отрицательна, то есть зависимость сильнее в целевой группе</span></div>
-          <div><b>Функциональный контекст</b><span>{significantPathways.length ? `ген входит в ${significantPathways.length} значимых наблюдений функционального обогащения` : "значимых связей с функциональными терминами пока не найдено"}</span></div>
-        </div>
+    <section className={styles.hero}>
+      <div>
+        <div className="eyebrow" style={{color:"#b9d5ee"}}>GENE WORKBENCH · TARGET → CANCER</div>
+        <h1>{symbol}</h1>
+        <p>Карточка показывает не только место гена среди текущих кандидатов, но и весь доступный обратный маршрут: опухолевые сравнения → отдельные клеточные модели → Gene Effect → RNA → copy number → функциональные связи.</p>
       </div>
-      <div className="card">
-        <div className="eyebrow">ЧТО ОГРАНИЧИВАЕТ ВЫВОД</div>
-        <h3>Что пока не доказано</h3>
-        <ul className="plain-list">
-          <li>CRISPR-нокаут не равен фармакологическому ингибированию белка.</li>
-          <li>Текущие данные не доказывают безопасность воздействия на нормальные ткани.</li>
-          <li>Лекарственная достижимость и наличие подходящего сайта связывания ещё не оценены.</li>
-          {broad && <li>Для гена отмечалась широкая клеточная зависимость — селективность требует особого внимания.</li>}
-          {lowSample && <li>В одном или нескольких сравнениях есть ограничение по размеру выборки.</li>}
-        </ul>
+      <div className={styles.heroMeta}>
+        <div><span>HGNC</span><b>{base.identity?.hgnc_id || "—"}</b></div>
+        <div><span>Ensembl</span><b>{base.identity?.ensembl_gene_id || "—"}</b></div>
+        <div><span>UniProt</span><b>{base.identity?.uniprot_id || "не подключено"}</b></div>
+        <div><span>Статус MCL</span><b>{stable?"устойчивый 50/100/200":"произвольный / контекстный ген"}</b></div>
       </div>
     </section>
 
-    <section className="section">
-      <div className="section-header"><div><h2>Результаты по опухолевым сравнениям</h2><div className="section-copy"><abbr title="Gene Effect — изменение жизнеспособности клеток после CRISPR-выключения гена">Gene Effect</abbr> оставлен на английском, потому что это стандартное название метрики DepMap. Остальные поля снабжены русским смысловым описанием.</div></div></div>
-      <div className="table-wrap"><table><thead><tr><th>Сравнение</th><th><abbr title="Разница медианного Gene Effect: целевая группа минус группа сравнения">Δ Gene Effect</abbr></th><th>Целевая группа</th><th>Группа сравнения</th><th><abbr title="Размер эффекта между двумя группами">Cliff's δ</abbr></th><th><abbr title="Значимость после поправки на множественные проверки">q-value / FDR</abbr></th><th>Широкая зависимость</th><th>Малая выборка</th></tr></thead><tbody>{data.comparisons.map((r:any)=><tr key={r.comparison_id}><td>{r.comparison_label}</td><td>{formatNumber(r.delta_gene_effect)}</td><td>{formatNumber(r.context_median_gene_effect)}</td><td>{formatNumber(r.comparator_median_gene_effect)}</td><td>{formatNumber(r.cliffs_delta)}</td><td>{formatNumber(r.q_value,4)}</td><td>{yes(r.broad_dependency_warning)?"да":"нет"}</td><td>{yes(r.low_sample_size)?"да":"нет"}</td></tr>)}</tbody></table></div>
+    <section className={styles.metrics}>
+      <div className={styles.metric}><span>Лучший Δ Gene Effect</span><strong>{formatNumber(bestDelta)}</strong></div>
+      <div className={styles.metric}><span>Сильнейший model-level Gene Effect</span><strong>{formatNumber(bestModel)}</strong></div>
+      <div className={styles.metric}><span>Минимальный q-value</span><strong>{formatNumber(bestQ,4)}</strong></div>
+      <div className={styles.metric}><span>Значимые сравнения</span><strong>{significant}/{comparisonN}</strong></div>
+      <div className={styles.metric}><span>Клеточные модели с доступными слоями</span><strong>{models.total}</strong></div>
     </section>
 
-    <section className="section">
-      <div className="section-header"><div><h2>Функциональные связи</h2><div className="section-copy">Показаны только статистически значимые наблюдения обогащения, в пересечение которых входит {symbol}. Повторение одного термина при разных Top-N отражает его устойчивость.</div></div></div>
-      {significantPathways.length ? <div className="table-wrap"><table><thead><tr><th>Порог</th><th>Источник</th><th>Функциональный термин</th><th>Скорректированное p</th><th>Гены пересечения</th></tr></thead><tbody>{significantPathways.slice(0,80).map((p:any,i:number)=><tr key={`${p.term_id}-${p.top_n}-${i}`}><td>Top-{p.top_n}</td><td>{p.source}</td><td>{p.term_name}</td><td>{formatNumber(p.p_value_adjusted,5)}</td><td>{p.intersecting_gene_symbols_json}</td></tr>)}</tbody></table></div> : <div className="empty-state">Для этого гена пока нет значимых pathway/complex-связей в текущем анализе.</div>}
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <div><div className="eyebrow">ГДЕ ГЕН ВАЖЕН В MCL</div><h2>Опухолевые контексты</h2><p>Сравнения отсортированы по Δ Gene Effect: более отрицательное значение означает более сильную зависимость целевой группы относительно comparator. Отдельно сохраняются статистика и предупреждения.</p></div>
+        <span className={styles.badge}>{contexts.total} сравнений</span>
+      </div>
+      {contexts.items.length ? <div className={styles.contextGrid}>{contexts.items.map((row:any)=>{
+        const delta=Number(row.delta_gene_effect);
+        const flags=[row.broad_dependency_warning?"broad dependency":null,row.low_sample_size?"low sample":null].filter(Boolean);
+        return <article className={styles.contextCard} key={row.comparison_id}>
+          <div className={styles.contextCardTop}><span>{row.cancer_name || row.cancer_id}</span><Link className={styles.geneLink} href={`/comparisons/${encodeURIComponent(row.comparison_id)}`}>открыть сравнение →</Link></div>
+          <h3>{row.comparison_label || row.comparison_id}</h3>
+          <div className={styles.contextMetrics}>
+            <div><span>Δ Gene Effect</span><b className={Number.isFinite(delta)&&delta<0?styles.negative:""}>{formatNumber(row.delta_gene_effect)}</b></div>
+            <div><span>Target / comparator</span><b>{formatNumber(row.context_median_gene_effect)} / {formatNumber(row.comparator_median_gene_effect)}</b></div>
+            <div><span>q-value</span><b>{formatNumber(row.q_value,4)}</b></div>
+            <div><span>Cliff's δ</span><b>{formatNumber(row.cliffs_delta)}</b></div>
+            <div><span>Target n</span><b>{formatNumber(row.context_models_n,0)}</b></div>
+            <div><span>Comparator n</span><b>{formatNumber(row.comparator_models_n,0)}</b></div>
+          </div>
+          <div className={styles.flags}>{flags.length?flags.map((flag)=><span className={styles.flag} key={flag}>{flag}</span>):<span className={styles.clean}>без отмеченных технических флагов</span>}</div>
+        </article>;
+      })}</div> : <div className={styles.empty}>Для {symbol} нет рассчитанных опухолевых сравнений в текущем наборе MCL. Ген всё равно может иметь model-level данные DepMap ниже.</div>}
     </section>
 
-    <section className="section next-step-banner">
-      <div><div className="eyebrow">ЧТО ПРОВЕРЯТЬ ДАЛЬШЕ В M3.4</div><h3>Можно ли превратить {symbol} в лекарственную мишень?</h3><p className="section-copy">Следующий слой должен добавить лекарственную достижимость, известные лиганды и препараты, 3D-структуры и карманы, нормальную тканевую экспрессию, безопасность и внешние онкологические доказательства.</p></div>
-      <Link href="/methodology" className="primary-link">Открыть план фармакологической оценки →</Link>
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <div><div className="eyebrow">GENE → CELL MODELS</div><h2>Какие клеточные линии сильнее всего зависят от {symbol}?</h2><p>По умолчанию модели сортируются по Gene Effect по возрастанию. Это позволяет быстро увидеть линии, где CRISPR-выключение гена связано с наиболее сильной потерей приспособленности.</p></div>
+        <div className={styles.layerState}><span className={models.available_layers?.gene_effect?styles.on:""}>CRISPR {models.available_layers?.gene_effect?"доступен":"нет"}</span><span className={models.available_layers?.expression?styles.on:""}>RNA {models.available_layers?.expression?"доступна":"нет"}</span><span className={models.available_layers?.copy_number?styles.on:""}>CN {models.available_layers?.copy_number?"доступен":"нет"}</span></div>
+      </div>
+
+      <form action={`/genes/${encodeURIComponent(symbol)}`} method="get" className={styles.modelControls}>
+        <label><span>Опухолевый контекст</span><select name="cancer_id" defaultValue={cancerId||""}><option value="">Все модели MCL</option>{atlas.map((ctx)=><option key={ctx.id} value={ctx.id}>{ctx.short_ru || `${ctx.cancer_ru||ctx.id} · ${ctx.molecular_ru||""}`}</option>)}</select></label>
+        <label><span>Gene Effect ≤</span><input type="number" step="0.05" name="gene_effect_max" defaultValue={geneEffectMax||""} placeholder="например -0.5"/></label>
+        <button type="submit">Фильтровать модели</button>
+        {(cancerId||geneEffectMax)&&<Link className={styles.geneLink} href={`/genes/${encodeURIComponent(symbol)}`}>Сбросить</Link>}
+      </form>
+
+      {models.available && models.items.length ? <div className={styles.tableWrap}><table className={styles.table}>
+        <thead><tr><th>Модель</th><th>Происхождение</th><th>Контексты MCL</th><th>Gene Effect</th><th>RNA · log2(TPM+1)</th><th>Relative CN</th></tr></thead>
+        <tbody>{models.items.map((row:any)=>{
+          const memberships=(row.memberships||[]) as any[];
+          return <tr key={row.model_id}>
+            <td><Link className={styles.modelLink} href={`/models/${encodeURIComponent(row.model_id)}`}>{row.cell_line_name || row.model_id}</Link>{row.cell_line_name&&<span className={styles.modelName}>{row.model_id}</span>}</td>
+            <td>{row.oncotree_subtype || row.oncotree_primary_disease || row.oncotree_lineage || "—"}</td>
+            <td>{memberships.length?memberships.map((m:any)=>`${m.cancer_id} · ${m.assigned_group}`).join("; "):"—"}</td>
+            <td className={Number(row.gene_effect)<0?styles.negative:""}>{formatNumber(row.gene_effect)}</td>
+            <td>{formatNumber(row.expression)}</td>
+            <td>{formatNumber(row.copy_number)}</td>
+          </tr>;
+        })}</tbody>
+      </table></div> : <div className={styles.empty}>{models.note || `Для ${symbol} model-level multi-omics данные пока не подключены.`} {models.available && !models.items.length ? "По текущим фильтрам моделей не найдено." : ""}</div>}
+    </section>
+
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <div><div className="eyebrow">ФУНКЦИОНАЛЬНАЯ ПРИНАДЛЕЖНОСТЬ</div><h2>Какие процессы уже связаны с {symbol}?</h2><p>В первой версии показываются только связи, реально поддержанные текущим MCL pathway analysis. MCL Functional Domains, protein class, compartments и полные GO/Reactome/KEGG/CORUM mappings добавляются отдельным provenance-aware слоем.</p></div>
+        <span className={styles.badge}>{annotations.status === "partial" ? "частичное покрытие" : annotations.status}</span>
+      </div>
+      <div className={styles.annotationBox}>
+        {formal.length ? <div className={styles.annotationList}>{formal.map((item:any,index:number)=><span className={styles.annotation} key={`${item.source}-${item.term_id}-${index}`}><b>{item.source}</b>{item.term_name || item.term_id}</span>)}</div> : <div className={styles.annotationEmpty}>В текущем статистически значимом pathway-наборе MCL для {symbol} связей не найдено. Это не означает отсутствие известных биологических функций гена; полный аннотационный слой ещё не подключён.</div>}
+        {annotations.note&&<p className={styles.annotationEmpty} style={{marginBottom:0}}>{annotations.note}</p>}
+      </div>
+    </section>
+
+    <section className={styles.guardrails}>
+      <div><b>CRISPR knockout ≠ ингибитор</b>Gene Effect описывает генетическое выключение функции и не доказывает воспроизводимость эффекта малой молекулой.</div>
+      <div><b>RNA ≠ активный белок</b>Экспрессия помогает интерпретации модели, но сама по себе не подтверждает уровень, локализацию или активность белка.</div>
+      <div><b>Модели ≠ пациентская частота</b>Данные DepMap характеризуют экспериментальные клеточные линии и не подменяют реальные пациентские когорты.</div>
     </section>
   </>;
 }
