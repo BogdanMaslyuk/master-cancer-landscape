@@ -4,6 +4,7 @@ from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
 from .crispr_catalog import CRISPRModelCatalog
 from .fast_runtime_gene_explorer import FastRuntimeGeneExplorerStore
+from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
 from .repositories.atlas_repository import AtlasRepository
 from .repositories.comparison_repository import ComparisonRepository
@@ -30,6 +31,7 @@ atlas_store = MCLAtlas(MCL_ROOT, store)
 crispr_catalog = CRISPRModelCatalog(MCL_ROOT)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
+model_dependency_store = ModelDependencyStore(MCL_ROOT)
 gene_explorer_store = FastRuntimeGeneExplorerStore(MCL_ROOT, store)
 
 # Repository -> service application boundaries.
