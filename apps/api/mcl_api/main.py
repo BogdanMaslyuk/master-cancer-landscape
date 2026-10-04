@@ -8,13 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
+from .multiomics import MCLMultiOmicsStore
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
 
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.2.0",
+    version="0.3.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -27,6 +28,7 @@ app.add_middleware(
 store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
+multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
 
 
 @app.middleware("http")
@@ -47,6 +49,17 @@ def _guard(call):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _split_genes(value: str | None) -> tuple[str, ...]:
+    if not value:
+        return ()
+    genes: list[str] = []
+    for part in value.replace(";", ",").split(","):
+        gene = part.strip().upper()
+        if gene and gene not in genes:
+            genes.append(gene)
+    return tuple(genes[:100])
 
 
 # The Explorer reads versioned processed outputs. Keeping response objects in memory
@@ -92,6 +105,21 @@ def _models_cached(
 @lru_cache(maxsize=512)
 def _model_cached(model_id: str):
     return atlas_store.model(model_id)
+
+
+@lru_cache(maxsize=1)
+def _multiomics_availability_cached():
+    return multiomics_store.availability()
+
+
+@lru_cache(maxsize=128)
+def _context_multiomics_cached(cancer_id: str, genes: tuple[str, ...], limit: int):
+    return multiomics_store.context(cancer_id, list(genes) or None, limit=limit)
+
+
+@lru_cache(maxsize=512)
+def _model_multiomics_cached(model_id: str, genes: tuple[str, ...], limit: int):
+    return multiomics_store.model(model_id, list(genes) or None, limit=limit)
 
 
 @lru_cache(maxsize=1)
@@ -197,9 +225,24 @@ def atlas():
     return _guard(_atlas_cached)
 
 
+@app.get("/api/multiomics")
+def multiomics_availability():
+    return _guard(_multiomics_availability_cached)
+
+
 @app.get("/api/atlas/{cancer_id}/cohort")
 def cancer_model_cohort(cancer_id: str):
     return _guard(lambda: _cohort_cached(cancer_id))
+
+
+@app.get("/api/atlas/{cancer_id}/multiomics")
+def cancer_multiomics(
+    cancer_id: str,
+    genes: str | None = None,
+    limit: int = Query(12, ge=1, le=50),
+):
+    gene_tuple = _split_genes(genes)
+    return _guard(lambda: _context_multiomics_cached(cancer_id, gene_tuple, limit))
 
 
 @app.get("/api/atlas/{cancer_id}")
@@ -218,6 +261,16 @@ def models(
     return _guard(
         lambda: _models_cached(cancer_id, group, search, sequencing_only, limit)
     )
+
+
+@app.get("/api/models/{model_id}/multiomics")
+def model_multiomics(
+    model_id: str,
+    genes: str | None = None,
+    limit: int = Query(30, ge=1, le=100),
+):
+    gene_tuple = _split_genes(genes)
+    return _guard(lambda: _model_multiomics_cached(model_id, gene_tuple, limit))
 
 
 @app.get("/api/models/{model_id}")
