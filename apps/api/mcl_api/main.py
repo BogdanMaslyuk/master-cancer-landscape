@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .atlas import MCLAtlas
+from .cohort import MCLModelCohortStore
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
 
@@ -22,6 +23,7 @@ app.add_middleware(
 )
 store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
+cohort_store = MCLModelCohortStore(MCL_ROOT)
 
 
 def _guard(call):
@@ -46,6 +48,11 @@ def summary():
 @app.get("/api/atlas")
 def atlas():
     return _guard(atlas_store.atlas)
+
+
+@app.get("/api/atlas/{cancer_id}/cohort")
+def cancer_model_cohort(cancer_id: str):
+    return _guard(lambda: cohort_store.summary(cancer_id))
 
 
 @app.get("/api/atlas/{cancer_id}")
