@@ -1,14 +1,14 @@
 const API_BASE = process.env.NEXT_PUBLIC_MCL_API_URL || "http://127.0.0.1:8000";
 
 // MCL Explorer reads immutable/slow-changing processed research outputs.
-// Cache ordinary server-side API reads between route transitions. A small number
-// of research payloads are larger than Next.js' 2 MB Data Cache item limit; those
-// are fetched without the Next data cache while FastAPI still serves them from its
-// in-process cache.
+// Cache ordinary server-side API reads between route transitions. The legacy full
+// pathway-stability payload is >2 MB and remains uncached by Next.js, while filtered
+// stability views are deliberately small enough to use the normal route cache.
 const API_REVALIDATE_SECONDS = Number(process.env.MCL_API_REVALIDATE_SECONDS || 300);
 
 function isOversizedPayload(path: string): boolean {
-  return path.startsWith("/api/pathways/stability");
+  if (!path.startsWith("/api/pathways/stability")) return false;
+  return !path.includes("stable_only=true") && !path.includes("min_significant_thresholds=");
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
