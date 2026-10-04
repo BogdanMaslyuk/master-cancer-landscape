@@ -23,8 +23,18 @@ def pathways(
 
 
 @router.get("/api/pathways/stability", response_model=PathwayStabilityResponse)
-def pathway_stability():
-    return guard(pathway_service.stability)
+def pathway_stability(
+    stable_only: bool = False,
+    min_significant_thresholds: int | None = Query(None, ge=0, le=3),
+    limit: int = Query(5000, ge=1, le=5000),
+):
+    return guard(
+        lambda: pathway_service.stability(
+            stable_only,
+            min_significant_thresholds,
+            limit,
+        )
+    )
 
 
 @router.get("/api/network", response_model=NetworkResponse)
