@@ -4,10 +4,17 @@ from fastapi import APIRouter, Query
 
 from ..api_utils import guard
 from ..schemas.genes import (
+    GeneAnnotationsResponse,
+    GeneContextsResponse,
     GeneDetailResponse,
     GeneFacetResponse,
+    GeneListResponse,
     GeneMatrixResponse,
+    GeneModelsResponse,
+    GeneMutationAssociationsResponse,
     GeneSearchResponse,
+    GeneSuggestResponse,
+    StableGenesResponse,
 )
 from ..state import gene_service
 
@@ -15,12 +22,12 @@ from ..state import gene_service
 router = APIRouter()
 
 
-@router.get("/api/genes")
+@router.get("/api/genes", response_model=GeneListResponse)
 def genes(search: str | None = None, limit: int = Query(200, ge=1, le=2000)):
     return guard(lambda: gene_service.genes(search, limit))
 
 
-@router.get("/api/genes/suggest")
+@router.get("/api/genes/suggest", response_model=GeneSuggestResponse)
 def gene_suggest(q: str = Query(..., min_length=1), limit: int = Query(12, ge=1, le=30)):
     return guard(lambda: gene_service.suggest(q.strip(), limit))
 
@@ -124,18 +131,18 @@ def gene_matrix(
     )
 
 
-@router.get("/api/genes/stable")
+@router.get("/api/genes/stable", response_model=StableGenesResponse)
 def stable_genes():
     return guard(gene_service.stable_genes)
 
 
-@router.get("/api/genes/{gene_symbol}/contexts")
+@router.get("/api/genes/{gene_symbol}/contexts", response_model=GeneContextsResponse)
 def gene_contexts(gene_symbol: str):
     symbol = gene_symbol.strip().upper()
     return guard(lambda: gene_service.contexts(symbol))
 
 
-@router.get("/api/genes/{gene_symbol}/models")
+@router.get("/api/genes/{gene_symbol}/models", response_model=GeneModelsResponse)
 def gene_models(
     gene_symbol: str,
     cancer_id: str | None = None,
@@ -159,13 +166,16 @@ def gene_models(
     )
 
 
-@router.get("/api/genes/{gene_symbol}/annotations")
+@router.get("/api/genes/{gene_symbol}/annotations", response_model=GeneAnnotationsResponse)
 def gene_annotations(gene_symbol: str):
     symbol = gene_symbol.strip().upper()
     return guard(lambda: gene_service.annotations(symbol))
 
 
-@router.get("/api/genes/{gene_symbol}/mutation-associations")
+@router.get(
+    "/api/genes/{gene_symbol}/mutation-associations",
+    response_model=GeneMutationAssociationsResponse,
+)
 def gene_mutation_associations(
     gene_symbol: str,
     limit: int = Query(30, ge=1, le=100),
