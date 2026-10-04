@@ -56,10 +56,13 @@ def gene_search(
     stable_only: bool = False,
     exclude_broad: bool = False,
     exclude_low_sample: bool = False,
+    dependency_type: str | None = None,
+    dependency_fraction_min: float | None = Query(None, ge=0, le=1),
+    specificity_score_min: float | None = Query(None, ge=0, le=1),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=250),
-    sort_by: str = "best_delta_gene_effect",
-    sort_order: str = "asc",
+    sort_by: str = "specificity_score",
+    sort_order: str = "desc",
 ):
     return guard(
         lambda: gene_service.search(
@@ -80,6 +83,9 @@ def gene_search(
             stable_only,
             exclude_broad,
             exclude_low_sample,
+            dependency_type,
+            dependency_fraction_min,
+            specificity_score_min,
             page,
             page_size,
             sort_by,
