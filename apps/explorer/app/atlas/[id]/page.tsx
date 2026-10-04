@@ -2,9 +2,11 @@ import Link from "next/link";
 import CellModelTable from "../../../components/CellModelTable";
 import { apiGet } from "../../../lib/api";
 import styles from "./page.module.css";
+import cohortStyles from "./cohort.module.css";
 
 type Context = Record<string, any>;
 type ModelsPayload = { total:number; items:Record<string,any>[] };
+type Cohort = Record<string, any>;
 
 function statusCopy(ctx: Context){
   if(ctx.analysis_available) return {cls:"ready", title:"Функциональный анализ доступен", text:"Для этого контекста уже рассчитаны полногеномные сравнения CRISPR-зависимостей."};
@@ -17,12 +19,23 @@ function pct(value:any){
   return Math.max(0,Math.min(100,Math.round(n*100)));
 }
 
+function coveragePct(value:any){
+  const n=Number(value);
+  if(!Number.isFinite(n)) return 0;
+  return Math.max(0,Math.min(100,Math.round(n)));
+}
+
+function groupLabel(group:string){
+  return ({context:"Целевая группа",comparator:"Группа сравнения",excluded:"Исключённые"} as Record<string,string>)[group] || group;
+}
+
 export default async function AtlasContextPage({params}:{params:Promise<{id:string}>}){
   const {id}=await params;
   const cancerId=decodeURIComponent(id);
-  const [ctx, models]=await Promise.all([
+  const [ctx, models, cohort]=await Promise.all([
     apiGet<Context>(`/api/atlas/${encodeURIComponent(cancerId)}`),
     apiGet<ModelsPayload>(`/api/models?cancer_id=${encodeURIComponent(cancerId)}&limit=5000`),
+    apiGet<Cohort>(`/api/atlas/${encodeURIComponent(cancerId)}/cohort`),
   ]);
   const status=statusCopy(ctx);
   const sequencedPct=ctx.models_n ? Math.round((Number(ctx.sequenced_models_n||0)/Number(ctx.models_n))*100) : 0;
@@ -106,6 +119,66 @@ export default async function AtlasContextPage({params}:{params:Promise<{id:stri
     <section className={styles.guardrail}>
       <div className={styles.guardrailIcon}>!</div>
       <div><b>Не смешиваем уровни данных</b><span>Частота мутации среди клеточных линий ниже — это характеристика доступного набора моделей DepMap. Она не показывает распространённость мутации среди пациентов с {ctx.cancer_ru}.</span></div>
+    </section>
+
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">АУДИТ МОДЕЛЬНОЙ КОГОРТЫ</div>
+          <h2>Насколько полно описан набор клеточных линий?</h2>
+          <div className="section-copy">Перед интерпретацией CRISPR-зависимостей MCL проверяет саму основу сравнения: размеры групп, наличие секвенирования, полноту индивидуальных мутационных профилей и метаданных.</div>
+        </div>
+      </div>
+
+      <div className={cohortStyles.panel}>
+        <div className={cohortStyles.statusRow}>
+          <div className={cohortStyles.statusCopy}>
+            <b>{cohort.status_ru}</b>
+            <span>Порог предупреждения для целевой группы: {cohort.minimum_context_n_warning ? `n < ${cohort.minimum_context_n_warning}` : "не задан"}.</span>
+          </div>
+          <span className={`${cohortStyles.statusBadge} ${cohort.status === "ready" ? cohortStyles.ready : cohortStyles.caution}`}>{cohort.status === "ready" ? "базовые критерии выполнены" : "нужна осторожная интерпретация"}</span>
+        </div>
+
+        <div className={cohortStyles.groupGrid}>
+          {["context","comparator","excluded"].map((groupName)=>{
+            const group=cohort.groups?.[groupName] || {};
+            const className=groupName === "context" ? cohortStyles.context : groupName === "comparator" ? cohortStyles.comparator : cohortStyles.excluded;
+            const metrics=[
+              {label:"Секвенирование",n:group.sequencing_n,pct:group.sequencing_pct},
+              {label:"Полный мутационный индекс",n:group.mutation_profile_n,pct:group.mutation_profile_pct},
+              {label:"Метаданные Model.csv",n:group.metadata_n,pct:group.metadata_pct},
+            ];
+            return <article className={`${cohortStyles.groupCard} ${className}`} key={groupName}>
+              <div className={cohortStyles.groupHead}><span>{groupLabel(groupName)}</span><strong>{group.models_n ?? 0}</strong></div>
+              <div className={cohortStyles.coverageList}>
+                {metrics.map((metric)=><div className={cohortStyles.coverageItem} key={metric.label}>
+                  <div className={cohortStyles.coverageLabel}><span>{metric.label}</span><b>{metric.n ?? 0}/{group.models_n ?? 0} · {coveragePct(metric.pct)}%</b></div>
+                  <div className={cohortStyles.track}><span className={cohortStyles.fill} style={{width:`${coveragePct(metric.pct)}%`}}/></div>
+                </div>)}
+              </div>
+            </article>;
+          })}
+        </div>
+
+        {(cohort.flags || []).length > 0 && <div className={cohortStyles.flagList}>
+          {(cohort.flags || []).map((flag:any)=><div className={`${cohortStyles.flag} ${flag.level === "warning" ? cohortStyles.warning : cohortStyles.info}`} key={flag.code}>
+            <span className={cohortStyles.flagDot}/>
+            <div className={cohortStyles.flagCopy}><b>{flag.title_ru}</b><span>{flag.text_ru}</span></div>
+          </div>)}
+        </div>}
+
+        <div className={cohortStyles.representativeness}>
+          <span>R</span>
+          <div><b>{cohort.representativeness?.status_ru}</b><p>{cohort.representativeness?.reason_ru}</p></div>
+        </div>
+
+        <div className={cohortStyles.provenance}>
+          <span>DepMap {cohort.provenance?.depmap_release || "—"}</span>
+          <span>membership: context audit</span>
+          <span>mutations: model index</span>
+          <span>metadata: Model.csv</span>
+        </div>
+      </div>
     </section>
 
     <section className="section">
