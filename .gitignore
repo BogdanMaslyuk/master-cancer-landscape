@@ -23,6 +23,13 @@ build/
 dist/
 *.egg-info/
 
+# Frontend / Next.js
+apps/explorer/node_modules/
+apps/explorer/.next/
+apps/explorer/out/
+apps/explorer/.vercel/
+*.tsbuildinfo
+
 # Logs / temp
 *.log
 *.tmp
