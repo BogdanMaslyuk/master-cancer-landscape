@@ -254,7 +254,13 @@ class MCLAtlas:
             "note": "Частоты рассчитаны только среди доступных клеточных моделей MCL и не являются частотами у пациентов.",
         }
 
-    def _context_summary(self, cancer_id: str, cfg: dict[str, Any]) -> dict[str, Any]:
+    def _context_summary(
+        self,
+        cancer_id: str,
+        cfg: dict[str, Any],
+        *,
+        include_model_genetics: bool = True,
+    ) -> dict[str, Any]:
         audit = self._audit()
         sub = audit[audit["cancer_id"].astype(str) == cancer_id].copy() if not audit.empty and "cancer_id" in audit else pd.DataFrame()
         display = _DISPLAY.get(cancer_id, {})
@@ -278,7 +284,14 @@ class MCLAtlas:
         molecular_ru = display.get("molecular_ru") or molecular.replace("p.", "")
 
         patient_layer = self._patient_layer(cancer_id, cfg, str(cancer_ru))
-        model_genetics = self._context_model_genetics(cancer_id, sub)
+        if include_model_genetics:
+            model_genetics = self._context_model_genetics(cancer_id, sub)
+        else:
+            model_genetics = {
+                "status": "deferred",
+                "status_ru": "Подробный мутационный профиль загружается только на странице выбранного контекста",
+                "top_genes": [],
+            }
 
         return _clean(
             {
@@ -333,7 +346,10 @@ class MCLAtlas:
         )
 
     def atlas(self) -> dict[str, Any]:
-        contexts = [self._context_summary(cid, cfg or {}) for cid, cfg in self._contexts_config().items()]
+        contexts = [
+            self._context_summary(cid, cfg or {}, include_model_genetics=False)
+            for cid, cfg in self._contexts_config().items()
+        ]
         organ_map: dict[str, dict[str, Any]] = {}
         for context in contexts:
             organ_id = str(context["organ_id"])
@@ -374,7 +390,7 @@ class MCLAtlas:
         cfg = self._contexts_config().get(cancer_id)
         if cfg is None:
             raise MCLDataError(f"Unknown cancer context: {cancer_id}")
-        return self._context_summary(cancer_id, cfg or {})
+        return self._context_summary(cancer_id, cfg or {}, include_model_genetics=True)
 
     def models(
         self,
