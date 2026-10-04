@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,19 +18,41 @@ from mcl_api.store import MCLDataStore  # noqa: E402
 
 INDEX_CONTRACT = "mcl-gene-explorer-runtime-v1"
 SCHEMA_VERSION = "1.0"
+BUILD_INDEX_DIR = ROOT / "data" / "processed" / "gene_explorer"
+RUNTIME_INDEX_DIR = ROOT / "data" / "runtime" / "explorer"
+RUNTIME_FILES = (
+    "gene_catalog.parquet",
+    "gene_context_metrics.parquet",
+    "gene_annotations.parquet",
+    "manifest.json",
+)
+OPTIONAL_REFERENCE_FILES = (
+    "gene_reference.parquet",
+    "gene_reference_terms.parquet",
+)
+
+
+def _publish_runtime() -> None:
+    RUNTIME_INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    for name in RUNTIME_FILES + OPTIONAL_REFERENCE_FILES:
+        source = BUILD_INDEX_DIR / name
+        target = RUNTIME_INDEX_DIR / name
+        if source.exists():
+            shutil.copy2(source, target)
+        elif target.exists() and name in OPTIONAL_REFERENCE_FILES:
+            target.unlink()
 
 
 def main() -> None:
     store = MCLDataStore(ROOT)
     explorer = AnnotatedGeneExplorerStore(ROOT, store)
-    index_dir = ROOT / "data" / "processed" / "gene_explorer"
-    index_dir.mkdir(parents=True, exist_ok=True)
+    BUILD_INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Remove previous materialized copies so the builder always reflects the current
-    # processed MCL outputs rather than simply re-reading an older index. Optional
-    # reference snapshot files are preserved and reused when present.
+    # Build-stage artifacts remain under processed/. Runtime consumers never read
+    # these files directly; after the build completes a serving snapshot is copied
+    # to data/runtime/explorer/. Optional reference snapshots are preserved.
     for name in ("gene_catalog.parquet", "gene_context_metrics.parquet", "gene_annotations.parquet"):
-        path = index_dir / name
+        path = BUILD_INDEX_DIR / name
         if path.exists():
             path.unlink()
 
@@ -47,9 +70,12 @@ def main() -> None:
         "current processed MCL genome-wide comparisons + local DepMap multi-omics indexes + "
         "provenance-aware functional taxonomy + optional local human-gene reference snapshot"
     )
-    (index_dir / "manifest.json").write_text(
+    manifest["runtime_root"] = "data/runtime/explorer"
+    (BUILD_INDEX_DIR / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+
+    _publish_runtime()
 
     print("Gene Explorer index built")
     print(f"Contract: {INDEX_CONTRACT}")
@@ -63,9 +89,7 @@ def main() -> None:
     print(f"Functionally annotated genes: {manifest.get('functionally_annotated_genes_n', 0)}")
     print(f"Reference genes: {manifest.get('reference_genes_n', 0)}")
     print(f"Reference terms: {manifest.get('reference_term_rows_n', 0)}")
-    print("Wrote data/processed/gene_explorer/gene_catalog.parquet")
-    print("Wrote data/processed/gene_explorer/gene_context_metrics.parquet")
-    print("Wrote data/processed/gene_explorer/gene_annotations.parquet")
+    print("Published runtime snapshot to data/runtime/explorer/")
 
 
 if __name__ == "__main__":
