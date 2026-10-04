@@ -1,6 +1,8 @@
 # Master Cancer Landscape — Architecture v1
 
-Status: Architecture v1 migration in progress on `mcl-explorer-v0.1`.
+Status: Architecture v1 complete on `mcl-explorer-v0.1` as of 2026-10-04.
+
+The Architecture v1 baseline is intended to be tagged `mcl-architecture-v1` after the final local verification on the target workstation.
 
 ## 1. Core rule
 
@@ -73,46 +75,15 @@ The canonical API entrypoint is:
 mcl_api.main:app
 ```
 
-Request flow:
+The architectural invariant for major Explorer domains is:
 
 ```text
-FastAPI router
-    -> service
-    -> repository
-    -> scientific/runtime stores
-    -> materialized data
+router -> service -> repository -> store/runtime data
 ```
 
-Current Gene Explorer path follows this pattern. Other domains are migrated incrementally behind the existing API contract.
+Routers own HTTP concerns only. Services own use-case orchestration and request-level caching. Repositories own data-access composition. Stores own concrete file/data semantics and scientific guardrails.
 
-### Routers
-
-Own HTTP concerns only:
-
-- path/query parameters;
-- HTTP status mapping;
-- response model binding;
-- no scientific orchestration.
-
-### Services
-
-Own use-case orchestration and request-level caching:
-
-- combine repository results;
-- define lightweight interactive workflows;
-- keep heavy analyses out of the page critical path.
-
-### Repositories
-
-Own access to stores/materialized data:
-
-- runtime Gene Explorer indexes;
-- processed scientific evidence;
-- no HTTP knowledge.
-
-### Stores
-
-Own concrete file/data semantics and scientific guardrails.
+Architecture regression tests prevent routers from importing stores directly, owning `lru_cache`, or importing heavy scientific dataframe/statistics libraries for request-time computation.
 
 ## 4. Build-time vs run-time boundary
 
@@ -147,7 +118,7 @@ Examples:
 - model browsing;
 - explicitly requested deep analyses.
 
-Run-time endpoints read prebuilt serving artifacts. If a required runtime artifact is missing, the API fails fast with an actionable rebuild message instead of recomputing scientific layers inside the HTTP request.
+Run-time endpoints read prebuilt serving artifacts. If a required runtime artifact is missing or invalid, the API fails fast with an actionable rebuild message instead of silently falling back to expensive scientific matrices.
 
 ## 5. Explorer runtime contract
 
@@ -172,8 +143,8 @@ data/runtime/explorer/
 ├── gene_context_metrics.parquet
 ├── gene_annotations.parquet
 ├── manifest.json
-├── gene_reference.parquet              # when reference snapshot is available
-├── gene_reference_terms.parquet        # when reference terms are available
+├── gene_reference.parquet
+├── gene_reference_terms.parquet
 └── model_layers/
     ├── gene_effect.npy
     ├── gene_effect.json
@@ -183,15 +154,13 @@ data/runtime/explorer/
     └── copy_number.json
 ```
 
-The `.npy` matrices are `gene x model` float32 arrays designed for memory-mapped access. They exist because opening an arbitrary gene from a ~20k-column scientific Parquet matrix caused tens-of-seconds cold latency on Windows. Scientific source matrices remain under `data/processed/`.
+The `.npy` matrices are `gene x model` float32 arrays designed for memory-mapped access. They replace request-time access to extremely wide scientific Parquet matrices. Scientific source matrices remain under `data/processed/`.
 
 Validate with:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\verify_runtime_indexes.py
 ```
-
-The manifest is part of the runtime API contract, not decorative metadata.
 
 ## 6. Processed -> runtime publication
 
@@ -202,18 +171,44 @@ processed scientific/build-stage outputs
         ↓
 build_gene_explorer_index.py
         ↓
-data/processed/gene_explorer/     build-stage materialization/reference snapshot
+data/processed/gene_explorer/
         ↓
 publish serving snapshot
         ↓
-data/runtime/explorer/            canonical API runtime
+data/runtime/explorer/
 ```
 
 Model-level fast arrays are generated directly from processed DepMap multi-omics matrices into `data/runtime/explorer/model_layers/`.
 
 This preserves provenance and rebuildability while preventing UI optimizations from becoming scientific source data.
 
-## 7. Scientific guardrails
+## 7. Typed API contract
+
+Stable Explorer GET endpoints publish named Pydantic response models.
+
+The contract chain is:
+
+```text
+Pydantic
+   -> FastAPI OpenAPI
+   -> generated TypeScript
+   -> Next.js
+```
+
+Generated frontend types live at:
+
+```text
+apps/explorer/lib/generated/api-types.ts
+```
+
+Regenerate/check with:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\generate_frontend_api_types.py
+.\.venv\Scripts\python.exe .\scripts\generate_frontend_api_types.py --check
+```
+
+## 8. Scientific guardrails
 
 These rules are architectural invariants:
 
@@ -229,7 +224,7 @@ These rules are architectural invariants:
 - Functional categories preserve provenance to formal source terms.
 - Heavy exploratory mutation screens are not part of the default gene-page critical path.
 
-## 8. Performance rule
+## 9. Performance rule
 
 Anything that can be deterministically derived once after data refresh should be considered for build-time materialization rather than repeated request-time computation.
 
@@ -242,7 +237,28 @@ Current examples:
 
 Performance optimizations must not alter scientific meaning.
 
-## 9. Local operation
+## 10. Dependency reproducibility
+
+Architecture v1 uses two dependency locks:
+
+- Python 3.13: `constraints/python-3.13.txt`;
+- frontend: `apps/explorer/package-lock.json`.
+
+Windows bootstrap is standardized through:
+
+```powershell
+.\scripts\bootstrap.ps1
+```
+
+For a deliberate clean rebuild of the Python environment:
+
+```powershell
+.\scripts\bootstrap.ps1 -Recreate
+```
+
+The Windows bootstrap supports `uv` and creates a seeded Python 3.13 environment with `pip` before installing the constrained dependency graph.
+
+## 11. Local operation
 
 Use three stable roles when debugging manually:
 
@@ -264,9 +280,9 @@ Normal startup:
 
 `start-backend.ps1` launches the single canonical API entrypoint `mcl_api.main:app`.
 
-## 10. Verification gate
+## 12. Verification gate
 
-Before accepting an Architecture v1 migration step, run:
+Before accepting changes to the Architecture v1 baseline, run:
 
 ```powershell
 .\scripts\verify.ps1
@@ -274,40 +290,34 @@ Before accepting an Architecture v1 migration step, run:
 
 The gate includes:
 
+- Architecture v1 repository contract;
+- Python dependency constraints and `pip check`;
 - scientific-core tests;
-- API tests;
+- API and architecture-boundary tests;
+- generated OpenAPI -> TypeScript contract check;
 - runtime-index contract verification;
-- API smoke checks including gene detail latency;
+- Explorer API smoke checks including gene detail latency;
 - frontend TypeScript check;
 - frontend production build.
 
-A migration step is not baseline-stable until this gate passes locally.
+A baseline is not considered stable until the full gate passes locally and CI is green.
 
-## 11. Dependency reproducibility
+## 13. Architecture v1 completion criteria
 
-Frontend dependencies are locked with `apps/explorer/package-lock.json` and CI uses:
-
-```text
-npm ci
-```
-
-Python dependency locking remains an Architecture v1 task. The declared Python version range is currently 3.12–3.13.
-
-## 12. Architecture v1 completion criteria
-
-Architecture v1 is complete when all of the following hold:
+All Architecture v1 criteria are satisfied:
 
 1. canonical router -> service -> repository boundaries for major API domains;
-2. runtime serving files live only under `data/runtime/explorer/` from the API perspective;
-3. API responses use explicit Pydantic schemas for stable public contracts;
-4. frontend types are generated or mechanically synchronized from OpenAPI;
+2. runtime serving files are isolated under `data/runtime/explorer/` from the API perspective;
+3. stable API responses use explicit Pydantic schemas;
+4. frontend types are mechanically generated from OpenAPI;
 5. Node and Python dependency resolution is reproducible;
-6. a clean checkout can rebuild runtime artifacts through documented commands;
-7. tests prevent heavy scientific rebuilds from occurring during ordinary HTTP requests;
-8. local verification and CI are green;
-9. the baseline receives an Architecture v1 tag before major scientific expansion resumes.
+6. Windows clean bootstrap is documented and verified;
+7. runtime indexes are rebuildable from processed scientific outputs;
+8. tests prevent heavy scientific rebuilds and wide-matrix fallbacks during ordinary HTTP requests;
+9. local verification and GitHub CI are green at the accepted baseline;
+10. the baseline is ready for the `mcl-architecture-v1` tag before major scientific expansion resumes.
 
-## 13. Long-term architecture
+## 14. Long-term architecture
 
 ```text
 Cancer context
