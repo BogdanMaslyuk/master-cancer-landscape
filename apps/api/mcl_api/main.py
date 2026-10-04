@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .atlas import MCLAtlas
 from .cohort import MCLModelCohortStore
-from .matrix_gene_explorer import MatrixGeneExplorerStore
 from .multiomics import MCLMultiOmicsStore
+from .runtime_gene_explorer import RuntimeGeneExplorerStore
 from .settings import MCL_ROOT
 from .store import MCLDataError, MCLDataStore
 
@@ -30,7 +30,7 @@ store = MCLDataStore(MCL_ROOT)
 atlas_store = MCLAtlas(MCL_ROOT, store)
 cohort_store = MCLModelCohortStore(MCL_ROOT)
 multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
-gene_explorer_store = MatrixGeneExplorerStore(MCL_ROOT, store)
+gene_explorer_store = RuntimeGeneExplorerStore(MCL_ROOT, store)
 
 
 @app.middleware("http")
