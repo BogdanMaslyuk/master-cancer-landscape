@@ -1,0 +1,42 @@
+name: MCL clean baseline
+
+on:
+  push:
+    branches: [mcl-explorer-v0.1]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,analysis]" -e ./apps/api
+      - name: Scientific core tests
+        run: python -m pytest ./tests -q
+      - name: API tests
+        run: python -m pytest ./apps/api/tests -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        run: npm install
+      - name: TypeScript contract check
+        run: npm run typecheck
+      - name: Production build
+        env:
+          NEXT_PUBLIC_MCL_API_URL: http://127.0.0.1:8000
+        run: npm run build
