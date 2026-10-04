@@ -2,6 +2,7 @@ import "./globals.css";
 import "./research.css";
 import "./atlas.css";
 import "./atlas-polish.css";
+import "./atlas-wide.css";
 import AppShell from "../components/AppShell";
 
 // MCL Explorer is a runtime-backed research UI over the local FastAPI service.
