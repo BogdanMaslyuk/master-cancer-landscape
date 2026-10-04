@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, RootModel
 
 from .common import ApiResponseModel
 
@@ -20,6 +20,34 @@ class ReferenceCoverageSummary(ApiResponseModel):
     gene_universe_n: int | None = None
     coverage_fraction: float | None = None
     available: bool | None = None
+
+
+class GeneListResponse(RootModel[list[dict[str, Any]]]):
+    pass
+
+
+class GeneSuggestResponse(RootModel[list[dict[str, Any]]]):
+    pass
+
+
+class StableGenesResponse(RootModel[list[dict[str, Any]]]):
+    pass
+
+
+class GeneContextsResponse(RootModel[dict[str, Any]]):
+    pass
+
+
+class GeneModelsResponse(RootModel[dict[str, Any]]):
+    pass
+
+
+class GeneAnnotationsResponse(RootModel[dict[str, Any]]):
+    pass
+
+
+class GeneMutationAssociationsResponse(RootModel[dict[str, Any]]):
+    pass
 
 
 class GeneSearchResponse(ApiResponseModel):
