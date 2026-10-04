@@ -5,6 +5,7 @@ from functools import lru_cache
 from fastapi import APIRouter, Query
 
 from ..api_utils import guard
+from ..schemas.comparisons import ComparisonGenesResponse, ComparisonListResponse, ComparisonSummary
 from ..state import store
 
 
@@ -50,17 +51,17 @@ def _comparison_genes_cached(
     )
 
 
-@router.get("/api/comparisons")
+@router.get("/api/comparisons", response_model=ComparisonListResponse)
 def comparisons():
     return guard(_comparisons_cached)
 
 
-@router.get("/api/comparisons/{comparison_id}")
+@router.get("/api/comparisons/{comparison_id}", response_model=ComparisonSummary)
 def comparison(comparison_id: str):
     return guard(lambda: _comparison_cached(comparison_id))
 
 
-@router.get("/api/comparisons/{comparison_id}/genes")
+@router.get("/api/comparisons/{comparison_id}/genes", response_model=ComparisonGenesResponse)
 def comparison_genes(
     comparison_id: str,
     page: int = Query(1, ge=1),
