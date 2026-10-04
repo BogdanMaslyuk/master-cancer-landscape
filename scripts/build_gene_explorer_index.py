@@ -15,6 +15,10 @@ from mcl_api.annotated_gene_explorer import AnnotatedGeneExplorerStore  # noqa: 
 from mcl_api.store import MCLDataStore  # noqa: E402
 
 
+INDEX_CONTRACT = "mcl-gene-explorer-runtime-v1"
+SCHEMA_VERSION = "1.0"
+
+
 def main() -> None:
     store = MCLDataStore(ROOT)
     explorer = AnnotatedGeneExplorerStore(ROOT, store)
@@ -35,6 +39,9 @@ def main() -> None:
     explorer.domain_mapping_frame.cache_clear()
     explorer.secondary_mapping_frame.cache_clear()
     manifest = explorer.materialize_indexes()
+    manifest["index_contract"] = INDEX_CONTRACT
+    manifest["schema_version"] = SCHEMA_VERSION
+    manifest["builder"] = "scripts/build_gene_explorer_index.py"
     manifest["built_at"] = datetime.now(timezone.utc).isoformat()
     manifest["source"] = (
         "current processed MCL genome-wide comparisons + local DepMap multi-omics indexes + "
@@ -45,6 +52,8 @@ def main() -> None:
     )
 
     print("Gene Explorer index built")
+    print(f"Contract: {INDEX_CONTRACT}")
+    print(f"Schema version: {SCHEMA_VERSION}")
     print(f"Genes: {manifest['genes_n']}")
     print(f"Gene × comparison rows: {manifest['context_rows_n']}")
     print(f"Comparisons: {manifest['comparisons_n']}")
