@@ -7,6 +7,7 @@ from ..schemas.laboratory import (
     LaboratoryCandidateDetailResponse,
     LaboratoryCandidatesResponse,
     LaboratoryLinesResponse,
+    LaboratoryMechanismPanelsResponse,
     LaboratorySummaryResponse,
 )
 from ..state import laboratory_service
@@ -42,6 +43,11 @@ def laboratory_candidates(
     return guard(
         lambda: laboratory_service.candidates(q, readiness, cancer, target_gene, limit, offset)
     )
+
+
+@router.get("/api/laboratory/mechanism-panels", response_model=LaboratoryMechanismPanelsResponse)
+def laboratory_mechanism_panels():
+    return guard(laboratory_service.mechanism_panels)
 
 
 @router.get("/api/laboratory/candidates/{hypothesis_id}", response_model=LaboratoryCandidateDetailResponse)
