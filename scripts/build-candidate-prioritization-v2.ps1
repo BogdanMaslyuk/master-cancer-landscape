@@ -64,6 +64,7 @@ if (Test-Path $ContextManifest) {
 
 Run-Step "Build lineage-adjusted pharmacology × CRISPR concordance v2" @(".\scripts\build_pharmacology_target_concordance_v2.py")
 Run-Step "Build methodology-corrected candidate hypotheses v2" @(".\scripts\build_candidate_hypotheses_v2.py")
+Run-Step "Validate Candidate v2 model roles" @(".\scripts\qc_candidate_hypothesis_models_v2.py")
 
 if (-not $SkipBenchmark) {
     Run-Step "Known mechanism benchmark on Candidate v2" @(".\scripts\build_known_mechanism_benchmark.py")
