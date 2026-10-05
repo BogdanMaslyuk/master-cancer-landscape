@@ -20,7 +20,7 @@ function Run-Step([string]$Label, [string[]]$Arguments) {
 
 Run-Step "Map department cell-line collection to DepMap" @(".\scripts\build_laboratory_panel.py")
 Run-Step "Intersect Candidate v2 with laboratory panel" @(".\scripts\build_laboratory_candidates.py")
-Run-Step "Build mechanism-aware experimental panels" @(".\scripts\build_laboratory_mechanism_panels.py")
+Run-Step "Build mechanism-aware experimental panels" @(".\scripts\build_laboratory_mechanism_panels_v1_1.py")
 
 Write-Host "`nMCL Laboratory Panel v1.1 build completed." -ForegroundColor Green
 Write-Host "Review data\processed\laboratory_panel.tsv for identity mappings before using laboratory recommendations."
