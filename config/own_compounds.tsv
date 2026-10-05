@@ -1,21 +1,66 @@
-own_compound_id	source_molecule_id	preferred_name	standardized_smiles	series	synthesis_status	note_ru
-OWN-CMP-001	CMP-001	CMP-001	Cc1c(/N=N/c2cccc[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-002	CMP-002	CMP-002	Cc1c(/N=N/c2ccc(Cl)c[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-003	CMP-003	CMP-003	Cc1c(/N=N/c2ccc(Br)c[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-004	CMP-004	CMP-004	Cc1c(/N=N/c2cccc(C)[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-005	CMP-005	CMP-005	Cc1c(/N=N/c2cc[n+]([O-])cc2)c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-006	CMP-006	CMP-006	Cc1c(/N=N/c2ccccn2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-007	CMP-007	CMP-007	Cc1c(/N=N/c2ccc(Cl)cn2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-008	CMP-008	CMP-008	Cc1c(/N=N/c2ccc(Br)cn2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-009	CMP-009	CMP-009	Cc1cccc(/N=N/c2c(C)n(C)n(-c3ccccc3)c2=O)n1	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-010	CMP-010	CMP-010	Cc1c(/N=N/c2ccncc2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-011	CMP-011	CMP-011	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cccc[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-012	CMP-012	CMP-012	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Cl)c[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-013	CMP-013	CMP-013	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Br)c[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-014	CMP-014	CMP-014	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cccc(C)[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-015	CMP-015	CMP-015	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cc[n+]([O-])cc1	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-016	CMP-016	CMP-016	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccccn1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-017	CMP-017	CMP-017	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Cl)cn1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-018	CMP-018	CMP-018	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Br)cn1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-019	CMP-019	CMP-019	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cccc(C)n1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
-OWN-CMP-020	CMP-020	CMP-020	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccncc1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+own_compound_id	source_molecule_id	preferred_name	standardized_smiles
+PYZ-001	PYZ-001	PYZ-001	[O-][N+]1=C(N/N=C(C(C)=O)\C(C)=O)C=CC=C1
+PYZ-002	PYZ-002	PYZ-002	[O-][N+]1=C(N/N=C(C(C)=O)\C(C)=O)C=CC(Cl)=C1
+PYZ-003	PYZ-003	PYZ-003	[O-][N+]1=C(N/N=C(C(C)=O)\C(C)=O)C=CC(Br)=C1
+PYZ-004	PYZ-004	PYZ-004	[O-][N+]1=C(N/N=C(C(C)=O)\C(C)=O)C=CC=C1C
+PYZ-005	PYZ-005	PYZ-005	CC(/C(C(C)=O)=N\NC1=CC=[N+]([O-])C=C1)=O
+PYZ-006	PYZ-006	PYZ-006	[O-][N+]1=C(N/N=C2C(CC(C)(C)CC\2=O)=O)C=CC=C1
+PYZ-007	PYZ-007	PYZ-007	[O-][N+]1=C(N/N=C2C(CC(C)(C)CC\2=O)=O)C=CC(Cl)=C1
+PYZ-008	PYZ-008	PYZ-008	[O-][N+]1=C(N/N=C2C(CC(C)(C)CC\2=O)=O)C=CC(Br)=C1
+PYZ-009	PYZ-009	PYZ-009	[O-][N+]1=C(N/N=C2C(CC(C)(C)CC\2=O)=O)C=CC=C1C
+PYZ-010	PYZ-010	PYZ-010	O=C1CC(C)(C)CC(/C1=N\NC2=CC=[N+]([O-])C=C2)=O
+PYZ-011	PYZ-011	PYZ-011	[O-][N+]1=C(N/N=C2C(NC(NC\2=O)=O)=O)C=CC=C1
+PYZ-012	PYZ-012	PYZ-012	[O-][N+]1=C(N/N=C2C(NC(NC\2=O)=O)=O)C=CC(Cl)=C1
+PYZ-013	PYZ-013	PYZ-013	[O-][N+]1=C(N/N=C2C(NC(NC\2=O)=O)=O)C=CC(Br)=C1
+PYZ-014	PYZ-014	PYZ-014	[O-][N+]1=C(N/N=C2C(NC(NC\2=O)=O)=O)C=CC=C1C
+PYZ-015	PYZ-015	PYZ-015	O=C(/C(C(N1)=O)=N/NC2=CC=[N+]([O-])C=C2)NC1=O
+PYZ-016	PYZ-016	PYZ-016	[O-][N+]1=CC=CC=C1/N=N/C2=C(C)N(C)N(C3=CC=CC=C3)C2=O
+PYZ-017	PYZ-017	PYZ-017	[O-][N+]1=CC(Cl)=CC=C1/N=N/C2=C(C)N(C)N(C3=CC=CC=C3)C2=O
+PYZ-018	PYZ-018	PYZ-018	[O-][N+]1=CC(Br)=CC=C1/N=N/C2=C(C)N(C)N(C3=CC=CC=C3)C2=O
+PYZ-019	PYZ-019	PYZ-019	[O-][N+]1=C(C)C=CC=C1/N=N/C2=C(C)N(C)N(C3=CC=CC=C3)C2=O
+PYZ-020	PYZ-020	PYZ-020	O=C1C(/N=N/C2=CC=[N+]([O-])C=C2)=C(C)N(C)N1C3=CC=CC=C3
+PYZ-021	PYZ-021	PYZ-021	CC(/C(C(C)=O)=N\NC1=NC=CC=C1)=O
+PYZ-022	PYZ-022	PYZ-022	CC(/C(C(C)=O)=N\NC1=NC=C(Cl)C=C1)=O
+PYZ-023	PYZ-023	PYZ-023	CC(/C(C(C)=O)=N\NC1=NC=C(Br)C=C1)=O
+PYZ-024	PYZ-024	PYZ-024	CC(/C(C(C)=O)=N\NC1=NC(C)=CC=C1)=O
+PYZ-025	PYZ-025	PYZ-025	CC(/C(C(C)=O)=N\NC1=CC=NC=C1)=O
+PYZ-026	PYZ-026	PYZ-026	O=C1CC(C)(C)CC(/C1=N\NC2=NC=CC=C2)=O
+PYZ-027	PYZ-027	PYZ-027	O=C1CC(C)(C)CC(/C1=N\NC2=NC=C(Cl)C=C2)=O
+PYZ-028	PYZ-028	PYZ-028	O=C1CC(C)(C)CC(/C1=N\NC2=NC=C(Br)C=C2)=O
+PYZ-029	PYZ-029	PYZ-029	O=C1CC(C)(C)CC(/C1=N\NC2=NC(C)=CC=C2)=O
+PYZ-030	PYZ-030	PYZ-030	O=C1CC(C)(C)CC(/C1=N\NC2=CC=NC=C2)=O
+PYZ-031	PYZ-031	PYZ-031	O=C1C(/N=N/C2=CC=CC=N2)=C(C)N(C)N1C3=CC=CC=C3
+PYZ-032	PYZ-032	PYZ-032	O=C1C(/N=N/C2=CC=C(Cl)C=N2)=C(C)N(C)N1C3=CC=CC=C3
+PYZ-033	PYZ-033	PYZ-033	O=C1C(/N=N/C2=CC=C(Br)C=N2)=C(C)N(C)N1C3=CC=CC=C3
+PYZ-034	PYZ-034	PYZ-034	O=C1C(/N=N/C2=CC=CC(C)=N2)=C(C)N(C)N1C3=CC=CC=C3
+PYZ-035	PYZ-035	PYZ-035	O=C1C(/N=N/C2=CC=NC=C2)=C(C)N(C)N1C3=CC=CC=C3
+PYZ-036	PYZ-036	PYZ-036	O=C(/C(C(N1)=O)=N/NC2=NC=CC=C2)NC1=O
+PYZ-037	PYZ-037	PYZ-037	O=C(/C(C(N1)=O)=N/NC2=NC=C(Cl)C=C2)NC1=O
+PYZ-038	PYZ-038	PYZ-038	O=C(/C(C(N1)=O)=N/NC2=NC=C(Br)C=C2)NC1=O
+PYZ-039	PYZ-039	PYZ-039	O=C(/C(C(N1)=O)=N/NC2=NC(C)=CC=C2)NC1=O
+PYZ-040	PYZ-040	PYZ-040	O=C(/C(C(N1)=O)=N/NC2=CC=NC=C2)NC1=O
+PYZ-041	PYZ-041	PYZ-041	O=C(/C(C(N1C)=O)=N/NC2=[N+]([O-])C=CC=C2)N(C)C1=O
+PYZ-042	PYZ-042	PYZ-042	[O-][N+]1=C(N/N=C2C(N(C)C(N(C)C\2=O)=O)=O)C=CC(Cl)=C1
+PYZ-043	PYZ-043	PYZ-043	[O-][N+]1=C(N/N=C2C(N(C)C(N(C)C\2=O)=O)=O)C=CC(Br)=C1
+PYZ-044	PYZ-044	PYZ-044	[O-][N+]1=C(N/N=C2C(N(C)C(N(C)C\2=O)=O)=O)C=CC=C1C
+PYZ-045	PYZ-045	PYZ-045	O=C(/C(C(N1C)=O)=N/NC2=CC=[N+]([O-])C=C2)N(C)C1=O
+PYZ-046	PYZ-046	PYZ-046	[O-][N+]1=C(N/N=C2C(CCCC\2=O)=O)C=CC=C1
+PYZ-047	PYZ-047	PYZ-047	[O-][N+]1=C(N/N=C2C(CCCC\2=O)=O)C=CC(Cl)=C1
+PYZ-048	PYZ-048	PYZ-048	[O-][N+]1=C(N/N=C2C(CCCC\2=O)=O)C=CC(Br)=C1
+PYZ-049	PYZ-049	PYZ-049	[O-][N+]1=C(N/N=C2C(CCCC\2=O)=O)C=CC=C1C
+PYZ-050	PYZ-050	PYZ-050	O=C1CCCC(/C1=N\NC2=CC=[N+]([O-])C=C2)=O
+PYZ-051	PYZ-051	PYZ-051	[O-][N+]1=CC=CC=C1N/N=C2C(N(C3=CC=CC=C3)N=C\2C)=O
+PYZ-052	PYZ-052	PYZ-052	[O-][N+]1=CC(Cl)=CC=C1N/N=C2C(N(C3=CC=CC=C3)N=C\2C)=O
+PYZ-053	PYZ-053	PYZ-053	[O-][N+]1=CC(Br)=CC=C1N/N=C2C(N(C3=CC=CC=C3)N=C\2C)=O
+PYZ-054	PYZ-054	PYZ-054	[O-][N+]1=C(C)C=CC=C1N/N=C2C(N(C3=CC=CC=C3)N=C\2C)=O
+PYZ-055	PYZ-055	PYZ-055	O=C(N(C1=CC=CC=C1)N=C/2C)C2=N/NC3=CC=[N+]([O-])C=C3
+PYZ-056	PYZ-056	PYZ-056	[O-][N+]1=C(N/N=C2C(OC3=CC=CC=C3C\2=O)=O)C=CC=C1
+PYZ-057	PYZ-057	PYZ-057	[O-][N+]1=C(N/N=C2C(OC3=CC=CC=C3C\2=O)=O)C=CC(Cl)=C1
+PYZ-058	PYZ-058	PYZ-058	[O-][N+]1=C(N/N=C2C(OC3=CC=CC=C3C\2=O)=O)C=CC(Br)=C1
+PYZ-059	PYZ-059	PYZ-059	[O-][N+]1=C(N/N=C2C(OC3=CC=CC=C3C\2=O)=O)C=CC=C1C
+PYZ-060	PYZ-060	PYZ-060	O=C1C2=CC=CC=C2OC(/C1=N\NC3=CC=[N+]([O-])C=C3)=O
+PYZ-061	PYZ-061	PYZ-061	[O-][N+]1=C(N/N=C(C#N)\C#N)C=CC=C1
+PYZ-062	PYZ-062	PYZ-062	[O-][N+]1=C(N/N=C(C#N)\C#N)C=CC(Cl)=C1
+PYZ-063	PYZ-063	PYZ-063	[O-][N+]1=C(N/N=C(C#N)\C#N)C=CC(Br)=C1
+PYZ-064	PYZ-064	PYZ-064	[O-][N+]1=C(N/N=C(C#N)\C#N)C=CC=C1C
+PYZ-065	PYZ-065	PYZ-065	N#C/C(C#N)=N\NC1=CC=[N+]([O-])C=C1
