@@ -9,7 +9,7 @@ from ..schemas.models import (
     ModelMultiomicsResponse,
     ModelsResponse,
 )
-from ..state import crispr_catalog, model_dependency_store, model_service
+from ..state import crispr_catalog, model_service
 
 
 router = APIRouter()
@@ -62,13 +62,13 @@ def model_dependencies(
     offset: int = Query(0, ge=0),
 ):
     return guard(
-        lambda: model_dependency_store.model(
+        lambda: model_service.dependencies(
             model_id,
-            search=search,
-            dependency_type=dependency_type,
-            domain=domain,
-            limit=limit,
-            offset=offset,
+            search,
+            dependency_type,
+            domain,
+            limit,
+            offset,
         )
     )
 
