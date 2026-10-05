@@ -47,16 +47,18 @@ export default async function CompoundPage({params}:{params:Promise<{id:string}>
     </section>
 
     <section className={styles.section}>
-      <div className={styles.sectionHead}><div><div className="eyebrow">ВЕЩЕСТВО → БЕЛКОВАЯ МИШЕНЬ</div><h2>Аннотированные мишени</h2></div></div>
+      <div className={styles.sectionHead}><div><div className="eyebrow">ВЕЩЕСТВО → БЕЛКОВАЯ МИШЕНЬ → ГЕН</div><h2>Аннотированные мишени</h2></div></div>
       {targets.length?<div className={styles.tableWrap}><table className={styles.table}>
-        <thead><tr><th>Мишень</th><th>Тип действия / механизм</th><th>Доказательства</th><th>Источник</th></tr></thead>
-        <tbody>{targets.map((row:any)=><tr key={row.target_gene}>
-          <td><Link className={styles.primary} href={`/targets/${encodeURIComponent(row.target_gene)}`}>{row.target_gene}</Link><span className={styles.sub}><Link href={`/genes/${encodeURIComponent(row.target_gene)}`}>кодирующий ген →</Link></span></td>
+        <thead><tr><th>Белковая мишень</th><th>Кодирующий ген</th><th>Тип действия / механизм</th><th>Доказательства</th><th>Источник</th></tr></thead>
+        <tbody>{targets.map((row:any)=>{const protein=row.protein_preferred_name||null;return <tr key={row.target_gene}>
+          <td><Link className={styles.primary} href={`/targets/${encodeURIComponent(row.target_gene)}`}>{protein||`Белковая мишень, связанная с ${row.target_gene}`}</Link><span className={styles.sub}>{row.uniprot_primary_accession?`UniProt ${row.uniprot_primary_accession}`:row.protein_mapping_status||"gene-mapped"}</span></td>
+          <td><Link className={styles.primary} href={`/genes/${encodeURIComponent(row.target_gene)}`}>{row.target_gene} →</Link><span className={styles.sub}>исходная target_gene аннотация</span></td>
           <td>{(row.actions||[]).length?<div className={styles.chips}>{row.actions.slice(0,4).map((x:string)=><span className={styles.chip} key={x}>{x}</span>)}</div>:<span className={styles.sub}>тип действия не уточнён</span>}</td>
           <td><b>{n(row.evidence_rows_n)}</b><span className={styles.sub}>{(row.evidence_types||[]).join(" · ")||"аннотация мишени"}</span></td>
           <td>{(row.sources||[]).join(" · ")||"—"}</td>
-        </tr>)}</tbody>
-      </table></div>:<div className={styles.empty}>В текущем источнике для вещества нет аннотированной белковой мишени.</div>}
+        </tr>})}</tbody>
+      </table></div>:<div className={styles.empty}>В текущем источнике для вещества нет аннотированной мишени.</div>}
+      <div className={styles.note}>Белковое название — отдельное справочное сопоставление MCL через UniProtKB/Swiss-Prot. Исходная фармакологическая аннотация может оставаться только на уровне гена.</div>
     </section>
 
     <section className={styles.section}>
@@ -77,14 +79,14 @@ export default async function CompoundPage({params}:{params:Promise<{id:string}>
     <section className={styles.section}>
       <div className={styles.sectionHead}><div><div className="eyebrow">ФАРМАКОЛОГИЯ ↔ CRISPR</div><h2>Согласованность заявленных мишеней</h2></div></div>
       {concordance.length?<div className={styles.tableWrap}><table className={styles.table}>
-        <thead><tr><th>Мишень</th><th>Статус</th><th>Spearman ρ</th><th>Моделей</th><th>Интерпретация</th></tr></thead>
+        <thead><tr><th>Белковая мишень / ген</th><th>Статус</th><th>Spearman ρ</th><th>Моделей</th><th>Интерпретация</th></tr></thead>
         <tbody>{concordance.map((row:any,index:number)=><tr key={`${row.target_gene}-${index}`}>
-          <td><Link className={styles.primary} href={`/targets/${encodeURIComponent(row.target_gene)}`}>{row.target_gene}</Link></td>
+          <td><Link className={styles.primary} href={`/targets/${encodeURIComponent(row.target_gene)}`}>{row.protein_preferred_name||row.target_gene}</Link><span className={styles.sub}>ген {row.target_gene}{row.uniprot_primary_accession?` · UniProt ${row.uniprot_primary_accession}`:""}</span></td>
           <td>{row.concordance_label||"—"}</td><td>{fmt(row.spearman_rho)}</td><td>{n(row.models_n)}</td><td>{row.interpretation_ru||"—"}</td>
         </tr>)}</tbody>
-      </table></div>:<div className={styles.callout}><b>Слой согласованности ещё не построен.</b> Он будет отдельно проверять, совпадает ли профиль чувствительности клеток к веществу с CRISPR-зависимостью заявленной мишени по панели моделей.</div>}
+      </table></div>:<div className={styles.callout}><b>Слой согласованности ещё не построен.</b> Он отдельно проверяет, совпадает ли профиль чувствительности клеток к веществу с CRISPR-зависимостью кодирующего гена по панели моделей.</div>}
     </section>
 
-    <div className={styles.callout}><b>Граница интерпретации.</b> Аннотация мишени означает, что источник связывает вещество с этим белком/геном. Ответ конкретной клеточной линии не доказывает, что именно эта мишень вызвала фенотип. Для причинного механизма нужны дополнительные данные о связывании и функциональной валидации.</div>
+    <div className={styles.callout}><b>Граница интерпретации.</b> Аннотация target_gene, справочное белковое сопоставление и ответ конкретной клеточной линии — разные типы данных. Даже их согласованность не заменяет прямое подтверждение связывания и причинного механизма.</div>
   </>;
 }
