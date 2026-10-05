@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import http.client
 import io
 import json
+import ssl
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,10 +23,15 @@ GENE_REFERENCE = ROOT / "data" / "processed" / "gene_explorer" / "gene_reference
 OUTPUT_DIR = ROOT / "data" / "processed" / "target_registry"
 OUTPUT = OUTPUT_DIR / "protein_targets.parquet"
 MANIFEST = OUTPUT_DIR / "protein_target_registry_manifest.json"
+CACHE = OUTPUT_DIR / "uniprot_target_cache.json"
 QC = ROOT / "outputs" / "qc" / "protein_target_registry_unresolved.tsv"
 
 UNIPROT_SEARCH = "https://rest.uniprot.org/uniprotkb/search"
 UNIPROT_FIELDS = "accession,id,protein_name,gene_primary,gene_names,protein_families,length"
+
+
+class UniProtReleaseChanged(RuntimeError):
+    pass
 
 
 def _now() -> str:
@@ -67,7 +74,7 @@ def _preferred_protein_name(raw_name: str) -> str | None:
     if not text:
         return None
     # UniProt TSV renders the recommended name first, followed by alternative/short
-    # names in parentheses. We retain the full raw field separately for provenance.
+    # names in parentheses. The complete raw field is retained separately.
     preferred = text.split(" (", 1)[0].strip()
     return preferred or text
 
@@ -80,55 +87,191 @@ def _pick(row: dict[str, str], *names: str) -> str:
     return ""
 
 
-def _fetch_batch(accessions: list[str], timeout: int, retries: int) -> tuple[list[dict[str, str]], str | None]:
+def _load_cache() -> tuple[dict[str, dict[str, str]], set[str], str | None]:
+    if not CACHE.exists():
+        return {}, set(), None
+    try:
+        payload = json.loads(CACHE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        print(f"WARNING: cannot read UniProt cache {CACHE.relative_to(ROOT)}; starting with an empty cache")
+        return {}, set(), None
+    raw_records = payload.get("records") or {}
+    records = {
+        str(accession): {str(k): str(v) for k, v in row.items()}
+        for accession, row in raw_records.items()
+        if isinstance(row, dict)
+    }
+    no_result = {str(x) for x in (payload.get("no_result_accessions") or [])}
+    release = _text(payload.get("uniprot_release")) or None
+    return records, no_result, release
+
+
+def _save_cache(
+    records: dict[str, dict[str, str]],
+    no_result: set[str],
+    release: str | None,
+) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "cache_contract": "mcl-uniprot-target-cache-v1",
+        "updated_at": _now(),
+        "uniprot_release": release,
+        "records": records,
+        "no_result_accessions": sorted(no_result),
+    }
+    temp = CACHE.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    temp.replace(CACHE)
+
+
+def _merge_release(current: str | None, incoming: str | None) -> str | None:
+    incoming = _text(incoming) or None
+    if current and incoming and current != incoming:
+        raise UniProtReleaseChanged(
+            f"UniProt release changed during a resumable build: cached={current}, current={incoming}. "
+            f"Delete {CACHE.relative_to(ROOT)} and rerun to create a single-release snapshot."
+        )
+    return current or incoming
+
+
+def _fetch_batch(
+    accessions: list[str],
+    timeout: int,
+    retries: int,
+) -> tuple[list[dict[str, str]], str | None]:
     if not accessions:
         return [], None
     clauses = " OR ".join(f"accession:{accession}" for accession in accessions)
     query = f"({clauses}) AND organism_id:9606 AND reviewed:true"
     url = f"{UNIPROT_SEARCH}?{urlencode({'query': query, 'format': 'tsv', 'fields': UNIPROT_FIELDS, 'size': 500})}"
-    request = Request(url, headers={"User-Agent": "MasterCancerLandscape/0.1 protein-target-registry"})
     last_error: Exception | None = None
-    for attempt in range(max(1, retries)):
+    attempts = max(1, int(retries))
+
+    for attempt in range(attempts):
         try:
-            with urlopen(request, timeout=max(10, timeout)) as response:
+            request = Request(
+                url,
+                headers={
+                    "User-Agent": "MasterCancerLandscape/0.1 protein-target-registry",
+                    "Accept": "text/tab-separated-values",
+                    "Connection": "close",
+                },
+            )
+            with urlopen(request, timeout=max(10, int(timeout))) as response:
                 payload = response.read().decode("utf-8")
                 release = response.headers.get("X-UniProt-Release") or response.headers.get("x-uniprot-release")
             reader = csv.DictReader(io.StringIO(payload), delimiter="\t")
             return [dict(row) for row in reader], release
-        except (HTTPError, URLError, TimeoutError, UnicodeDecodeError) as exc:
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+            ssl.SSLError,
+            http.client.HTTPException,
+            UnicodeDecodeError,
+        ) as exc:
             last_error = exc
-            if attempt + 1 < retries:
-                time.sleep(2 ** attempt)
-    raise RuntimeError(f"UniProtKB request failed after {retries} attempts: {last_error}")
+            if attempt + 1 < attempts:
+                delay = min(30, 2 ** attempt)
+                print(
+                    f"WARNING: UniProt request failed ({type(exc).__name__}: {exc}); "
+                    f"retry {attempt + 2}/{attempts} in {delay}s"
+                )
+                time.sleep(delay)
+
+    raise RuntimeError(f"UniProtKB request failed after {attempts} attempts: {last_error}")
 
 
-def _fetch_accessions(accessions: list[str], batch_size: int, timeout: int, retries: int) -> tuple[dict[str, dict[str, str]], str | None]:
-    results: dict[str, dict[str, str]] = {}
-    release: str | None = None
-    batch_size = max(1, min(int(batch_size), 120))
-    for start in range(0, len(accessions), batch_size):
-        batch = accessions[start:start + batch_size]
+def _fetch_accessions(
+    accessions: list[str],
+    batch_size: int,
+    timeout: int,
+    retries: int,
+) -> tuple[dict[str, dict[str, str]], str | None]:
+    records, no_result, release = _load_cache()
+    wanted = set(accessions)
+    records = {k: v for k, v in records.items() if k in wanted}
+    no_result &= wanted
+
+    completed = set(records) | no_result
+    pending = [accession for accession in accessions if accession not in completed]
+    if completed:
+        print(
+            f"UniProt cache: {len(completed)}/{len(accessions)} accessions already completed; "
+            f"{len(pending)} remain"
+        )
+    if not pending:
+        return records, release
+
+    batch_size = max(1, min(int(batch_size), 80))
+    network_failures: list[str] = []
+
+    for start in range(0, len(pending), batch_size):
+        batch = pending[start : start + batch_size]
+        batch_completed: set[str] = set()
         try:
             rows, batch_release = _fetch_batch(batch, timeout, retries)
-        except RuntimeError:
-            # Conservative fallback: isolate problematic/deprecated accessions rather
-            # than failing the entire registry build because one batch was rejected.
-            rows = []
-            batch_release = None
+            release = _merge_release(release, batch_release)
+            returned: set[str] = set()
+            for row in rows:
+                accession = _pick(row, "Entry", "accession")
+                if accession:
+                    records[accession] = row
+                    returned.add(accession)
+            for accession in batch:
+                if accession not in returned:
+                    no_result.add(accession)
+                batch_completed.add(accession)
+            _save_cache(records, no_result, release)
+        except UniProtReleaseChanged:
+            _save_cache(records, no_result, release)
+            raise
+        except RuntimeError as batch_error:
+            print(
+                f"WARNING: batch request failed after retries ({batch_error}). "
+                "Falling back to one accession at a time."
+            )
             for accession in batch:
                 try:
                     one_rows, one_release = _fetch_batch([accession], timeout, retries)
-                    rows.extend(one_rows)
-                    batch_release = batch_release or one_release
-                except RuntimeError:
-                    continue
-        release = release or batch_release
-        for row in rows:
-            accession = _pick(row, "Entry", "accession")
-            if accession:
-                results[accession] = row
-        print(f"UniProt resolved {min(start + batch_size, len(accessions))}/{len(accessions)} accessions")
-    return results, release
+                    release = _merge_release(release, one_release)
+                    returned = False
+                    for row in one_rows:
+                        row_accession = _pick(row, "Entry", "accession")
+                        if row_accession:
+                            records[row_accession] = row
+                            if row_accession == accession:
+                                returned = True
+                    if not returned:
+                        no_result.add(accession)
+                    batch_completed.add(accession)
+                    _save_cache(records, no_result, release)
+                except UniProtReleaseChanged:
+                    _save_cache(records, no_result, release)
+                    raise
+                except RuntimeError as accession_error:
+                    network_failures.append(accession)
+                    print(
+                        f"WARNING: could not resolve {accession} after retries: {accession_error}. "
+                        "Progress is saved; this accession will be retried on the next run."
+                    )
+
+        current_completed = len((set(records) | no_result) & wanted)
+        print(f"UniProt completed {current_completed}/{len(accessions)} accessions")
+
+    _save_cache(records, no_result, release)
+    still_pending = [a for a in accessions if a not in records and a not in no_result]
+    if still_pending:
+        examples = ", ".join(still_pending[:10])
+        raise RuntimeError(
+            f"UniProt network retrieval remains incomplete for {len(still_pending)} accessions "
+            f"({examples}{' ...' if len(still_pending) > 10 else ''}). "
+            "All successful progress has been cached. Rerun the same command; only unfinished accessions will be requested."
+        )
+
+    return records, release
 
 
 def main() -> None:
@@ -138,11 +281,20 @@ def main() -> None:
             "UniProtKB/Swiss-Prot metadata is added only as an explicit gene-to-protein mapping layer."
         )
     )
-    parser.add_argument("--batch-size", type=int, default=80)
-    parser.add_argument("--timeout", type=int, default=90)
-    parser.add_argument("--retries", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=40)
+    parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument("--retries", type=int, default=6)
     parser.add_argument("--limit", type=int, default=None, help="Optional target limit for smoke testing.")
+    parser.add_argument(
+        "--reset-cache",
+        action="store_true",
+        help="Delete the resumable UniProt cache before downloading a fresh single-release snapshot.",
+    )
     args = parser.parse_args()
+
+    if args.reset_cache and CACHE.exists():
+        CACHE.unlink()
+        print(f"Removed UniProt cache: {CACHE.relative_to(ROOT)}")
 
     if not TARGET_CATALOG.exists():
         raise SystemExit("Missing target_catalog.parquet. Run scripts/build_pharmacology_layer.py first.")
@@ -155,7 +307,7 @@ def main() -> None:
     targets = pd.read_parquet(TARGET_CATALOG, columns=["target_gene"])
     target_genes = sorted(set(targets["target_gene"].dropna().astype(str).str.upper().str.strip()))
     if args.limit is not None:
-        target_genes = target_genes[:max(1, int(args.limit))]
+        target_genes = target_genes[: max(1, int(args.limit))]
 
     reference = pd.read_parquet(GENE_REFERENCE)
     if "gene_symbol" not in reference.columns or "uniprot_swissprot_ids_json" not in reference.columns:
@@ -176,12 +328,17 @@ def main() -> None:
 
     print(f"Pharmacology target genes: {len(target_genes)}")
     print(f"Unique Swiss-Prot accessions to resolve: {len(all_accessions)}")
-    records_by_accession, uniprot_release = _fetch_accessions(
-        all_accessions,
-        batch_size=args.batch_size,
-        timeout=args.timeout,
-        retries=args.retries,
-    )
+    try:
+        records_by_accession, uniprot_release = _fetch_accessions(
+            all_accessions,
+            batch_size=args.batch_size,
+            timeout=args.timeout,
+            retries=args.retries,
+        )
+    except UniProtReleaseChanged as exc:
+        raise SystemExit(str(exc)) from exc
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
 
     retrieved_at = _now()
     rows: list[dict[str, Any]] = []
@@ -216,10 +373,10 @@ def main() -> None:
                 "protein_names_json": json.dumps(names, ensure_ascii=False),
                 "uniprot_primary_accession": primary_accession or None,
                 "uniprot_accessions_json": json.dumps(accessions, ensure_ascii=False),
-                "uniprot_entry_name": _pick(record, "Entry Name", "id") or None if unique else None,
-                "uniprot_gene_primary": _pick(record, "Gene Names (primary)", "Gene Names (Primary)") or None if unique else None,
-                "uniprot_gene_names": _pick(record, "Gene Names") or None if unique else None,
-                "protein_families": _pick(record, "Protein families", "Protein Families") or None if unique else None,
+                "uniprot_entry_name": (_pick(record, "Entry Name", "id") or None) if unique else None,
+                "uniprot_gene_primary": (_pick(record, "Gene Names (primary)", "Gene Names (Primary)") or None) if unique else None,
+                "uniprot_gene_names": (_pick(record, "Gene Names") or None) if unique else None,
+                "protein_families": (_pick(record, "Protein families", "Protein Families") or None) if unique else None,
                 "protein_length": pd.to_numeric(_pick(record, "Length"), errors="coerce") if unique else None,
                 "mapping_source": "MyGene.info Swiss-Prot mapping + UniProtKB reviewed entry",
                 "mapping_retrieved_at": retrieved_at,
@@ -255,6 +412,7 @@ def main() -> None:
         "mapping_status_counts": {str(k): int(v) for k, v in counts.items()},
         "uniprot_release": uniprot_release,
         "uniprot_endpoint": UNIPROT_SEARCH,
+        "cache": str(CACHE.relative_to(ROOT)),
         "output": str(OUTPUT.relative_to(ROOT)),
         "qc": str(QC.relative_to(ROOT)),
         "interpretation_ru": (
