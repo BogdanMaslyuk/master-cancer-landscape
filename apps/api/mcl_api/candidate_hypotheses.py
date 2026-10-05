@@ -21,17 +21,29 @@ STATUS_ORDER = {
 class CandidateHypothesisStore:
     """Read-only translational hypothesis layer.
 
-    The store exposes separate evidence axes rather than a synthetic numerical score.
-    A hypothesis is a compound × annotated target × cancer-context aggregation and is
-    explicitly not equivalent to a validated drug mechanism or therapeutic claim.
+    Candidate v2 is preferred when materialized. The store keeps evidence axes
+    separate and never turns a hypothesis into a validated drug mechanism or a
+    therapeutic claim. Candidate v1 remains a fallback for older local builds.
     """
 
     def __init__(self, root: Path):
         self.root = Path(root).resolve()
         self.runtime = self.root / "data" / "runtime" / "pharmacology"
-        self.hypotheses_path = self.runtime / "candidate_hypotheses.parquet"
-        self.models_path = self.runtime / "candidate_hypothesis_models.parquet"
-        self.manifest_path = self.runtime / "candidate_hypotheses_manifest.json"
+
+    def _paths(self) -> tuple[Path, Path, Path, str]:
+        v2 = (
+            self.runtime / "candidate_hypotheses_v2.parquet",
+            self.runtime / "candidate_hypothesis_models_v2.parquet",
+            self.runtime / "candidate_hypotheses_v2_manifest.json",
+        )
+        if all(path.exists() for path in v2):
+            return (*v2, "v2")
+        v1 = (
+            self.runtime / "candidate_hypotheses.parquet",
+            self.runtime / "candidate_hypothesis_models.parquet",
+            self.runtime / "candidate_hypotheses_manifest.json",
+        )
+        return (*v1, "v1")
 
     @staticmethod
     def _clean(value: Any) -> Any:
@@ -71,38 +83,51 @@ class CandidateHypothesisStore:
                 row["priority_reasons"] = cls._json_list(row.pop("priority_reasons_json"))
             if "evidence_gaps_json" in row:
                 row["evidence_gaps"] = cls._json_list(row.pop("evidence_gaps_json"))
+            if "protein_changes_json" in row:
+                row["protein_changes"] = cls._json_list(row.get("protein_changes_json"))
         return rows
 
     @lru_cache(maxsize=1)
     def manifest(self) -> dict[str, Any]:
-        if not self.manifest_path.exists():
+        hypotheses_path, _, manifest_path, version = self._paths()
+        if not manifest_path.exists():
             return {
                 "available": False,
                 "status": "not_built",
                 "hypotheses_n": 0,
-                "build_command": ".\\.venv\\Scripts\\python.exe .\\scripts\\build_candidate_hypotheses.py",
+                "candidate_version": version,
+                "build_command": ".\\scripts\\build-candidate-prioritization-v2.ps1",
                 "note_ru": "Слой исследовательских гипотез ещё не построен.",
             }
-        payload = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        payload["available"] = self.hypotheses_path.exists()
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload["available"] = hypotheses_path.exists()
+        payload["candidate_version"] = version
         return payload
 
     @lru_cache(maxsize=1)
     def hypotheses(self) -> pd.DataFrame:
-        if not self.hypotheses_path.exists():
+        hypotheses_path, _, _, _ = self._paths()
+        if not hypotheses_path.exists():
             return pd.DataFrame()
-        frame = pd.read_parquet(self.hypotheses_path)
+        frame = pd.read_parquet(hypotheses_path)
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
         return frame
 
     def summary(self) -> dict[str, Any]:
         payload = dict(self.manifest())
-        payload["contract_note_ru"] = (
-            "Статус гипотезы помогает выбрать следующий in vitro эксперимент, но не означает доказанную "
-            "эффективность препарата или причинный механизм. Молекулярный контекст и нормальные ткани пока "
-            "показаны как отдельные незаполненные оси, а не предполагаются автоматически."
-        )
+        version = payload.get("candidate_version")
+        if version == "v2":
+            payload["contract_note_ru"] = (
+                "Candidate v2 разделяет абсолютную активность PRISM, относительную селективность, Probability of Dependency, "
+                "непрерывный Gene Effect и молекулярный контекст. Мутации, экспрессия и relative copy number помогают "
+                "объяснить модель, но сами по себе не повышают гипотезу до причинного механизма."
+            )
+        else:
+            payload["contract_note_ru"] = (
+                "Отображается Candidate v1. Для лабораторного выбора предпочтительно построить v2, где бинарная "
+                "CRISPR-зависимость основана на Probability of Dependency и добавлен абсолютный порог активности PRISM."
+            )
         return self._clean(payload)
 
     def search(
@@ -157,10 +182,12 @@ class CandidateHypothesisStore:
         frame["_status_order"] = frame.get(
             "priority_status", pd.Series("", index=frame.index)
         ).map(STATUS_ORDER).fillna(99)
-        sort_cols = [c for c in (
-            "_status_order", "joint_support_models_n", "sensitive_models_n",
-            "dependency_models_n", "models_n"
-        ) if c in frame.columns]
+        sort_cols = [
+            c for c in (
+                "_status_order", "joint_support_models_n", "sensitive_models_n",
+                "active_models_n", "dependency_models_n", "models_n"
+            ) if c in frame.columns
+        ]
         ascending = [True if c == "_status_order" else False for c in sort_cols]
         if sort_cols:
             frame = frame.sort_values(sort_cols, ascending=ascending, na_position="last")
@@ -169,17 +196,23 @@ class CandidateHypothesisStore:
         total = int(len(frame))
         start = max(0, int(offset))
         page = frame.iloc[start:start + max(1, min(int(limit), 500))]
+        version = self.manifest().get("candidate_version")
+        interpretation = (
+            "Candidate v2: высокий статус требует измеренного абсолютного PRISM-эффекта, относительной селективности, "
+            "Probability of Dependency и непротиворечащей профильной согласованности. Универсальный числовой score не используется."
+            if version == "v2"
+            else
+            "Candidate v1 показан для совместимости; для решений о лабораторной проверке постройте Candidate v2."
+        )
         return self._clean(
             {
                 "available": True,
+                "candidate_version": version,
                 "total": total,
                 "limit": int(limit),
                 "offset": start,
                 "items": self._records(page),
-                "interpretation_ru": (
-                    "Список отсортирован категориально: сначала гипотезы, для которых уже есть наиболее цельное "
-                    "сочетание фенотипа, CRISPR и профильной согласованности. Числовой универсальный score не используется."
-                ),
+                "interpretation_ru": interpretation,
             }
         )
 
@@ -192,16 +225,17 @@ class CandidateHypothesisStore:
             raise MCLDataError(f"Unknown candidate hypothesis: {hypothesis_id}")
         hypothesis = self._records(hit.head(1))[0]
 
+        _, models_path, _, version = self._paths()
         models = pd.DataFrame()
-        if self.models_path.exists():
+        if models_path.exists():
             try:
                 models = pd.read_parquet(
-                    self.models_path,
+                    models_path,
                     filters=[("hypothesis_id", "==", hypothesis_id)],
                     engine="pyarrow",
                 )
             except Exception:
-                all_models = pd.read_parquet(self.models_path)
+                all_models = pd.read_parquet(models_path)
                 models = all_models[
                     all_models["hypothesis_id"].astype(str) == hypothesis_id
                 ].copy()
@@ -215,8 +249,9 @@ class CandidateHypothesisStore:
             {
                 "stage": "1. Подтвердить фенотип",
                 "goal": (
-                    "Проверить воспроизводимый дозозависимый эффект вещества на выбранных положительных моделях "
-                    "и сравнить его с отрицательными моделями того же опухолевого контекста, если они доступны."
+                    "Построить независимую dose-response кривую на выбранных положительных моделях и сравнить "
+                    "её с отрицательными моделями того же опухолевого контекста. Single-dose PRISM используется "
+                    "для выбора моделей, а не как финальная оценка мощности препарата."
                 ),
             },
             {
@@ -236,7 +271,7 @@ class CandidateHypothesisStore:
         ]
 
         falsification = [
-            "Положительные модели не подтверждают воспроизводимую чувствительность при независимом эксперименте.",
+            "Положительные модели не подтверждают воспроизводимую dose-response чувствительность при независимом эксперименте.",
             "Фармакологический эффект не сопровождается ожидаемым изменением мишени или downstream-маркера.",
             "Отрицательные модели отвечают так же сильно, как предполагаемые положительные, без ожидаемой зависимости от мишени.",
             "Генетическая потеря функции и фармакологическое воздействие дают принципиально несогласованные фенотипы без объяснимого механизма.",
@@ -245,13 +280,14 @@ class CandidateHypothesisStore:
         return self._clean(
             {
                 "available": True,
+                "candidate_version": version,
                 "hypothesis": hypothesis,
                 "models_by_role": roles,
                 "laboratory_route": lab_route,
                 "falsification_criteria": falsification,
                 "interpretation_ru": (
-                    "Эта карточка является планом проверки исследовательской гипотезы. Она не является "
-                    "доказательством клинической эффективности и не заменяет прямую экспериментальную валидацию."
+                    "Эта карточка является планом проверки исследовательской гипотезы. Молекулярный контекст "
+                    "помогает выбирать и объяснять модели, но не является автоматическим доказательством причинности."
                 ),
             }
         )
