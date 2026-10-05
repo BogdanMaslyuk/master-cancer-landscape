@@ -26,6 +26,10 @@ MIN_LINEAGE_MODELS = 3
 DEPENDENCY_PROBABILITY_THRESHOLD = 0.5
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _text(value: object) -> str:
     if value is None or pd.isna(value):
         return ""
@@ -50,7 +54,6 @@ def _action_class(value: object) -> str:
         "inhibitor", "inhibition", "antagonist", "blocker", "degrader",
         "suppressor", "negative modulator", "inverse agonist",
     )
-    # Remove phrases that contain the word agonist but are loss-of-function-like.
     gof_text = text.replace("inverse agonist", "")
     has_lof = any(token in text for token in lof_tokens)
     has_gof = bool(re.search(r"\bagonist\b", gof_text)) or any(
@@ -312,8 +315,6 @@ def main() -> None:
                 else "raw_spearman"
             )
             if adjusted_rho is not None:
-                # L lineages consume L-1 fixed-effect degrees of freedom. Passing the
-                # reduced effective_n makes the legacy normal approximation conservative.
                 effective_n = max(0, adjusted_n - (lineages_n - 1))
             else:
                 effective_n = int(len(joined))
