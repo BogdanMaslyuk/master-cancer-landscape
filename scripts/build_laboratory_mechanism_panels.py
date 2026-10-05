@@ -68,6 +68,17 @@ def _clean_scalar(value: Any) -> Any:
     return value
 
 
+def _safe_bool(value: Any) -> bool:
+    try:
+        if value is None or pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
+
+
 def _context_status(panel_id: str, rows: pd.DataFrame) -> tuple[str, str]:
     if rows.empty:
         return "context_missing", "Молекулярный контекст для этой модели в текущем индексе отсутствует."
@@ -78,12 +89,12 @@ def _context_status(panel_id: str, rows: pd.DataFrame) -> tuple[str, str]:
         if tp53.empty:
             return "tp53_context_missing", "TP53 не найден в текущем индексированном контексте модели."
         row = tp53.iloc[0]
-        if bool(row.get("has_likely_lof", False)):
+        if _safe_bool(row.get("has_likely_lof")):
             return (
                 "tp53_likely_lof_concern",
                 "Для TP53 есть флаг LikelyLoF. Это механистическое предостережение для ингибирования MDM2 и требует отдельной проверки p53-функции.",
             )
-        if bool(row.get("has_hotspot", False)):
+        if _safe_bool(row.get("has_hotspot")):
             return (
                 "tp53_hotspot_requires_variant_interpretation",
                 "Для TP53 есть hotspot-аннотация. Её функциональное направление нельзя автоматически считать потерей функции; нужен разбор конкретного варианта.",
@@ -101,9 +112,9 @@ def _context_status(panel_id: str, rows: pd.DataFrame) -> tuple[str, str]:
                 continue
             row = hit.iloc[0]
             flags: list[str] = []
-            if bool(row.get("has_hotspot", False)):
+            if _safe_bool(row.get("has_hotspot")):
                 flags.append("hotspot")
-            if bool(row.get("has_likely_lof", False)):
+            if _safe_bool(row.get("has_likely_lof")):
                 flags.append("LikelyLoF")
             if flags:
                 notes.append(f"{gene}: {', '.join(flags)}")
@@ -180,6 +191,14 @@ def main() -> None:
         focus_names = _split(spec["focus_lab_lines"])
         focus_norms = {_norm(x) for x in focus_names}
 
+        focus = panel[panel["_lab_norm"].isin(focus_norms)].copy()
+        non_control_focus = focus[
+            ~focus.get("control_role", pd.Series("", index=focus.index)).astype(str).eq("general_non_tumor_control")
+        ].copy()
+        focus_cancer_ids = set(
+            non_control_focus.get("mcl_cancer_id", pd.Series(dtype=object)).dropna().astype(str)
+        )
+
         selected = candidates[
             candidates["target_gene"].eq(target_gene)
             & candidates["_compound_norm"].isin(compounds)
@@ -190,8 +209,9 @@ def main() -> None:
             for token in cancer_tokens:
                 mask |= cancer_series.str.contains(token, regex=False)
             selected = selected[mask]
+        if focus_cancer_ids:
+            selected = selected[selected["mcl_cancer_id"].astype(str).isin(focus_cancer_ids)]
 
-        focus = panel[panel["_lab_norm"].isin(focus_norms)].copy()
         for value in focus["model_id"].dropna().astype(str):
             if value.strip():
                 selected_model_ids.add(value.strip())
@@ -226,21 +246,21 @@ def main() -> None:
         ].copy() if hypothesis_ids else pd.DataFrame()
 
         positive_lines = sorted(set(
-            evidence.loc[evidence.get("laboratory_model_role", pd.Series(index=evidence.index, dtype=object)).eq("positive"), "lab_name"].dropna().astype(str)
-        )) if not evidence.empty else []
+            evidence.loc[evidence["laboratory_model_role"].astype(str).eq("positive"), "lab_name"].dropna().astype(str)
+        )) if not evidence.empty and "laboratory_model_role" in evidence.columns else []
         negative_lines = sorted(set(
-            evidence.loc[evidence.get("laboratory_model_role", pd.Series(index=evidence.index, dtype=object)).eq("negative_same_cancer"), "lab_name"].dropna().astype(str)
-        )) if not evidence.empty else []
+            evidence.loc[evidence["laboratory_model_role"].astype(str).eq("negative_same_cancer"), "lab_name"].dropna().astype(str)
+        )) if not evidence.empty and "laboratory_model_role" in evidence.columns else []
         discordant_lines = sorted(set(
-            evidence.loc[evidence.get("laboratory_model_role", pd.Series(index=evidence.index, dtype=object)).astype(str).str.startswith("discordant"), "lab_name"].dropna().astype(str)
-        )) if not evidence.empty else []
+            evidence.loc[evidence["laboratory_model_role"].astype(str).str.startswith("discordant"), "lab_name"].dropna().astype(str)
+        )) if not evidence.empty and "laboratory_model_role" in evidence.columns else []
 
         for _, hypothesis in selected.iterrows():
             cancer_id = _text(hypothesis.get("mcl_cancer_id"))
-            eligible_focus = focus[
-                focus["control_role"].astype(str).eq("general_non_tumor_control")
-                | focus.get("mcl_cancer_id", pd.Series("", index=focus.index)).fillna("").astype(str).eq(cancer_id)
-            ].copy()
+            control_mask = focus.get("control_role", pd.Series("", index=focus.index)).astype(str).eq("general_non_tumor_control")
+            cancer_mask = focus.get("mcl_cancer_id", pd.Series("", index=focus.index)).fillna("").astype(str).eq(cancer_id)
+            eligible_focus = focus[control_mask | cancer_mask].copy()
+
             for _, line in eligible_focus.iterrows():
                 model_id = _text(line.get("model_id"))
                 lab_name = _text(line.get("lab_name"))
@@ -265,8 +285,8 @@ def main() -> None:
                             "expression_percentile_in_cancer": _clean_scalar(c.get("expression_percentile_in_cancer")),
                             "copy_number_relative": _clean_scalar(c.get("copy_number_relative")),
                             "copy_number_percentile_in_cancer": _clean_scalar(c.get("copy_number_percentile_in_cancer")),
-                            "has_hotspot": bool(c.get("has_hotspot", False)) if pd.notna(c.get("has_hotspot")) else False,
-                            "has_likely_lof": bool(c.get("has_likely_lof", False)) if pd.notna(c.get("has_likely_lof")) else False,
+                            "has_hotspot": _safe_bool(c.get("has_hotspot")),
+                            "has_likely_lof": _safe_bool(c.get("has_likely_lof")),
                             "protein_changes_json": _clean_scalar(c.get("protein_changes_json")),
                         })
                 status, status_ru = _context_status(panel_id, ctx)
