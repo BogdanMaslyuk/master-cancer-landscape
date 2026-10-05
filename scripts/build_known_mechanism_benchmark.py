@@ -8,7 +8,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config" / "known_mechanism_benchmark.tsv"
-HYPOTHESES = ROOT / "data" / "runtime" / "pharmacology" / "candidate_hypotheses.parquet"
+PHARM = ROOT / "data" / "runtime" / "pharmacology"
 OUTPUT = ROOT / "outputs" / "qc" / "known_mechanism_benchmark.tsv"
 SUMMARY = ROOT / "outputs" / "qc" / "known_mechanism_benchmark.json"
 
@@ -20,16 +20,24 @@ STATUS_ORDER = {
 }
 
 
+def _input() -> tuple[Path, str]:
+    v2 = PHARM / "candidate_hypotheses_v2.parquet"
+    if v2.exists():
+        return v2, "v2"
+    return PHARM / "candidate_hypotheses.parquet", "v1"
+
+
 def main() -> None:
     if not CONFIG.exists():
         raise SystemExit(f"Missing {CONFIG.relative_to(ROOT)}")
-    if not HYPOTHESES.exists():
+    hypotheses_path, version = _input()
+    if not hypotheses_path.exists():
         raise SystemExit(
-            "Missing candidate_hypotheses.parquet. Run scripts/build_candidate_hypotheses.py first."
+            "Missing candidate hypothesis table. Build Candidate Prioritization first."
         )
 
     seeds = pd.read_csv(CONFIG, sep="\t", dtype=str).fillna("")
-    hypotheses = pd.read_parquet(HYPOTHESES)
+    hypotheses = pd.read_parquet(hypotheses_path)
     hypotheses["target_gene"] = hypotheses["target_gene"].astype(str).str.upper()
     hypotheses["preferred_name"] = hypotheses.get(
         "preferred_name", pd.Series("", index=hypotheses.index)
@@ -51,6 +59,7 @@ def main() -> None:
             rows.append(
                 {
                     **seed.to_dict(),
+                    "candidate_version": version,
                     "status": "not_found",
                     "matched_compounds_n": 0,
                     "matched_hypotheses_n": 0,
@@ -59,6 +68,8 @@ def main() -> None:
                     "best_cancer_name": None,
                     "best_hypothesis_id": None,
                     "joint_support_models_n": 0,
+                    "active_models_n": 0,
+                    "dependency_models_n": 0,
                     "concordance_label": None,
                     "note_ru": (
                         "Пара не найдена в текущем PRISM/MCL пересечении. Это не отрицательная биологическая "
@@ -68,9 +79,10 @@ def main() -> None:
             )
             continue
 
+        sort_cols = [c for c in ("_status_order", "joint_support_models_n", "active_models_n", "models_n") if c in hit.columns]
         hit = hit.sort_values(
-            ["_status_order", "joint_support_models_n", "models_n"],
-            ascending=[True, False, False],
+            sort_cols,
+            ascending=[True if c == "_status_order" else False for c in sort_cols],
             na_position="last",
         )
         best = hit.iloc[0]
@@ -78,8 +90,8 @@ def main() -> None:
         if best_status in {"priority_for_in_vitro", "supported_hypothesis"}:
             benchmark_status = "mechanism_recovered"
             note = (
-                "Известная вещество-мишень пара восстанавливается как одна из поддержанных гипотез. "
-                "Это техническая/биологическая положительная проверка маршрута, но не доказательство всех деталей механизма."
+                "Известная вещество-мишень пара восстанавливается как поддержанная экспериментальная гипотеза. "
+                "Это положительная проверка маршрута MCL, но не доказательство всех деталей механизма или клинической эффективности."
             )
         elif best_status == "exploratory_hypothesis":
             benchmark_status = "partially_recovered"
@@ -90,13 +102,14 @@ def main() -> None:
         else:
             benchmark_status = "present_not_recovered"
             note = (
-                "Известная пара присутствует в аннотациях, но v1 не поднимает её до поддержанной гипотезы. "
-                "Это важный диагностический сигнал для методики MCL, а не повод автоматически считать механизм неверным."
+                "Известная пара присутствует в аннотациях, но текущая методика не поднимает её до поддержанной гипотезы. "
+                "Это диагностический сигнал для MCL, а не автоматическое опровержение известного механизма."
             )
 
         rows.append(
             {
                 **seed.to_dict(),
+                "candidate_version": version,
                 "status": benchmark_status,
                 "matched_compounds_n": int(hit["compound_id"].nunique()),
                 "matched_hypotheses_n": int(len(hit)),
@@ -105,6 +118,8 @@ def main() -> None:
                 "best_cancer_name": best.get("mcl_cancer_name"),
                 "best_hypothesis_id": best.get("hypothesis_id"),
                 "joint_support_models_n": int(best.get("joint_support_models_n") or 0),
+                "active_models_n": int(best.get("active_models_n") or 0),
+                "dependency_models_n": int(best.get("dependency_models_n") or 0),
                 "concordance_label": best.get("concordance_label"),
                 "note_ru": note,
             }
@@ -115,20 +130,21 @@ def main() -> None:
     out.to_csv(OUTPUT, sep="\t", index=False)
     counts = out["status"].value_counts().to_dict() if not out.empty else {}
     payload = {
+        "candidate_version": version,
         "benchmark_pairs_n": int(len(out)),
         "status_counts": {str(k): int(v) for k, v in counts.items()},
         "interpretation_ru": (
-            "Known Mechanism Benchmark v1 проверяет, способен ли текущий маршрут MCL восстановить несколько "
-            "общеизвестных вещество-мишень связей. Он пока не является строгим тестом молекулярного опухолевого "
-            "контекста, потому что мутации, амплификации и фьюжены ещё не включены в статус гипотезы."
+            "Known Mechanism Benchmark — положительный контроль маршрута, а не оценка клинической точности. "
+            "В v2 строгий статус требует абсолютного PRISM-эффекта и Probability of Dependency; поэтому уменьшение "
+            "числа recovered-пар относительно v1 может быть методологически ожидаемым и должно разбираться по каждой паре."
         ),
         "config": str(CONFIG.relative_to(ROOT)),
-        "input": str(HYPOTHESES.relative_to(ROOT)),
+        "input": str(hypotheses_path.relative_to(ROOT)),
         "output": str(OUTPUT.relative_to(ROOT)),
     }
     SUMMARY.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print("MCL Known Mechanism Benchmark v1")
+    print(f"MCL Known Mechanism Benchmark {version}")
     print(f"Benchmark pairs: {len(out)}")
     for key, value in sorted(counts.items()):
         print(f"  {key}: {value}")
