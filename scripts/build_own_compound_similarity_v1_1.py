@@ -24,6 +24,16 @@ def _text_series(series: pd.Series) -> pd.Series:
     return series.fillna("").astype(str).str.strip()
 
 
+def _as_text_object(series: pd.Series) -> pd.Series:
+    """Return a text/object Series before string overlay assignments.
+
+    Older parquet materializations can infer all-empty metadata columns as
+    float64/NaN. Assigning SMILES/InChIKey/CID strings into those columns emits
+    pandas FutureWarning and will become an error in a future pandas release.
+    """
+    return series.astype("object").where(series.notna(), "")
+
+
 def _build_overlay() -> Path:
     if not impl.COMPOUNDS.exists():
         raise SystemExit(f"Missing pharmacology compound catalog: {impl.COMPOUNDS}")
@@ -57,29 +67,41 @@ def _build_overlay() -> Path:
     merged = compounds.merge(registry, on="compound_id", how="left", suffixes=("", "_resolved"))
 
     if "canonical_smiles" not in merged.columns:
-        merged["canonical_smiles"] = ""
-    resolved_smiles = merged.get("canonical_smiles_resolved", pd.Series("", index=merged.index))
+        merged["canonical_smiles"] = pd.Series("", index=merged.index, dtype="object")
+    else:
+        merged["canonical_smiles"] = _as_text_object(merged["canonical_smiles"])
+    resolved_smiles = _as_text_object(
+        merged.get("canonical_smiles_resolved", pd.Series("", index=merged.index, dtype="object"))
+    )
     missing_smiles = _text_series(merged["canonical_smiles"]).eq("")
     merged.loc[missing_smiles, "canonical_smiles"] = resolved_smiles.loc[missing_smiles]
 
     if "inchikey" not in merged.columns:
-        merged["inchikey"] = ""
-    resolved_inchikey = merged.get("inchikey_resolved", pd.Series("", index=merged.index))
+        merged["inchikey"] = pd.Series("", index=merged.index, dtype="object")
+    else:
+        merged["inchikey"] = _as_text_object(merged["inchikey"])
+    resolved_inchikey = _as_text_object(
+        merged.get("inchikey_resolved", pd.Series("", index=merged.index, dtype="object"))
+    )
     missing_inchikey = _text_series(merged["inchikey"]).eq("")
     merged.loc[missing_inchikey, "inchikey"] = resolved_inchikey.loc[missing_inchikey]
 
     if "pubchem_cid" not in merged.columns:
-        merged["pubchem_cid"] = ""
-    resolved_cid = merged.get("pubchem_cid_resolved", pd.Series("", index=merged.index))
+        merged["pubchem_cid"] = pd.Series("", index=merged.index, dtype="object")
+    else:
+        merged["pubchem_cid"] = _as_text_object(merged["pubchem_cid"])
+    resolved_cid = _as_text_object(
+        merged.get("pubchem_cid_resolved", pd.Series("", index=merged.index, dtype="object"))
+    )
     missing_cid = _text_series(merged["pubchem_cid"]).eq("")
     merged.loc[missing_cid, "pubchem_cid"] = resolved_cid.loc[missing_cid]
 
-    merged["structure_overlay_source"] = merged.get(
-        "resolution_source", pd.Series("", index=merged.index)
-    ).fillna("")
-    merged["structure_overlay_method"] = merged.get(
-        "resolution_method", pd.Series("", index=merged.index)
-    ).fillna("")
+    merged["structure_overlay_source"] = _as_text_object(
+        merged.get("resolution_source", pd.Series("", index=merged.index, dtype="object"))
+    )
+    merged["structure_overlay_method"] = _as_text_object(
+        merged.get("resolution_method", pd.Series("", index=merged.index, dtype="object"))
+    )
 
     merged = merged.drop(
         columns=[
