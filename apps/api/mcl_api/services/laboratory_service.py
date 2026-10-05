@@ -36,6 +36,10 @@ class LaboratoryService:
             offset=offset,
         )
 
+    @lru_cache(maxsize=1)
+    def mechanism_panels(self):
+        return self.repository.mechanism_panels()
+
     @lru_cache(maxsize=512)
     def candidate_detail(self, hypothesis_id: str):
         return self.repository.candidate_detail(hypothesis_id)
