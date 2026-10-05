@@ -8,13 +8,16 @@ from typing import Any
 import pandas as pd
 
 from .store import MCLDataError
+from .target_registry import ProteinTargetRegistry
 
 
 class MCLPharmacologyCatalogStore:
-    """Fast read-only indexes for compound and gene-mapped protein target pages.
+    """Fast read-only indexes for compound and protein-target pages.
 
     Catalog pages use compact precomputed indexes. Detail pages request only filtered
     slices from the large response/link Parquet files through MCLPharmacologyStore.
+    Pharmacology target annotations remain gene-level; the target registry adds a
+    separate gene -> reviewed protein display mapping where available.
     """
 
     def __init__(self, root: Path, base_store: Any):
@@ -22,6 +25,7 @@ class MCLPharmacologyCatalogStore:
         self.runtime = self.root / "data" / "runtime" / "pharmacology"
         self.processed = self.root / "data" / "processed"
         self.base = base_store
+        self.target_registry = ProteinTargetRegistry(self.root)
 
     @staticmethod
     def _clean(value: Any) -> Any:
@@ -68,6 +72,7 @@ class MCLPharmacologyCatalogStore:
         frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+            frame = self.target_registry.enrich(frame)
         return frame
 
     @lru_cache(maxsize=1)
@@ -187,8 +192,17 @@ class MCLPharmacologyCatalogStore:
             }
 
         if search:
-            needle = search.strip().upper()
-            frame = frame[frame["target_gene"].astype(str).str.upper().str.contains(needle, regex=False)]
+            needle = search.strip().casefold()
+            mask = frame["target_gene"].fillna("").astype(str).str.casefold().str.contains(needle, regex=False)
+            if "protein_preferred_name" in frame.columns:
+                mask = mask | frame["protein_preferred_name"].fillna("").astype(str).str.casefold().str.contains(
+                    needle, regex=False
+                )
+            if "uniprot_primary_accession" in frame.columns:
+                mask = mask | frame["uniprot_primary_accession"].fillna("").astype(str).str.casefold().str.contains(
+                    needle, regex=False
+                )
+            frame = frame[mask]
 
         sort_cols = [c for c in ("compounds_n", "models_n", "target_gene") if c in frame.columns]
         if sort_cols:
@@ -209,6 +223,7 @@ class MCLPharmacologyCatalogStore:
             dependent_n = int(item.get("dependent_models_n") or 0)
             item["dependency_fraction"] = dependent_n / crispr_n if crispr_n else None
 
+        registry_available = not self.target_registry.frame().empty
         return self._clean(
             {
                 "available": True,
@@ -216,9 +231,11 @@ class MCLPharmacologyCatalogStore:
                 "limit": int(limit),
                 "offset": start,
                 "items": items,
+                "protein_registry_available": registry_available,
                 "note_ru": (
-                    "Текущий каталог мишеней нормализован до кодирующего гена. Конкретная белковая "
-                    "изоформа или белковый комплекс не назначаются без отдельного источника."
+                    "Фармакологический источник задаёт мишень через target_gene. Если реестр белков построен, "
+                    "MCL отдельно показывает соответствующее reviewed-белковое название и UniProt ID. "
+                    "Это справочное gene → protein сопоставление, а не доказательство конкретной изоформы."
                 ),
             }
         )
@@ -244,9 +261,14 @@ class MCLPharmacologyCatalogStore:
         target_summary: list[dict[str, Any]] = []
         if not target_rows.empty:
             for gene, group in target_rows.groupby("target_gene", sort=True):
+                protein = self.target_registry.lookup(str(gene))
                 target_summary.append(
                     {
                         "target_gene": str(gene),
+                        "protein_preferred_name": protein.get("protein_preferred_name"),
+                        "uniprot_primary_accession": protein.get("uniprot_primary_accession"),
+                        "protein_mapping_status": protein.get("protein_mapping_status"),
+                        "source_resolution": protein.get("source_resolution") or "gene_mapped",
                         "evidence_rows_n": int(len(group)),
                         "actions": sorted({str(x) for x in group.get("action", pd.Series(dtype=object)).dropna() if str(x).strip()}),
                         "evidence_types": sorted({str(x) for x in group.get("evidence_type", pd.Series(dtype=object)).dropna() if str(x).strip()}),
@@ -284,8 +306,9 @@ class MCLPharmacologyCatalogStore:
                 ) if not response_rows.empty else [],
                 "target_concordance": concordance,
                 "interpretation_ru": (
-                    "Чувствительность модели к веществу и аннотация белковой мишени являются разными "
-                    "наблюдениями. Даже совпадение с CRISPR-зависимостью поддерживает механизм, но не доказывает его причинно."
+                    "Чувствительность модели к веществу, target_gene из фармакологического источника и "
+                    "справочное название белка являются разными слоями данных. Даже совпадение с "
+                    "CRISPR-зависимостью не доказывает причинный механизм."
                 ),
             }
         )
@@ -340,15 +363,30 @@ class MCLPharmacologyCatalogStore:
         ) if c in model_rows.columns]
 
         concordance = self.base.concordance(target_gene=gene, limit=100)
+        mapping_status = str(identity.get("protein_mapping_status") or "registry_not_built")
+        if mapping_status == "unique_swissprot":
+            resolution_note = (
+                "Исходная фармакологическая аннотация разрешена на уровне гена. MCL сопоставил этот ген "
+                "с единственной reviewed-записью UniProtKB/Swiss-Prot для отображения названия белка. "
+                "Это не означает, что исходный эксперимент различал конкретную изоформу или протеоформу."
+            )
+        elif mapping_status == "multiple_swissprot":
+            resolution_note = (
+                "Для кодирующего гена найдено несколько reviewed-записей Swiss-Prot, поэтому MCL не назначает "
+                "один конкретный белок без дополнительного источника."
+            )
+        else:
+            resolution_note = (
+                "Мишень известна из фармакологического источника на уровне кодирующего гена. Однозначное "
+                "reviewed-сопоставление с белком пока не разрешено; конкретная изоформа или комплекс не назначаются."
+            )
+
         return self._clean(
             {
                 "identity": identity,
                 "coding_gene": gene,
-                "resolution": "gene_mapped_protein_target",
-                "resolution_note_ru": (
-                    "Мишень связана с кодирующим геном по аннотации источника. Конкретная изоформа белка, "
-                    "протеоформа или белковый комплекс требуют отдельного подтверждения."
-                ),
+                "resolution": identity.get("source_resolution") or "gene_mapped",
+                "resolution_note_ru": resolution_note,
                 "compounds": self._records(
                     compound_rows.head(max(1, min(int(limit), 250)))
                 ) if not compound_rows.empty else [],
