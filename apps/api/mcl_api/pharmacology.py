@@ -13,6 +13,10 @@ from .store import MCLDataError
 class MCLPharmacologyStore:
     """Read-only pharmacology layer over materialized runtime tables.
 
+    Large response/link tables are never cached as whole pandas DataFrames during
+    interactive use. Model, compound and target pages read only the required Parquet
+    slice. This keeps the rest of MCL responsive after pharmacology pages are opened.
+
     Drug-response observations and compound-target evidence are intentionally kept
     separate. A cell-line response does not by itself prove the annotated target is
     responsible for the phenotype. CRISPR concordance is therefore exposed as an
@@ -45,6 +49,18 @@ class MCLPharmacologyStore:
     def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
         return [MCLPharmacologyStore._clean(x) for x in frame.to_dict("records")]
 
+    def _read_slice(
+        self,
+        filename: str,
+        *,
+        filters: list[tuple[str, str, Any]] | None = None,
+        columns: list[str] | None = None,
+    ) -> pd.DataFrame:
+        path = self.runtime / filename
+        if not path.exists():
+            return pd.DataFrame(columns=columns or [])
+        return pd.read_parquet(path, columns=columns, filters=filters, engine="pyarrow")
+
     @lru_cache(maxsize=1)
     def manifest(self) -> dict[str, Any]:
         path = self.runtime / "manifest.json"
@@ -72,14 +88,6 @@ class MCLPharmacologyStore:
         return pd.read_parquet(path) if path.exists() else pd.DataFrame()
 
     @lru_cache(maxsize=1)
-    def responses(self) -> pd.DataFrame:
-        path = self.runtime / "responses.parquet"
-        frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
-        if "model_id" in frame.columns:
-            frame["model_id"] = frame["model_id"].astype(str)
-        return frame
-
-    @lru_cache(maxsize=1)
     def target_evidence(self) -> pd.DataFrame:
         path = self.runtime / "target_evidence.parquet"
         frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
@@ -88,17 +96,73 @@ class MCLPharmacologyStore:
         return frame
 
     @lru_cache(maxsize=1)
-    def model_target_links(self) -> pd.DataFrame:
-        path = self.runtime / "model_compound_target_links.parquet"
+    def target_concordance(self) -> pd.DataFrame:
+        path = self.runtime / "target_concordance.parquet"
         frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
+        if "target_gene" in frame.columns:
+            frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+        return frame
+
+    # Full-table accessors are retained for offline compatibility only. Interactive
+    # routes below deliberately use filtered slice methods instead.
+    def responses(self) -> pd.DataFrame:
+        return self._read_slice("responses.parquet")
+
+    def model_target_links(self) -> pd.DataFrame:
+        return self._read_slice("model_compound_target_links.parquet")
+
+    def responses_for_model(self, model_id: str, source: str | None = None) -> pd.DataFrame:
+        filters: list[tuple[str, str, Any]] = [("model_id", "==", model_id.strip().upper())]
+        if source:
+            filters.append(("source", "==", source.strip()))
+        frame = self._read_slice("responses.parquet", filters=filters)
         if "model_id" in frame.columns:
             frame["model_id"] = frame["model_id"].astype(str)
         return frame
 
-    @lru_cache(maxsize=1)
-    def target_concordance(self) -> pd.DataFrame:
-        path = self.runtime / "target_concordance.parquet"
-        frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
+    def responses_for_compound(self, compound_id: str) -> pd.DataFrame:
+        frame = self._read_slice(
+            "responses.parquet",
+            filters=[("compound_id", "==", str(compound_id))],
+        )
+        if "model_id" in frame.columns:
+            frame["model_id"] = frame["model_id"].astype(str)
+        return frame
+
+    def links_for_model(
+        self,
+        model_id: str,
+        compound_ids: list[str] | None = None,
+    ) -> pd.DataFrame:
+        filters: list[tuple[str, str, Any]] = [("model_id", "==", model_id.strip().upper())]
+        if compound_ids:
+            filters.append(("compound_id", "in", [str(x) for x in compound_ids]))
+        frame = self._read_slice("model_compound_target_links.parquet", filters=filters)
+        if "model_id" in frame.columns:
+            frame["model_id"] = frame["model_id"].astype(str)
+        if "target_gene" in frame.columns:
+            frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+        return frame
+
+    def links_for_target(self, target_gene: str) -> pd.DataFrame:
+        gene = target_gene.strip().upper()
+        frame = self._read_slice(
+            "model_compound_target_links.parquet",
+            filters=[("target_gene", "==", gene)],
+        )
+        if "model_id" in frame.columns:
+            frame["model_id"] = frame["model_id"].astype(str)
+        if "target_gene" in frame.columns:
+            frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+        return frame
+
+    def links_for_compound(self, compound_id: str) -> pd.DataFrame:
+        frame = self._read_slice(
+            "model_compound_target_links.parquet",
+            filters=[("compound_id", "==", str(compound_id))],
+        )
+        if "model_id" in frame.columns:
+            frame["model_id"] = frame["model_id"].astype(str)
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
         return frame
@@ -175,9 +239,9 @@ class MCLPharmacologyStore:
         )
 
     def model(self, model_id: str, *, limit: int = 100, source: str | None = None) -> dict[str, Any]:
-        responses = self.responses()
         manifest = self.manifest()
-        if responses.empty:
+        frame = self.responses_for_model(model_id, source)
+        if frame.empty and not manifest.get("available"):
             return self._clean(
                 {
                     "model_id": model_id,
@@ -191,10 +255,6 @@ class MCLPharmacologyStore:
                     "note_ru": manifest.get("note_ru", "Фармакологические данные для модели ещё не проиндексированы."),
                 }
             )
-
-        frame = responses[responses["model_id"].astype(str).str.upper() == model_id.strip().upper()].copy()
-        if source and "source" in frame.columns:
-            frame = frame[frame["source"].astype(str).str.upper() == source.upper()]
         if frame.empty:
             return {
                 "model_id": model_id,
@@ -207,6 +267,10 @@ class MCLPharmacologyStore:
                 "note_ru": "Фармакологический слой построен, но для этой модели пока нет нормализованных наблюдений.",
             }
 
+        total = int(len(frame))
+        compounds_n = int(frame["compound_id"].nunique()) if "compound_id" in frame.columns else 0
+        sources = sorted(set(frame["source"].dropna().astype(str))) if "source" in frame.columns else []
+
         compounds = self.compounds()
         if not compounds.empty and "compound_id" in compounds.columns:
             keep = [c for c in (
@@ -215,33 +279,38 @@ class MCLPharmacologyStore:
             ) if c in compounds.columns]
             frame = frame.merge(compounds[keep].drop_duplicates("compound_id"), on="compound_id", how="left")
 
-        links = self.model_target_links()
+        sort_cols = [c for c in ("source", "compound_id", "endpoint") if c in frame.columns]
+        if sort_cols:
+            frame = frame.sort_values(sort_cols, na_position="last")
+        preview = frame.head(max(1, min(int(limit), 500))).copy()
+        preview_compounds = preview["compound_id"].dropna().astype(str).unique().tolist() if "compound_id" in preview.columns else []
+
+        links = self.links_for_model(model_id, preview_compounds)
         link_lookup: dict[str, list[dict[str, Any]]] = {}
-        if not links.empty and {"model_id", "compound_id"}.issubset(links.columns):
-            sub = links[links["model_id"].astype(str).str.upper() == model_id.strip().upper()].copy()
-            for compound, group in sub.groupby("compound_id", sort=False):
+        if not links.empty and "compound_id" in links.columns:
+            for compound, group in links.groupby("compound_id", sort=False):
                 cols = [c for c in (
                     "target_gene", "action", "evidence_type", "confidence", "gene_effect",
                     "crispr_support_level", "source", "activity_type", "activity_value", "activity_unit"
                 ) if c in group.columns]
-                link_lookup[str(compound)] = self._records(group[cols].head(20))
+                ranked = group.copy()
+                if "gene_effect" in ranked.columns:
+                    ranked["_ge"] = pd.to_numeric(ranked["gene_effect"], errors="coerce")
+                    ranked = ranked.sort_values("_ge", ascending=True, na_position="last").drop(columns=["_ge"])
+                link_lookup[str(compound)] = self._records(ranked[cols].head(20))
 
         concordance = self.target_concordance()
         concordance_lookup: dict[str, list[dict[str, Any]]] = {}
-        if not concordance.empty and "compound_id" in concordance.columns:
+        if not concordance.empty and "compound_id" in concordance.columns and preview_compounds:
+            sub_concordance = concordance[concordance["compound_id"].astype(str).isin(preview_compounds)].copy()
             cols = [c for c in (
                 "target_gene", "concordance_label", "spearman_rho", "q_value", "models_n",
                 "median_response_delta_dependent_minus_other", "interpretation_ru"
-            ) if c in concordance.columns]
-            for compound, group in concordance.groupby("compound_id", sort=False):
+            ) if c in sub_concordance.columns]
+            for compound, group in sub_concordance.groupby("compound_id", sort=False):
                 concordance_lookup[str(compound)] = self._records(group[cols].head(20))
 
-        sort_cols = [c for c in ("source", "compound_id", "endpoint") if c in frame.columns]
-        if sort_cols:
-            frame = frame.sort_values(sort_cols, na_position="last")
-        total = int(len(frame))
-        sources = sorted(set(frame["source"].dropna().astype(str))) if "source" in frame.columns else []
-        items = self._records(frame.head(max(1, min(int(limit), 500))))
+        items = self._records(preview)
         for item in items:
             compound = str(item.get("compound_id"))
             item["target_hypotheses"] = link_lookup.get(compound, [])
@@ -253,7 +322,7 @@ class MCLPharmacologyStore:
                 "available": True,
                 "status": "available",
                 "observations_n": total,
-                "compounds_n": int(frame["compound_id"].nunique()) if "compound_id" in frame.columns else 0,
+                "compounds_n": compounds_n,
                 "sources": sources,
                 "items": items,
                 "interpretation": {
@@ -276,8 +345,7 @@ class MCLPharmacologyStore:
 
         targets = self.target_evidence()
         target_rows = targets[targets["compound_id"].astype(str) == str(compound_id)].copy() if not targets.empty else targets
-        responses = self.responses()
-        response_rows = responses[responses["compound_id"].astype(str) == str(compound_id)].copy() if not responses.empty else responses
+        response_rows = self.responses_for_compound(compound_id)
         concordance = self.target_concordance()
         concordance_rows = concordance[concordance["compound_id"].astype(str) == str(compound_id)].copy() if not concordance.empty and "compound_id" in concordance.columns else pd.DataFrame()
         return self._clean(
