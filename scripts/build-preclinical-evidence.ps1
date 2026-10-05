@@ -1,7 +1,8 @@
 param(
     [string]$Release = "v1.0",
     [switch]$ForceDownload,
-    [string]$DownloadUrl = ""
+    [string]$DownloadUrl = "",
+    [string]$ArchivePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +19,7 @@ Write-Host "=== Preclinical Database source ===" -ForegroundColor Cyan
 $FetchArgs = @(".\scripts\fetch_preclinical_db.py", "--release", $Release)
 if ($ForceDownload) { $FetchArgs += "--force" }
 if ($DownloadUrl) { $FetchArgs += @("--url", $DownloadUrl) }
+if ($ArchivePath) { $FetchArgs += @("--archive", $ArchivePath) }
 & $Python @FetchArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Preclinical Database source step failed with exit code $LASTEXITCODE"
