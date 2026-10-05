@@ -7,6 +7,7 @@ from .dependency_gene_explorer import DependencyAwareGeneExplorerStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
 from .pharmacology import MCLPharmacologyStore
+from .pharmacology_catalog import MCLPharmacologyCatalogStore
 from .repositories.atlas_repository import AtlasRepository
 from .repositories.comparison_repository import ComparisonRepository
 from .repositories.gene_repository import GeneRepository
@@ -37,6 +38,7 @@ multiomics_store = MCLMultiOmicsStore(MCL_ROOT)
 model_dependency_store = ModelDependencyStore(MCL_ROOT)
 gene_explorer_store = DependencyAwareGeneExplorerStore(MCL_ROOT, store)
 pharmacology_store = MCLPharmacologyStore(MCL_ROOT)
+pharmacology_catalog_store = MCLPharmacologyCatalogStore(MCL_ROOT, pharmacology_store)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
@@ -48,7 +50,7 @@ atlas_service = AtlasService(atlas_repository)
 model_repository = ModelRepository(atlas_store, multiomics_store)
 model_service = ModelService(model_repository)
 
-pharmacology_repository = PharmacologyRepository(pharmacology_store)
+pharmacology_repository = PharmacologyRepository(pharmacology_store, pharmacology_catalog_store)
 pharmacology_service = PharmacologyService(pharmacology_repository)
 
 comparison_repository = ComparisonRepository(store)
