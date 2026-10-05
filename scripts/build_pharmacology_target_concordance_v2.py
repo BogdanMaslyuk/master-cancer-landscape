@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -39,12 +40,56 @@ def _action_class(value: object) -> str:
         "inhibitor", "inhibition", "antagonist", "blocker", "degrader",
         "suppressor", "negative modulator", "inverse agonist",
     )
-    gof_tokens = ("agonist", "activator", "positive modulator")
-    if any(token in text for token in lof_tokens):
+    # Remove phrases that contain the word agonist but are loss-of-function-like.
+    gof_text = text.replace("inverse agonist", "")
+    has_lof = any(token in text for token in lof_tokens)
+    has_gof = bool(re.search(r"\bagonist\b", gof_text)) or any(
+        token in gof_text for token in ("activator", "positive modulator")
+    )
+    if has_lof and has_gof:
+        return "mixed_direction"
+    if has_lof:
         return "loss_of_function_like"
-    if any(token in text for token in gof_tokens):
+    if has_gof:
         return "gain_of_function_like"
     return "unknown"
+
+
+def _join_unique(values: pd.Series) -> str:
+    items: list[str] = []
+    for value in values:
+        text = _text(value)
+        if text and text not in items:
+            items.append(text)
+    return " | ".join(items)
+
+
+def _aggregate_target_pairs(targets: pd.DataFrame) -> pd.DataFrame:
+    """One row per compound × target; never cherry-pick the most favorable annotation."""
+    rows: list[dict[str, object]] = []
+    for (compound_id, gene), group in targets.groupby(["compound_id", "target_gene"], sort=False):
+        action_classes = {
+            _action_class(value) for value in group.get("action", pd.Series(dtype=object))
+        } - {"unknown"}
+        if not action_classes:
+            action_class = "unknown"
+        elif len(action_classes) == 1:
+            action_class = next(iter(action_classes))
+        else:
+            action_class = "mixed_direction"
+        rows.append(
+            {
+                "compound_id": str(compound_id),
+                "target_gene": str(gene).upper(),
+                "action": _join_unique(group.get("action", pd.Series(dtype=object))),
+                "action_class": action_class,
+                "evidence_type": _join_unique(group.get("evidence_type", pd.Series(dtype=object))),
+                "confidence": _join_unique(group.get("confidence", pd.Series(dtype=object))),
+                "directness": _join_unique(group.get("directness", pd.Series(dtype=object))),
+                "target_evidence_rows_n": int(len(group)),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def _endpoint_orientation(source: object, endpoint: object) -> str:
@@ -54,10 +99,14 @@ def _endpoint_orientation(source: object, endpoint: object) -> str:
 
 
 def _spearman(x: pd.Series, y: pd.Series) -> float | None:
-    pair = pd.DataFrame({"x": pd.to_numeric(x, errors="coerce"), "y": pd.to_numeric(y, errors="coerce")}).dropna()
+    pair = pd.DataFrame(
+        {"x": pd.to_numeric(x, errors="coerce"), "y": pd.to_numeric(y, errors="coerce")}
+    ).dropna()
     if len(pair) < 3 or pair["x"].nunique() < 2 or pair["y"].nunique() < 2:
         return None
-    rho = pair["x"].rank(method="average").corr(pair["y"].rank(method="average"), method="pearson")
+    rho = pair["x"].rank(method="average").corr(
+        pair["y"].rank(method="average"), method="pearson"
+    )
     return None if pd.isna(rho) else float(rho)
 
 
@@ -75,23 +124,32 @@ def _lineage_adjusted_spearman(frame: pd.DataFrame) -> tuple[float | None, int, 
 
     needed["rank_ge"] = needed["gene_effect"].rank(method="average")
     needed["rank_response"] = needed["response_value"].rank(method="average")
-    needed["ge_residual"] = needed["rank_ge"] - needed.groupby("lineage")["rank_ge"].transform("mean")
-    needed["response_residual"] = needed["rank_response"] - needed.groupby("lineage")["rank_response"].transform("mean")
+    needed["ge_residual"] = (
+        needed["rank_ge"] - needed.groupby("lineage")["rank_ge"].transform("mean")
+    )
+    needed["response_residual"] = (
+        needed["rank_response"] - needed.groupby("lineage")["rank_response"].transform("mean")
+    )
     if needed["ge_residual"].nunique() < 2 or needed["response_residual"].nunique() < 2:
         return None, int(len(needed)), int(len(valid_lineages))
     rho = needed["ge_residual"].corr(needed["response_residual"], method="pearson")
-    return (None if pd.isna(rho) else float(rho)), int(len(needed)), int(len(valid_lineages))
+    return (
+        None if pd.isna(rho) else float(rho),
+        int(len(needed)),
+        int(len(valid_lineages)),
+    )
 
 
 def _normal_cdf(value: float) -> float:
     return 0.5 * (1.0 + math.erf(value / math.sqrt(2.0)))
 
 
-def _p_approx(rho: float | None, n: int) -> float | None:
-    if rho is None or n < 10 or abs(rho) >= 1:
+def _p_approx(rho: float | None, effective_n: int) -> float | None:
+    """Navigation-only normal approximation; effective_n is reduced for lineage fixed effects."""
+    if rho is None or effective_n < 10 or abs(rho) >= 1:
         return None
     denom = max(1e-12, 1.0 - rho * rho)
-    t = abs(rho) * math.sqrt(max(0.0, (n - 2) / denom))
+    t = abs(rho) * math.sqrt(max(0.0, (effective_n - 2) / denom))
     return float(max(0.0, min(1.0, 2.0 * (1.0 - _normal_cdf(t)))))
 
 
@@ -121,11 +179,17 @@ def _label(row: pd.Series) -> tuple[str, str]:
     if n < MIN_SHARED_MODELS:
         return "insufficient", "Недостаточно общих моделей для устойчивой профильной оценки."
     if action != "loss_of_function_like":
-        return "direction_not_resolved", "Направление действия нельзя напрямую сопоставить с CRISPR loss-of-function."
+        return (
+            "direction_not_resolved",
+            "Направление действия не является однозначно loss-of-function-like; прямое сопоставление с CRISPR knockout запрещено.",
+        )
     if orientation != "lower_is_more_sensitive":
         return "endpoint_not_resolved", "Направление чувствительности для endpoint не закреплено."
     if dependency_measured_n < MIN_SHARED_MODELS:
-        return "dependency_probability_missing", "Недостаточно Probability of Dependency для корректного dependent/non-dependent сравнения."
+        return (
+            "dependency_probability_missing",
+            "Недостаточно Probability of Dependency для корректного dependent/non-dependent сравнения.",
+        )
     if rho is None or pd.isna(rho) or delta is None or pd.isna(delta):
         return "inconclusive", "Недостаточно вариации для оценки согласованности."
 
@@ -133,11 +197,17 @@ def _label(row: pd.Series) -> tuple[str, str]:
     delta = float(delta)
     q_value = None if q is None or pd.isna(q) else float(q)
     if rho >= 0.30 and delta < 0 and q_value is not None and q_value < 0.05:
-        return "strong_support", "Фармакологический профиль согласуется с CRISPR-профилем мишени после доступной поправки на lineage."
+        return (
+            "strong_support",
+            "Фармакологический профиль согласуется с CRISPR-профилем мишени после доступной поправки на lineage.",
+        )
     if rho >= 0.20 and delta < 0:
         return "supportive", "Есть профильная согласованность, но она не достигает строгого уровня MCL."
     if rho <= -0.20 or delta > 0:
-        return "discordant", "Профиль не согласуется с простой моделью ингибирование мишени → CRISPR loss-of-function фенотип."
+        return (
+            "discordant",
+            "Профиль не согласуется с простой моделью ингибирование мишени → CRISPR loss-of-function фенотип.",
+        )
     return "inconclusive", "Связь слабая или неоднозначная."
 
 
@@ -155,7 +225,9 @@ def main() -> None:
     atlas = pd.read_parquet(ATLAS)
     atlas["model_id"] = atlas["model_id"].astype(str)
     lineage_col = "oncotree_lineage" if "oncotree_lineage" in atlas.columns else "mcl_cancer_id"
-    lineage = atlas[["model_id", lineage_col]].drop_duplicates("model_id").rename(columns={lineage_col: "lineage"})
+    lineage = atlas[["model_id", lineage_col]].drop_duplicates("model_id").rename(
+        columns={lineage_col: "lineage"}
+    )
 
     responses["model_id"] = responses["model_id"].astype(str)
     responses["compound_id"] = responses["compound_id"].astype(str)
@@ -165,12 +237,13 @@ def main() -> None:
     dp.index = dp.index.astype(str)
 
     available_genes = set(ge.columns) & set(dp.columns)
-    grouping = [c for c in (
-        "compound_id", "source", "source_release", "endpoint", "assay_type", "dose", "dose_unit", "exposure_time_h"
-    ) if c in responses.columns]
-    target_pairs = targets[[c for c in (
-        "compound_id", "target_gene", "action", "evidence_type", "confidence", "directness"
-    ) if c in targets.columns]].drop_duplicates()
+    grouping = [
+        c for c in (
+            "compound_id", "source", "source_release", "endpoint", "assay_type",
+            "dose", "dose_unit", "exposure_time_h"
+        ) if c in responses.columns
+    ]
+    target_pairs = _aggregate_target_pairs(targets)
 
     rows: list[dict[str, object]] = []
     for keys, group in responses.groupby(grouping, dropna=False, sort=False):
@@ -181,10 +254,12 @@ def main() -> None:
         candidates = target_pairs[target_pairs["compound_id"] == compound_id]
         if candidates.empty:
             continue
-        base = pd.DataFrame({
-            "model_id": group["model_id"].astype(str),
-            "response_value": pd.to_numeric(group["value"], errors="coerce"),
-        }).dropna().groupby("model_id", as_index=False)["response_value"].mean()
+        base = pd.DataFrame(
+            {
+                "model_id": group["model_id"].astype(str),
+                "response_value": pd.to_numeric(group["value"], errors="coerce"),
+            }
+        ).dropna().groupby("model_id", as_index=False)["response_value"].mean()
         base = base.merge(lineage, on="model_id", how="left")
         orientation = _endpoint_orientation(meta.get("source"), meta.get("endpoint"))
 
@@ -194,68 +269,101 @@ def main() -> None:
                 **meta,
                 "target_gene": gene,
                 "action": target.get("action"),
-                "action_class": _action_class(target.get("action")),
+                "action_class": target.get("action_class"),
                 "evidence_type": target.get("evidence_type"),
                 "confidence": target.get("confidence"),
                 "directness": target.get("directness"),
+                "target_evidence_rows_n": int(target.get("target_evidence_rows_n") or 0),
                 "response_orientation": orientation,
             }
             if not gene or gene not in available_genes:
-                rows.append({**common_meta, "models_n": 0, "status": "target_not_in_dependency_indexes"})
+                rows.append(
+                    {**common_meta, "models_n": 0, "status": "target_not_in_dependency_indexes"}
+                )
                 continue
 
             effect = pd.to_numeric(ge[gene], errors="coerce").rename("gene_effect").reset_index()
             effect.columns = ["model_id", "gene_effect"]
-            probability = pd.to_numeric(dp[gene], errors="coerce").rename("dependency_probability").reset_index()
+            probability = pd.to_numeric(dp[gene], errors="coerce").rename(
+                "dependency_probability"
+            ).reset_index()
             probability.columns = ["model_id", "dependency_probability"]
-            joined = base.merge(effect, on="model_id", how="inner").merge(probability, on="model_id", how="left")
+            joined = base.merge(effect, on="model_id", how="inner").merge(
+                probability, on="model_id", how="left"
+            )
             joined = joined.dropna(subset=["response_value", "gene_effect"])
 
             raw_rho = _spearman(joined["gene_effect"], joined["response_value"])
             adjusted_rho, adjusted_n, lineages_n = _lineage_adjusted_spearman(joined)
             primary_rho = adjusted_rho if adjusted_rho is not None else raw_rho
-            primary_method = "lineage_fixed_effect_rank_residual" if adjusted_rho is not None else "raw_spearman"
-            p_value = _p_approx(primary_rho, adjusted_n if adjusted_rho is not None else len(joined))
+            primary_method = (
+                "lineage_fixed_effect_rank_residual"
+                if adjusted_rho is not None
+                else "raw_spearman"
+            )
+            if adjusted_rho is not None:
+                # L lineages consume L-1 fixed-effect degrees of freedom. Passing the
+                # reduced effective_n makes the legacy normal approximation conservative.
+                effective_n = max(0, adjusted_n - (lineages_n - 1))
+            else:
+                effective_n = int(len(joined))
+            p_value = _p_approx(primary_rho, effective_n)
 
             dep_measured = joined.dropna(subset=["dependency_probability"])
-            dependent = dep_measured[dep_measured["dependency_probability"] > DEPENDENCY_PROBABILITY_THRESHOLD]
-            other = dep_measured[dep_measured["dependency_probability"] <= DEPENDENCY_PROBABILITY_THRESHOLD]
+            dependent = dep_measured[
+                dep_measured["dependency_probability"] > DEPENDENCY_PROBABILITY_THRESHOLD
+            ]
+            other = dep_measured[
+                dep_measured["dependency_probability"] <= DEPENDENCY_PROBABILITY_THRESHOLD
+            ]
             dep_median = float(dependent["response_value"].median()) if not dependent.empty else None
             other_median = float(other["response_value"].median()) if not other.empty else None
             delta = None if dep_median is None or other_median is None else dep_median - other_median
 
-            rows.append({
-                **common_meta,
-                "models_n": int(len(joined)),
-                "dependency_probability_models_n": int(len(dep_measured)),
-                "dependent_models_n": int(len(dependent)),
-                "other_models_n": int(len(other)),
-                "spearman_raw_rho": raw_rho,
-                "spearman_lineage_adjusted_rho": adjusted_rho,
-                "lineage_adjusted_models_n": adjusted_n,
-                "lineages_n": lineages_n,
-                "primary_rho": primary_rho,
-                "primary_rho_method": primary_method,
-                "p_value_approx": p_value,
-                "median_response_dependent": dep_median,
-                "median_response_other": other_median,
-                "median_response_delta_dependent_minus_other": delta,
-                "dependency_probability_threshold": DEPENDENCY_PROBABILITY_THRESHOLD,
-                "status": "analyzed",
-            })
+            rows.append(
+                {
+                    **common_meta,
+                    "models_n": int(len(joined)),
+                    "dependency_probability_models_n": int(len(dep_measured)),
+                    "dependent_models_n": int(len(dependent)),
+                    "other_models_n": int(len(other)),
+                    "spearman_raw_rho": raw_rho,
+                    "spearman_lineage_adjusted_rho": adjusted_rho,
+                    "lineage_adjusted_models_n": adjusted_n,
+                    "lineages_n": lineages_n,
+                    "primary_rho": primary_rho,
+                    "primary_rho_method": primary_method,
+                    "p_value_effective_n": effective_n,
+                    "p_value_approx": p_value,
+                    "median_response_dependent": dep_median,
+                    "median_response_other": other_median,
+                    "median_response_delta_dependent_minus_other": delta,
+                    "dependency_probability_threshold": DEPENDENCY_PROBABILITY_THRESHOLD,
+                    "status": "analyzed",
+                }
+            )
 
     result = pd.DataFrame(rows)
     if result.empty:
         result.to_parquet(OUTPUT, index=False)
-        SUMMARY.write_text(json.dumps({"status": "empty", "built_at": _now()}, indent=2), encoding="utf-8")
+        SUMMARY.write_text(
+            json.dumps({"status": "empty", "built_at": _now()}, indent=2),
+            encoding="utf-8",
+        )
         print("No pairs available for concordance v2.")
         return
 
-    result["q_value"] = _bh(result.get("p_value_approx", pd.Series(np.nan, index=result.index)))
+    result["q_value"] = _bh(
+        result.get("p_value_approx", pd.Series(np.nan, index=result.index))
+    )
     labels = result.apply(_label, axis=1)
     result["concordance_label"] = [x[0] for x in labels]
     result["interpretation_ru"] = [x[1] for x in labels]
-    result = result.sort_values(["concordance_label", "primary_rho", "models_n"], ascending=[True, False, False], na_position="last")
+    result = result.sort_values(
+        ["concordance_label", "primary_rho", "models_n"],
+        ascending=[True, False, False],
+        na_position="last",
+    )
 
     RUNTIME.mkdir(parents=True, exist_ok=True)
     result.to_parquet(OUTPUT, index=False, compression="zstd")
@@ -272,9 +380,11 @@ def main() -> None:
         "min_lineage_models": MIN_LINEAGE_MODELS,
         "label_counts": {str(k): int(v) for k, v in counts.items()},
         "method_note_ru": (
+            "Одна пара вещество × мишень анализируется один раз; противоречивые направления действия не cherry-pick'ятся. "
             "Gene Effect используется непрерывно. Dependent/non-dependent группы определяются по Probability of Dependency > 0.5. "
             "Основная корреляция по возможности рассчитывается после удаления средних lineage-эффектов из рангов; raw Spearman хранится отдельно. "
-            "Это уменьшает очевидный lineage confounding, но не доказывает причинный механизм или target engagement."
+            "P/q являются навигационной аппроксимацией с уменьшенным effective N для lineage fixed effects и не заменяют независимую статистическую валидацию. "
+            "Анализ не доказывает причинный механизм или target engagement."
         ),
     }
     SUMMARY.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
