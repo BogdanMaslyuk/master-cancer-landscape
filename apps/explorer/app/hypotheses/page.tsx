@@ -20,7 +20,8 @@ const axisRu:Record<string,string>={
   conflicting:"противоречие",uncertain:"неопределённо",not_assessable:"не сопоставимо",not_available:"нет данных",
   concordant_enrichment:"согласованное обогащение",partial_enrichment:"частичное обогащение",
   weak_enrichment:"слабое обогащение",not_enriched:"не обогащено",limited_sample:"малая группа",
-  not_assessed:"не оценено",
+  not_assessed:"не оценено",mutation_context_present_direction_unresolved:"есть мутационный контекст",
+  expression_context_available:"есть экспрессия",omics_context_available:"есть молекулярные данные",
 };
 function pageHref(sp:Params,offset:number){const q=new URLSearchParams();for(const k of ["q","status","target_gene","cancer","limit"]){const v=one(sp[k]);if(v)q.set(k,v);}q.set("offset",String(Math.max(0,offset)));return `/hypotheses?${q.toString()}`;}
 
@@ -37,17 +38,20 @@ export default async function HypothesesPage({searchParams}:{searchParams:Promis
   const items=(catalog.items||[]) as any[];
   const counts=summary.status_counts||{};
   const end=Math.min(catalog.total||0,offset+items.length);
+  const isV2=(summary.candidate_version||catalog.candidate_version)==="v2";
   return <>
     <section className={styles.pageHeader}>
       <div>
         <div className="eyebrow">ВЕЩЕСТВО × БЕЛКОВАЯ МИШЕНЬ × ОПУХОЛЬ × КЛЕТОЧНАЯ МОДЕЛЬ</div>
         <h1>Исследовательские гипотезы</h1>
-        <p>Центральный слой выбора следующего эксперимента. MCL не выдаёт искусственный единый балл: фенотип, CRISPR-зависимость, согласованность механизма, контекст и полнота данных показаны отдельно.</p>
+        <p>{isV2
+          ? "Candidate v2 разделяет абсолютный фармакологический эффект, относительную селективность, Probability of Dependency, непрерывный Gene Effect и молекулярный контекст. Мутации, экспрессия и относительное число копий показаны отдельно и не превращаются автоматически в причинный биомаркер."
+          : "Отображается совместимый слой Candidate v1. Для выбора лабораторного эксперимента рекомендуется построить v2 с Probability of Dependency и абсолютным порогом активности PRISM."}</p>
       </div>
       <div className={styles.heroStats}>
         <div className={styles.heroStat}><strong>{n(counts.priority_for_in_vitro)}</strong><span>приоритет для in vitro</span></div>
         <div className={styles.heroStat}><strong>{n(counts.supported_hypothesis)}</strong><span>поддержанных гипотез</span></div>
-        <div className={styles.heroStat}><strong>{n(summary.hypotheses_n)}</strong><span>всего сочетаний</span></div>
+        <div className={styles.heroStat}><strong>{n(summary.hypotheses_n)}</strong><span>всего сочетаний · {isV2?"v2":"v1"}</span></div>
       </div>
     </section>
 
@@ -61,19 +65,19 @@ export default async function HypothesesPage({searchParams}:{searchParams:Promis
       <Link className={styles.reset} href="/hypotheses">Сбросить</Link>
     </form>
 
-    {!catalog.available?<div className={styles.empty}><b>Слой гипотез ещё не построен.</b><br/><code>{catalog.build_command||summary.build_command||"Запустите build_candidate_hypotheses.py"}</code></div>:
+    {!catalog.available?<div className={styles.empty}><b>Слой гипотез ещё не построен.</b><br/><code>{catalog.build_command||summary.build_command||"Запустите build-candidate-prioritization-v2.ps1"}</code></div>:
     <>
       <div className={styles.note}>{catalog.interpretation_ru||summary.contract_note_ru}</div>
       <div className={styles.tableWrap}><table className={styles.table}>
-        <thead><tr><th>Кандидат</th><th>Белковая мишень</th><th>Опухолевый контекст</th><th>Фенотип</th><th>CRISPR</th><th>Механизм</th><th>Контекст</th><th>Статус</th></tr></thead>
+        <thead><tr><th>Кандидат</th><th>Белковая мишень</th><th>Опухолевый контекст</th><th>Фенотип</th><th>CRISPR</th><th>Механизм</th><th>Молекулярный контекст</th><th>Статус</th></tr></thead>
         <tbody>{items.map((row:any)=><tr key={row.hypothesis_id}>
           <td><Link className={styles.primary} href={`/hypotheses/${encodeURIComponent(row.hypothesis_id)}`}>{row.preferred_name||row.compound_id}</Link><span className={styles.sub}>{row.compound_id}</span><span className={styles.sub}>{n(row.joint_support_models_n)} совместно поддерживающих моделей</span></td>
           <td><Link className={styles.primary} href={`/targets/${encodeURIComponent(row.target_gene)}`}>{row.protein_preferred_name||row.target_gene}</Link><span className={styles.sub}>ген <Link href={`/genes/${encodeURIComponent(row.target_gene)}`}>{row.target_gene}</Link>{row.uniprot_primary_accession?` · UniProt ${row.uniprot_primary_accession}`:""}</span></td>
           <td><b>{row.mcl_cancer_name||"—"}</b><span className={styles.sub}>{row.mcl_organ_ru||""} · {n(row.models_n)} моделей</span></td>
-          <td><b>{axisRu[row.phenotype_axis]||row.phenotype_axis||"—"}</b><span className={styles.sub}>{pct(row.sensitive_fraction)} чувствительных</span></td>
-          <td><b>{axisRu[row.dependency_axis]||row.dependency_axis||"—"}</b><span className={styles.sub}>{pct(row.dependency_fraction_in_cancer)} с GE ≤ −0,5</span></td>
-          <td><b>{axisRu[row.mechanism_axis]||row.mechanism_axis||"—"}</b><span className={styles.sub}>{row.concordance_label||"профиль не оценён"}</span></td>
-          <td><b>{axisRu[row.specificity_axis]||row.specificity_axis||"—"}</b><span className={styles.sub}>молекулярная генетика: ещё не включена</span></td>
+          <td><b>{axisRu[row.phenotype_axis]||row.phenotype_axis||"—"}</b>{isV2?<><span className={styles.sub}>{pct(row.active_fraction)} с LFC ≤ −1</span><span className={styles.sub}>{pct(row.sensitive_fraction)} активны и в чувствительной четверти</span></>:<span className={styles.sub}>{pct(row.sensitive_fraction)} чувствительных</span>}</td>
+          <td><b>{axisRu[row.dependency_axis]||row.dependency_axis||"—"}</b><span className={styles.sub}>{isV2?`${pct(row.dependency_fraction_in_cancer)} с P(dep) > 0,5`:`${pct(row.dependency_fraction_in_cancer)} по старому GE-порогу`}</span></td>
+          <td><b>{axisRu[row.mechanism_axis]||row.mechanism_axis||"—"}</b><span className={styles.sub}>{row.concordance_label||"профиль не оценён"}</span>{row.primary_rho_method&&<span className={styles.sub}>{row.primary_rho_method==="lineage_fixed_effect_rank_residual"?"с поправкой на lineage":"сырая панельная корреляция"}</span>}</td>
+          <td><b>{axisRu[row.molecular_context_axis]||row.molecular_context_axis||"—"}</b><span className={styles.sub}>{n(row.hotspot_models_n)} hotspot · {n(row.likely_lof_models_n)} LikelyLoF</span><span className={styles.sub}>CN показан как relative CN, без автоматического вызова амплификации</span></td>
           <td><Link className={styles.chip} href={`/hypotheses/${encodeURIComponent(row.hypothesis_id)}`}>{statusRu[row.priority_status]||row.priority_status_ru||row.priority_status}</Link></td>
         </tr>)}</tbody>
       </table></div>
