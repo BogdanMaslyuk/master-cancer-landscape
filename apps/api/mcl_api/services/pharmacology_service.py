@@ -6,7 +6,12 @@ from ..repositories.pharmacology_repository import PharmacologyRepository
 
 
 class PharmacologyService:
-    """Cached application service for pharmacology use-cases."""
+    """Bounded cache for interactive pharmacology use-cases.
+
+    Detail payloads can contain dozens of experimental observations. Keep only a
+    modest working set so browsing many models/compounds does not make the API
+    process grow without practical benefit.
+    """
 
     def __init__(self, repository: PharmacologyRepository):
         self.repository = repository
@@ -15,7 +20,7 @@ class PharmacologyService:
     def summary(self):
         return self.repository.summary()
 
-    @lru_cache(maxsize=512)
+    @lru_cache(maxsize=128)
     def concordance(
         self,
         label: str | None,
@@ -30,15 +35,15 @@ class PharmacologyService:
             limit=limit,
         )
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=64)
     def model(self, model_id: str, limit: int, source: str | None):
         return self.repository.model(model_id, limit=limit, source=source)
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=128)
     def compound(self, compound_id: str, limit: int = 60):
         return self.repository.compound(compound_id, limit=limit)
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=128)
     def compounds(
         self,
         search: str | None,
@@ -55,10 +60,10 @@ class PharmacologyService:
             offset=offset,
         )
 
-    @lru_cache(maxsize=1024)
+    @lru_cache(maxsize=128)
     def targets(self, search: str | None, limit: int, offset: int):
         return self.repository.targets(search=search, limit=limit, offset=offset)
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=128)
     def target(self, target_id: str, limit: int = 100):
         return self.repository.target(target_id, limit=limit)
