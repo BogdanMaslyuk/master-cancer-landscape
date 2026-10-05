@@ -1,0 +1,21 @@
+own_compound_id	source_molecule_id	preferred_name	standardized_smiles	series	synthesis_status	note_ru
+OWN-CMP-001	CMP-001	CMP-001	Cc1c(/N=N/c2cccc[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-002	CMP-002	CMP-002	Cc1c(/N=N/c2ccc(Cl)c[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-003	CMP-003	CMP-003	Cc1c(/N=N/c2ccc(Br)c[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-004	CMP-004	CMP-004	Cc1c(/N=N/c2cccc(C)[n+]2[O-])c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-005	CMP-005	CMP-005	Cc1c(/N=N/c2cc[n+]([O-])cc2)c(=O)n(-c2ccccc2)n1C	input_block_1		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-006	CMP-006	CMP-006	Cc1c(/N=N/c2ccccn2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-007	CMP-007	CMP-007	Cc1c(/N=N/c2ccc(Cl)cn2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-008	CMP-008	CMP-008	Cc1c(/N=N/c2ccc(Br)cn2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-009	CMP-009	CMP-009	Cc1cccc(/N=N/c2c(C)n(C)n(-c3ccccc3)c2=O)n1	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-010	CMP-010	CMP-010	Cc1c(/N=N/c2ccncc2)c(=O)n(-c2ccccc2)n1C	input_block_2		Импортировано из molecule_master_v1; стереохимия азо-связи сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-011	CMP-011	CMP-011	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cccc[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-012	CMP-012	CMP-012	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Cl)c[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-013	CMP-013	CMP-013	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Br)c[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-014	CMP-014	CMP-014	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cccc(C)[n+]1[O-]	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-015	CMP-015	CMP-015	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cc[n+]([O-])cc1	input_block_3		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-016	CMP-016	CMP-016	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccccn1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-017	CMP-017	CMP-017	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Cl)cn1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-018	CMP-018	CMP-018	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccc(Br)cn1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-019	CMP-019	CMP-019	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1cccc(C)n1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
+OWN-CMP-020	CMP-020	CMP-020	CC1=NN(c2ccccc2)C(=O)/C1=N\Nc1ccncc1	input_block_4		Импортировано из molecule_master_v1; геометрия C=N сохранена как в исходном стандартизированном SMILES.
