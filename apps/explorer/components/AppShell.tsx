@@ -7,16 +7,18 @@ import GeneSearch from "./GeneSearch";
 const researchLinks = [
   { href: "/", label: "Обзор", index: "01", note: "Сводка проекта" },
   { href: "/atlas", label: "Атлас опухолей", index: "02", note: "Орган → опухоль → модели" },
-  { href: "/models", label: "Исследователь моделей", index: "03", note: "Поиск · фильтры · карточки" },
-  { href: "/genes", label: "Гены и мишени", index: "04", note: "Любой ген → функции → контексты" },
-  { href: "/genes/matrix", label: "Ген × опухоль", index: "05", note: "Сравнение зависимостей" },
-  { href: "/pathways", label: "Функциональные модули", index: "06", note: "Пути и комплексы" },
-  { href: "/network", label: "Карта связей", index: "07", note: "Гены ↔ модули" },
+  { href: "/models", label: "Исследователь моделей", index: "03", note: "Клеточная модель → данные" },
+  { href: "/genes", label: "Гены", index: "04", note: "Функции → CRISPR → контексты" },
+  { href: "/compounds", label: "Вещества", index: "05", note: "Структура → модели → мишени" },
+  { href: "/targets", label: "Белковые мишени", index: "06", note: "Белок ↔ вещества ↔ кодирующий ген" },
+  { href: "/genes/matrix", label: "Ген × опухоль", index: "07", note: "Сравнение зависимостей" },
+  { href: "/pathways", label: "Функциональные модули", index: "08", note: "Пути и комплексы" },
+  { href: "/network", label: "Карта связей", index: "09", note: "Гены ↔ модули" },
 ];
 
 const systemLinks = [
-  { href: "/qc", label: "Контроль качества", index: "08", note: "Ошибки и ограничения" },
-  { href: "/methodology", label: "Методика и термины", index: "09", note: "Как читать MCL" },
+  { href: "/qc", label: "Контроль качества", index: "10", note: "Ошибки и ограничения" },
+  { href: "/methodology", label: "Методика и термины", index: "11", note: "Как читать MCL" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -52,6 +54,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const inAtlas = pathname.startsWith("/atlas") || pathname.startsWith("/models") || pathname.startsWith("/comparisons");
   const inGenes = pathname.startsWith("/genes");
+  const inPharmacology = pathname.startsWith("/compounds") || pathname.startsWith("/targets");
+  const context = inPharmacology
+    ? "От вещества к клеточной модели, белковой мишени и кодирующему гену"
+    : inGenes
+      ? "От функции и гена к опухолевому контексту"
+      : inAtlas
+        ? "От опухоли к модели и функциональным зависимостям"
+        : "Поиск противоопухолевых зависимостей";
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -71,7 +82,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-footer">
           <div className="status-dot" />
           <div>
-            <strong>MCL Explorer v0.6</strong>
+            <strong>MCL Explorer v0.7</strong>
             <span>Локальная исследовательская среда</span>
           </div>
         </div>
@@ -82,10 +93,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="workspace-context">
             <span className="workspace-kicker">MASTER CANCER LANDSCAPE</span>
             <span className="workspace-divider" />
-            <span>{inGenes ? "От функции и гена к опухолевому контексту" : inAtlas ? "От опухоли к модели и функциональным зависимостям" : "Поиск противоопухолевых зависимостей"}</span>
+            <span>{context}</span>
           </div>
           <GeneSearch compact />
-          <div className="workspace-badge">M3.3.1 · исследовательский режим</div>
+          <div className="workspace-badge">M3.4 · исследовательский режим</div>
         </header>
         <main className="workspace-main">{children}</main>
       </div>
