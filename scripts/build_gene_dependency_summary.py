@@ -11,10 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
 RUNTIME = ROOT / "data" / "runtime" / "explorer"
 GENE_EFFECT = PROCESSED / "depmap_model_gene_effect.parquet"
+GENE_DEPENDENCY = PROCESSED / "depmap_model_gene_dependency.parquet"
 ATLAS = PROCESSED / "depmap_crispr_model_atlas.parquet"
 OUTPUT = RUNTIME / "gene_dependency_summary.parquet"
 MANIFEST = RUNTIME / "gene_dependency_summary.json"
-DEPENDENCY_THRESHOLD = -0.5
+DEPENDENCY_PROBABILITY_THRESHOLD = 0.5
+GENE_EFFECT_FALLBACK_THRESHOLD = -0.5
 MIN_CANCER_MODELS = 5
 
 
@@ -48,6 +50,25 @@ def _specificity_label(score: float | None, dependency_type: str) -> str:
     return "низкая"
 
 
+def _align_probability(effect: pd.DataFrame, genes: list[str]) -> tuple[np.ndarray | None, str]:
+    if not GENE_DEPENDENCY.exists():
+        return None, "gene_effect_descriptive_fallback"
+    probability = pd.read_parquet(GENE_DEPENDENCY)
+    if "model_id" not in probability.columns:
+        return None, "gene_effect_descriptive_fallback"
+    probability["model_id"] = probability["model_id"].astype(str)
+    probability = probability.drop_duplicates("model_id").set_index("model_id")
+    available = [gene for gene in genes if gene in probability.columns]
+    if not available:
+        return None, "gene_effect_descriptive_fallback"
+    aligned = probability.reindex(effect["model_id"].astype(str))
+    matrix = np.full((len(effect), len(genes)), np.nan, dtype=np.float32)
+    gene_index = {gene: i for i, gene in enumerate(genes)}
+    for gene in available:
+        matrix[:, gene_index[gene]] = pd.to_numeric(aligned[gene], errors="coerce").to_numpy(dtype=np.float32)
+    return matrix, "probability_of_dependency"
+
+
 def main() -> None:
     if not GENE_EFFECT.exists():
         raise SystemExit(f"Missing {GENE_EFFECT.relative_to(ROOT)}. Build DepMap multi-omics indexes first.")
@@ -67,8 +88,17 @@ def main() -> None:
 
     genes = [c for c in frame.columns if c != "model_id"]
     values = frame[genes].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float32, copy=False)
-    valid = np.isfinite(values)
-    dependent = valid & (values <= DEPENDENCY_THRESHOLD)
+    gene_effect_valid = np.isfinite(values)
+    probability, call_method = _align_probability(frame, genes)
+
+    if probability is not None:
+        valid = np.isfinite(probability)
+        dependent = valid & (probability > DEPENDENCY_PROBABILITY_THRESHOLD)
+    else:
+        # Backward-compatible descriptive fallback only. This is explicitly labelled
+        # and should not be confused with the DepMap binary dependency convention.
+        valid = gene_effect_valid
+        dependent = valid & (values <= GENE_EFFECT_FALLBACK_THRESHOLD)
 
     available_n = valid.sum(axis=0).astype(np.int32)
     dependent_n = dependent.sum(axis=0).astype(np.int32)
@@ -79,9 +109,13 @@ def main() -> None:
         where=available_n > 0,
     )
     global_median = np.nanmedian(values, axis=0)
+    global_median_probability = (
+        np.nanmedian(probability, axis=0) if probability is not None else np.full(len(genes), np.nan, dtype=np.float32)
+    )
 
     best_fraction = np.full(len(genes), np.nan, dtype=np.float32)
     best_median = np.full(len(genes), np.nan, dtype=np.float32)
+    best_probability_median = np.full(len(genes), np.nan, dtype=np.float32)
     best_models_n = np.zeros(len(genes), dtype=np.int32)
     best_dependent_n = np.zeros(len(genes), dtype=np.int32)
     best_cancer_id = np.full(len(genes), None, dtype=object)
@@ -93,18 +127,28 @@ def main() -> None:
         row_mask = cancer_ids.to_numpy() == cancer_id
         if int(row_mask.sum()) < MIN_CANCER_MODELS:
             continue
-        sub = values[row_mask, :]
-        sub_valid = np.isfinite(sub)
+
+        sub_effect = values[row_mask, :]
+        sub_call_values = probability[row_mask, :] if probability is not None else sub_effect
+        sub_valid = np.isfinite(sub_call_values)
         n = sub_valid.sum(axis=0).astype(np.int32)
-        dep_n = (sub_valid & (sub <= DEPENDENCY_THRESHOLD)).sum(axis=0).astype(np.int32)
+        if probability is not None:
+            dep_n = (sub_valid & (sub_call_values > DEPENDENCY_PROBABILITY_THRESHOLD)).sum(axis=0).astype(np.int32)
+        else:
+            dep_n = (sub_valid & (sub_call_values <= GENE_EFFECT_FALLBACK_THRESHOLD)).sum(axis=0).astype(np.int32)
         frac = np.divide(dep_n, n, out=np.full(len(genes), np.nan, dtype=np.float32), where=n >= MIN_CANCER_MODELS)
-        median = np.nanmedian(sub, axis=0)
+        effect_median = np.nanmedian(sub_effect, axis=0)
+        probability_median = (
+            np.nanmedian(probability[row_mask, :], axis=0)
+            if probability is not None
+            else np.full(len(genes), np.nan, dtype=np.float32)
+        )
 
         current = best_fraction
         better = np.isfinite(frac) & (
             ~np.isfinite(current)
             | (frac > current + 1e-7)
-            | ((np.abs(frac - current) <= 1e-7) & (median < best_median))
+            | ((np.abs(frac - current) <= 1e-7) & (effect_median < best_median))
         )
         if not better.any():
             continue
@@ -122,7 +166,8 @@ def main() -> None:
         )
 
         best_fraction[better] = frac[better]
-        best_median[better] = median[better]
+        best_median[better] = effect_median[better]
+        best_probability_median[better] = probability_median[better]
         best_models_n[better] = n[better]
         best_dependent_n[better] = dep_n[better]
         best_cancer_id[better] = cancer_id
@@ -140,10 +185,13 @@ def main() -> None:
         rows.append(
             {
                 "gene_symbol": str(gene).upper(),
-                "dependency_threshold": DEPENDENCY_THRESHOLD,
+                "dependency_call_method": call_method,
+                "dependency_probability_threshold": DEPENDENCY_PROBABILITY_THRESHOLD if probability is not None else None,
+                "gene_effect_fallback_threshold": GENE_EFFECT_FALLBACK_THRESHOLD if probability is None else None,
                 "dependency_models_n": int(dependent_n[i]),
                 "dependency_models_total_n": int(available_n[i]),
                 "dependency_fraction": gf,
+                "global_median_dependency_probability": float(global_median_probability[i]) if np.isfinite(global_median_probability[i]) else None,
                 "global_median_gene_effect": float(global_median[i]) if np.isfinite(global_median[i]) else None,
                 "dependency_type": dep_type,
                 "dependency_type_ru": dep_label,
@@ -153,6 +201,9 @@ def main() -> None:
                 "best_cancer_dependency_models_n": int(best_dependent_n[i]),
                 "best_cancer_models_n": int(best_models_n[i]),
                 "best_cancer_dependency_fraction": bf,
+                "best_cancer_median_dependency_probability": (
+                    float(best_probability_median[i]) if np.isfinite(best_probability_median[i]) else None
+                ),
                 "best_cancer_median_gene_effect": float(best_median[i]) if np.isfinite(best_median[i]) else None,
                 "specificity_score": score,
                 "specificity_label_ru": _specificity_label(score, dep_type),
@@ -163,19 +214,29 @@ def main() -> None:
     RUNTIME.mkdir(parents=True, exist_ok=True)
     out.to_parquet(OUTPUT, index=False, compression="zstd")
     manifest = {
-        "dependency_threshold": DEPENDENCY_THRESHOLD,
-        "threshold_semantics": "MCL descriptive navigation threshold; Gene Effect <= threshold is counted as a strong loss-of-fitness dependency.",
+        "dependency_call_method": call_method,
+        "dependency_probability_threshold": DEPENDENCY_PROBABILITY_THRESHOLD if probability is not None else None,
+        "gene_effect_fallback_threshold": GENE_EFFECT_FALLBACK_THRESHOLD if probability is None else None,
+        "threshold_semantics": (
+            "Binary dependent/non-dependent calls use CRISPR Probability of Dependency > 0.5 when available. "
+            "If the probability matrix is missing, Gene Effect <= -0.5 is retained only as an explicitly labelled descriptive fallback."
+        ),
         "models_n": len(model_ids),
         "genes_n": len(genes),
         "cancer_groups_min_n": MIN_CANCER_MODELS,
         "source_gene_effect": str(GENE_EFFECT.relative_to(ROOT)),
+        "source_gene_dependency": str(GENE_DEPENDENCY.relative_to(ROOT)) if GENE_DEPENDENCY.exists() else None,
         "source_atlas": str(ATLAS.relative_to(ROOT)),
         "output": str(OUTPUT.relative_to(ROOT)),
     }
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"Gene dependency summary: {len(genes)} genes × {len(model_ids)} models")
-    print(f"Operational dependency threshold: Gene Effect <= {DEPENDENCY_THRESHOLD}")
+    print(f"Binary dependency method: {call_method}")
+    if probability is not None:
+        print(f"Probability of Dependency threshold: > {DEPENDENCY_PROBABILITY_THRESHOLD}")
+    else:
+        print(f"WARNING: CRISPRGeneDependency missing; descriptive Gene Effect fallback <= {GENE_EFFECT_FALLBACK_THRESHOLD}")
     print(f"Minimum cancer-group size for specificity labels: {MIN_CANCER_MODELS}")
     print(f"Wrote {OUTPUT.relative_to(ROOT)}")
 
