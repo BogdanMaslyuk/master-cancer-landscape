@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .atlas import MCLAtlas
+from .candidate_hypotheses import CandidateHypothesisStore
 from .cohort import MCLModelCohortStore
 from .crispr_catalog import CRISPRModelCatalog
 from .dependency_gene_explorer import DependencyAwareGeneExplorerStore
@@ -11,6 +12,7 @@ from .pharmacology_catalog import MCLPharmacologyCatalogStore
 from .repositories.atlas_repository import AtlasRepository
 from .repositories.comparison_repository import ComparisonRepository
 from .repositories.gene_repository import GeneRepository
+from .repositories.hypothesis_repository import HypothesisRepository
 from .repositories.model_repository import ModelRepository
 from .repositories.overview_repository import OverviewRepository
 from .repositories.pathway_repository import PathwayRepository
@@ -19,6 +21,7 @@ from .repositories.qc_repository import QCRepository
 from .services.atlas_service import AtlasService
 from .services.comparison_service import ComparisonService
 from .services.gene_service import GeneService
+from .services.hypothesis_service import HypothesisService
 from .services.model_service import ModelService
 from .services.overview_service import OverviewService
 from .services.pathway_service import PathwayService
@@ -39,6 +42,7 @@ model_dependency_store = ModelDependencyStore(MCL_ROOT)
 gene_explorer_store = DependencyAwareGeneExplorerStore(MCL_ROOT, store)
 pharmacology_store = MCLPharmacologyStore(MCL_ROOT)
 pharmacology_catalog_store = MCLPharmacologyCatalogStore(MCL_ROOT, pharmacology_store)
+hypothesis_store = CandidateHypothesisStore(MCL_ROOT)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
@@ -52,6 +56,9 @@ model_service = ModelService(model_repository)
 
 pharmacology_repository = PharmacologyRepository(pharmacology_store, pharmacology_catalog_store)
 pharmacology_service = PharmacologyService(pharmacology_repository)
+
+hypothesis_repository = HypothesisRepository(hypothesis_store)
+hypothesis_service = HypothesisService(hypothesis_repository)
 
 comparison_repository = ComparisonRepository(store)
 comparison_service = ComparisonService(comparison_repository)
