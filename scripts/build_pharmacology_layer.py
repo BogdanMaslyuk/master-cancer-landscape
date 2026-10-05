@@ -71,6 +71,15 @@ def _text(value: object) -> str:
     return str(value).strip()
 
 
+def _json_unique(values: pd.Series) -> str:
+    items: list[str] = []
+    for value in values:
+        text = _text(value)
+        if text and text not in items:
+            items.append(text)
+    return json.dumps(items, ensure_ascii=False)
+
+
 def _normalise_compounds(frame: pd.DataFrame) -> pd.DataFrame:
     out = frame.copy()
     out["compound_id"] = out["compound_id"].map(_text)
@@ -79,7 +88,7 @@ def _normalise_compounds(frame: pd.DataFrame) -> pd.DataFrame:
         return out.drop(columns=["_normalized_source_dir"], errors="ignore")
 
     # A stable compound_id is the join key. If multiple sources deliberately use
-    # the same ID, retain the first non-empty metadata record rather than multiplying
+    # the same ID, retain the most complete metadata record rather than multiplying
     # response rows. Cross-source chemical identity by InChIKey is a later layer.
     out["_completeness"] = out[COMPOUND_COLUMNS].notna().sum(axis=1)
     out = out.sort_values("_completeness", ascending=False).drop_duplicates("compound_id", keep="first")
@@ -196,6 +205,148 @@ def _build_links(responses: pd.DataFrame, targets: pd.DataFrame) -> pd.DataFrame
     return joined[keep].drop_duplicates().reset_index(drop=True)
 
 
+def _build_compound_catalog(
+    compounds: pd.DataFrame,
+    responses: pd.DataFrame,
+    targets: pd.DataFrame,
+) -> pd.DataFrame:
+    catalog = compounds.copy()
+    if catalog.empty:
+        return catalog
+
+    if not responses.empty:
+        response_stats = responses.groupby("compound_id", as_index=False).agg(
+            observations_n=("observation_id", "size"),
+            models_n=("model_id", "nunique"),
+        )
+        source_lists = responses.groupby("compound_id")["source"].apply(_json_unique).rename("sources_json")
+        endpoint_lists = responses.groupby("compound_id")["endpoint"].apply(_json_unique).rename("endpoints_json")
+        response_stats = response_stats.merge(source_lists, on="compound_id", how="left").merge(
+            endpoint_lists, on="compound_id", how="left"
+        )
+        catalog = catalog.merge(response_stats, on="compound_id", how="left")
+
+    if not targets.empty:
+        target_stats = targets.groupby("compound_id", as_index=False).agg(
+            target_evidence_n=("evidence_id", "size"),
+            targets_n=("target_gene", "nunique"),
+        )
+        target_lists = targets.groupby("compound_id")["target_gene"].apply(_json_unique).rename("target_genes_json")
+        target_stats = target_stats.merge(target_lists, on="compound_id", how="left")
+        catalog = catalog.merge(target_stats, on="compound_id", how="left")
+
+    for column in ("observations_n", "models_n", "target_evidence_n", "targets_n"):
+        if column not in catalog.columns:
+            catalog[column] = 0
+        catalog[column] = pd.to_numeric(catalog[column], errors="coerce").fillna(0).astype("int64")
+    for column in ("sources_json", "endpoints_json", "target_genes_json"):
+        if column not in catalog.columns:
+            catalog[column] = "[]"
+        catalog[column] = catalog[column].fillna("[]")
+    return catalog.sort_values(["models_n", "observations_n", "preferred_name"], ascending=[False, False, True], na_position="last").reset_index(drop=True)
+
+
+def _build_target_catalog(targets: pd.DataFrame, links: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "target_id", "target_gene", "compounds_n", "target_evidence_n", "actions_json",
+        "evidence_types_json", "models_n", "compound_model_pairs_n", "crispr_models_n",
+        "dependent_models_n", "strong_dependency_models_n",
+    ]
+    if targets.empty:
+        return pd.DataFrame(columns=columns)
+
+    catalog = targets.groupby("target_gene", as_index=False).agg(
+        compounds_n=("compound_id", "nunique"),
+        target_evidence_n=("evidence_id", "size"),
+    )
+    actions = targets.groupby("target_gene")["action"].apply(_json_unique).rename("actions_json")
+    evidence_types = targets.groupby("target_gene")["evidence_type"].apply(_json_unique).rename("evidence_types_json")
+    catalog = catalog.merge(actions, on="target_gene", how="left").merge(evidence_types, on="target_gene", how="left")
+
+    if not links.empty:
+        pair_frame = links[["target_gene", "compound_id", "model_id", "gene_effect"]].drop_duplicates(
+            ["target_gene", "compound_id", "model_id"]
+        )
+        pair_stats = pair_frame.groupby("target_gene", as_index=False).agg(
+            compound_model_pairs_n=("model_id", "size"),
+            models_n=("model_id", "nunique"),
+        )
+        model_frame = pair_frame[["target_gene", "model_id", "gene_effect"]].drop_duplicates(
+            ["target_gene", "model_id"]
+        )
+        model_frame["gene_effect"] = pd.to_numeric(model_frame["gene_effect"], errors="coerce")
+        model_frame["crispr_available"] = model_frame["gene_effect"].notna()
+        model_frame["dependent"] = model_frame["gene_effect"].le(-0.5)
+        model_frame["strong_dependency"] = model_frame["gene_effect"].le(-1.0)
+        model_stats = model_frame.groupby("target_gene", as_index=False).agg(
+            crispr_models_n=("crispr_available", "sum"),
+            dependent_models_n=("dependent", "sum"),
+            strong_dependency_models_n=("strong_dependency", "sum"),
+        )
+        catalog = catalog.merge(pair_stats, on="target_gene", how="left").merge(
+            model_stats, on="target_gene", how="left"
+        )
+
+    catalog["target_id"] = catalog["target_gene"].astype(str)
+    for column in (
+        "compounds_n", "target_evidence_n", "models_n", "compound_model_pairs_n",
+        "crispr_models_n", "dependent_models_n", "strong_dependency_models_n",
+    ):
+        if column not in catalog.columns:
+            catalog[column] = 0
+        catalog[column] = pd.to_numeric(catalog[column], errors="coerce").fillna(0).astype("int64")
+    return catalog[columns].sort_values(
+        ["compounds_n", "models_n", "target_gene"], ascending=[False, False, True]
+    ).reset_index(drop=True)
+
+
+def _build_target_compound_catalog(
+    targets: pd.DataFrame,
+    links: pd.DataFrame,
+    compounds: pd.DataFrame,
+) -> pd.DataFrame:
+    if targets.empty:
+        return pd.DataFrame()
+
+    evidence = targets.groupby(["target_gene", "compound_id"], as_index=False).agg(
+        evidence_rows_n=("evidence_id", "size"),
+    )
+    actions = targets.groupby(["target_gene", "compound_id"])["action"].apply(_json_unique).rename("actions_json")
+    evidence_types = targets.groupby(["target_gene", "compound_id"])["evidence_type"].apply(_json_unique).rename("evidence_types_json")
+    evidence = evidence.merge(actions, on=["target_gene", "compound_id"], how="left").merge(
+        evidence_types, on=["target_gene", "compound_id"], how="left"
+    )
+
+    if not links.empty:
+        pairs = links[["target_gene", "compound_id", "model_id", "gene_effect"]].drop_duplicates(
+            ["target_gene", "compound_id", "model_id"]
+        )
+        pairs["gene_effect"] = pd.to_numeric(pairs["gene_effect"], errors="coerce")
+        pairs["crispr_available"] = pairs["gene_effect"].notna()
+        pairs["dependent"] = pairs["gene_effect"].le(-0.5)
+        pairs["strong_dependency"] = pairs["gene_effect"].le(-1.0)
+        pair_stats = pairs.groupby(["target_gene", "compound_id"], as_index=False).agg(
+            models_n=("model_id", "nunique"),
+            crispr_models_n=("crispr_available", "sum"),
+            dependent_models_n=("dependent", "sum"),
+            strong_dependency_models_n=("strong_dependency", "sum"),
+        )
+        evidence = evidence.merge(pair_stats, on=["target_gene", "compound_id"], how="left")
+
+    metadata_cols = [c for c in (
+        "compound_id", "preferred_name", "canonical_smiles", "inchikey", "pubchem_cid",
+        "chembl_id", "broad_id", "gdsc_id"
+    ) if c in compounds.columns]
+    evidence = evidence.merge(compounds[metadata_cols].drop_duplicates("compound_id"), on="compound_id", how="left")
+    for column in ("models_n", "crispr_models_n", "dependent_models_n", "strong_dependency_models_n"):
+        if column not in evidence.columns:
+            evidence[column] = 0
+        evidence[column] = pd.to_numeric(evidence[column], errors="coerce").fillna(0).astype("int64")
+    return evidence.sort_values(
+        ["models_n", "dependent_models_n", "preferred_name"], ascending=[False, False, True], na_position="last"
+    ).reset_index(drop=True)
+
+
 def _write_templates(input_dir: Path) -> None:
     template_dir = input_dir / "manual_template"
     template_dir.mkdir(parents=True, exist_ok=True)
@@ -237,6 +388,9 @@ def main() -> None:
     responses, response_qc = _normalise_responses(raw_responses, valid_models, valid_compounds)
     targets, target_qc = _normalise_targets(raw_targets, valid_compounds)
     links = _build_links(responses, targets)
+    compound_catalog = _build_compound_catalog(compounds, responses, targets)
+    target_catalog = _build_target_catalog(targets, links)
+    target_compound_catalog = _build_target_compound_catalog(targets, links, compounds)
 
     RUNTIME.mkdir(parents=True, exist_ok=True)
     QC.mkdir(parents=True, exist_ok=True)
@@ -244,6 +398,11 @@ def main() -> None:
     responses.to_parquet(RUNTIME / "responses.parquet", index=False, compression="zstd")
     targets.to_parquet(RUNTIME / "target_evidence.parquet", index=False, compression="zstd")
     links.to_parquet(RUNTIME / "model_compound_target_links.parquet", index=False, compression="zstd")
+    compound_catalog.to_parquet(RUNTIME / "compound_catalog.parquet", index=False, compression="zstd")
+    target_catalog.to_parquet(RUNTIME / "target_catalog.parquet", index=False, compression="zstd")
+    target_compound_catalog.to_parquet(
+        RUNTIME / "target_compound_catalog.parquet", index=False, compression="zstd"
+    )
     response_qc.to_csv(QC / "pharmacology_unresolved_responses.tsv", sep="\t", index=False)
     target_qc.to_csv(QC / "pharmacology_unresolved_targets.tsv", sep="\t", index=False)
 
@@ -257,7 +416,7 @@ def main() -> None:
     )
     manifest = {
         "contract": "mcl-pharmacology-v1",
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "status": "available" if not responses.empty else "empty_inputs",
         "built_at": datetime.now(timezone.utc).isoformat(),
         "input_dir": str(input_dir),
@@ -270,6 +429,9 @@ def main() -> None:
         "compound_target_pairs_n": int(
             targets[["compound_id", "target_gene"]].drop_duplicates().shape[0]
         ) if not targets.empty else 0,
+        "targets_n": int(target_catalog["target_gene"].nunique()) if not target_catalog.empty else 0,
+        "compound_catalog_n": int(len(compound_catalog)),
+        "target_compound_catalog_n": int(len(target_compound_catalog)),
         "model_compound_target_links_n": int(len(links)),
         "unresolved_responses_n": int(len(response_qc)),
         "unresolved_targets_n": int(len(target_qc)),
@@ -284,13 +446,16 @@ def main() -> None:
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    print("MCL Pharmacology Layer v1")
+    print("MCL Pharmacology Layer v1.1")
     print(f"Normalized source directories: {', '.join(source_dirs) if source_dirs else 'none'}")
     print(f"CRISPR Atlas models: {len(valid_models)}")
     print(f"Compounds: {manifest['compounds_n']}")
+    print(f"Compound catalog rows: {manifest['compound_catalog_n']}")
     print(f"Response observations: {manifest['responses_n']}")
     print(f"Models with pharmacology: {manifest['models_with_response_n']}")
+    print(f"Protein/gene-mapped targets: {manifest['targets_n']}")
     print(f"Target evidence rows: {manifest['target_evidence_n']}")
+    print(f"Target × compound catalog rows: {manifest['target_compound_catalog_n']}")
     print(f"Model × compound × target links: {manifest['model_compound_target_links_n']}")
     print(f"Unresolved responses: {manifest['unresolved_responses_n']}")
     print(f"Unresolved targets: {manifest['unresolved_targets_n']}")
