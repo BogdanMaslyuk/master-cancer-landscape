@@ -3,8 +3,14 @@ from __future__ import annotations
 """Compatibility entry point for Laboratory Mechanism Context v1.1.
 
 The main implementation remains in build_laboratory_mechanism_panels.py. This
-entry point overrides only the PRISM response loader so DuckDB receives fully
-qualified GROUP BY expressions after joining the selected compound table.
+entry point applies two narrow runtime fixes:
+1) DuckDB receives fully-qualified GROUP BY expressions after joining the
+   selected compound table.
+2) zero-argument temporary DataFrames have a stable empty schema, so physical
+   controls without a DepMap model (BJ5ta) can pass through the mechanism-panel
+   builder without a KeyError on target_gene.
+
+No scientific thresholds or classifications are changed here.
 """
 
 import warnings
@@ -14,9 +20,6 @@ import pandas as pd
 import build_laboratory_mechanism_panels as impl
 
 
-# pandas 2.x warns about a future dtype change in two defensive fillna calls in
-# the implementation. The values are immediately normalized through _safe_bool,
-# so the warning does not affect the scientific result.
 warnings.filterwarnings(
     "ignore",
     message=r"Downcasting object dtype arrays on \.fillna.*",
@@ -24,20 +27,44 @@ warnings.filterwarnings(
 )
 
 
+# Keep a reference to the real pandas constructor before replacing the module
+# attribute used by the implementation.
+_REAL_DATAFRAME = pd.DataFrame
+_EMPTY_SCHEMA = [
+    "model_id",
+    "target_gene",
+    "compound_id",
+    "hypothesis_id",
+    "lab_name",
+    "laboratory_model_role",
+    "response_value",
+    "relative_sensitivity",
+    "dependency_probability",
+    "gene_effect",
+]
+
+
+def _schema_safe_dataframe(*args, **kwargs):
+    """Preserve normal DataFrame construction; stabilize only DataFrame()."""
+    if not args and not kwargs:
+        return _REAL_DATAFRAME(columns=_EMPTY_SCHEMA)
+    return _REAL_DATAFRAME(*args, **kwargs)
+
+
 def _load_responses(compound_ids: list[str], model_ids: list[str]) -> pd.DataFrame:
     columns = ["model_id", "compound_id", "response_value", "relative_sensitivity"]
     if not impl.RESPONSES.exists() or not compound_ids or not model_ids:
-        return pd.DataFrame(columns=columns)
+        return _REAL_DATAFRAME(columns=columns)
 
     con = impl.duckdb.connect(database=":memory:")
     try:
         con.register(
             "selected_compounds",
-            pd.DataFrame({"compound_id": sorted(set(compound_ids))}),
+            _REAL_DATAFRAME({"compound_id": sorted(set(compound_ids))}),
         )
         con.register(
             "selected_models",
-            pd.DataFrame({"model_id": sorted(set(model_ids))}),
+            _REAL_DATAFRAME({"model_id": sorted(set(model_ids))}),
         )
         path = impl.RESPONSES.resolve().as_posix().replace("'", "''")
         frame = con.execute(
@@ -68,10 +95,11 @@ def _load_responses(compound_ids: list[str], model_ids: list[str]) -> pd.DataFra
     finally:
         con.close()
 
-    return frame if not frame.empty else pd.DataFrame(columns=columns)
+    return frame if not frame.empty else _REAL_DATAFRAME(columns=columns)
 
 
 impl._load_responses = _load_responses
+impl.pd.DataFrame = _schema_safe_dataframe
 
 
 if __name__ == "__main__":
