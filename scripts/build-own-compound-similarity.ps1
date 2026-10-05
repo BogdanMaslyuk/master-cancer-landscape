@@ -12,7 +12,13 @@ if (-not (Test-Path $Python)) {
 
 Set-Location $Root
 
-Write-Host "=== Resolve structures for compounds linked to priority MCL targets ===" -ForegroundColor Cyan
+Write-Host "=== Validate approved own-compound registry: PYZ-001...PYZ-065 ===" -ForegroundColor Cyan
+& $Python ".\scripts\validate_pyz65_registry.py"
+if ($LASTEXITCODE -ne 0) {
+    throw "Approved PYZ registry validation failed with exit code $LASTEXITCODE"
+}
+
+Write-Host "`n=== Resolve structures for compounds linked to priority MCL targets ===" -ForegroundColor Cyan
 $EnrichmentArgs = @(".\scripts\enrich_priority_compound_structures_pubchem.py")
 if ($ForceStructureRefresh) {
     $EnrichmentArgs += "--force"
@@ -28,5 +34,5 @@ if ($LASTEXITCODE -ne 0) {
     throw "Own compound structural similarity build failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "`nOwn compound similarity build completed." -ForegroundColor Green
+Write-Host "`nOwn compound similarity build completed for PYZ-001...PYZ-065." -ForegroundColor Green
 Write-Host "Review data\runtime\pharmacology\compound_structure_registry.tsv, data\runtime\own_compounds\target_similarity_summary.tsv and QC outputs."
