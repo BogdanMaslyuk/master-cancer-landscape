@@ -10,6 +10,9 @@ entry point applies two narrow runtime fixes:
    controls without a DepMap model (BJ5ta) can pass through the mechanism-panel
    builder without a KeyError on target_gene.
 
+The pandas module itself is never mutated: pyarrow depends on pd.DataFrame being
+its real class during parquet conversion.
+
 No scientific thresholds or classifications are changed here.
 """
 
@@ -27,8 +30,6 @@ warnings.filterwarnings(
 )
 
 
-# Keep a reference to the real pandas constructor before replacing the module
-# attribute used by the implementation.
 _REAL_DATAFRAME = pd.DataFrame
 _EMPTY_SCHEMA = [
     "model_id",
@@ -49,6 +50,15 @@ def _schema_safe_dataframe(*args, **kwargs):
     if not args and not kwargs:
         return _REAL_DATAFRAME(columns=_EMPTY_SCHEMA)
     return _REAL_DATAFRAME(*args, **kwargs)
+
+
+class _PandasProxy:
+    """Delegate pandas normally, overriding only zero-argument DataFrame()."""
+
+    DataFrame = staticmethod(_schema_safe_dataframe)
+
+    def __getattr__(self, name):
+        return getattr(pd, name)
 
 
 def _load_responses(compound_ids: list[str], model_ids: list[str]) -> pd.DataFrame:
@@ -99,7 +109,9 @@ def _load_responses(compound_ids: list[str], model_ids: list[str]) -> pd.DataFra
 
 
 impl._load_responses = _load_responses
-impl.pd.DataFrame = _schema_safe_dataframe
+# Important: do not assign pd.DataFrame globally. The implementation receives a
+# proxy, while pandas/pyarrow continue using the genuine pandas module.
+impl.pd = _PandasProxy()
 
 
 if __name__ == "__main__":
