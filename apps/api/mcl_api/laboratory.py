@@ -29,6 +29,9 @@ class LaboratoryPanelStore:
         self.candidates_path = self.runtime / "laboratory_candidate_hypotheses.parquet"
         self.models_path = self.runtime / "laboratory_candidate_models.parquet"
         self.candidates_manifest = self.runtime / "laboratory_candidates_manifest.json"
+        self.mechanism_panels_path = self.runtime / "laboratory_mechanism_panels.parquet"
+        self.mechanism_models_path = self.runtime / "laboratory_mechanism_panel_models.parquet"
+        self.mechanism_manifest = self.runtime / "laboratory_mechanism_panels_manifest.json"
 
     @staticmethod
     def _clean(value: Any) -> Any:
@@ -47,6 +50,18 @@ class LaboratoryPanelStore:
             except (TypeError, ValueError):
                 pass
         return value
+
+    @staticmethod
+    def _json_value(value: Any, default: Any) -> Any:
+        if isinstance(value, (list, dict)):
+            return value
+        if value is None:
+            return default
+        try:
+            parsed = json.loads(str(value))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return default
+        return parsed
 
     @classmethod
     def _records(cls, frame: pd.DataFrame) -> list[dict[str, Any]]:
@@ -77,11 +92,17 @@ class LaboratoryPanelStore:
             json.loads(self.candidates_manifest.read_text(encoding="utf-8"))
             if self.candidates_manifest.exists() else {}
         )
+        mechanism = (
+            json.loads(self.mechanism_manifest.read_text(encoding="utf-8"))
+            if self.mechanism_manifest.exists() else {}
+        )
         return self._clean({
             "available": self.panel_path.exists(),
             "candidate_triage_available": self.candidates_path.exists(),
+            "mechanism_panels_available": self.mechanism_panels_path.exists(),
             "panel": panel,
             "candidate_triage": candidate,
+            "mechanism_context": mechanism,
             "interpretation_ru": (
                 "Лабораторная панель — физическое ограничение эксперимента, а не новый источник биологической доказательности. "
                 "BJ5ta используется только как доступный общий человеческий неопухолевый контроль и не считается органоспецифической нормальной тканью."
@@ -102,7 +123,7 @@ class LaboratoryPanelStore:
         if search:
             needle = search.strip().casefold()
             mask = pd.Series(False, index=frame.index)
-            for col in ("lab_name", "aliases", "disease_group_ru", "model_id", "depmap_cell_line_name"):
+            for col in ("lab_name", "aliases", "disease_group_ru", "model_id", "depmap_cell_line_name", "preferred_candidate_model_id"):
                 if col in frame.columns:
                     mask |= frame[col].fillna("").astype(str).str.casefold().str.contains(needle, regex=False)
             frame = frame[mask]
@@ -169,6 +190,49 @@ class LaboratoryPanelStore:
             "interpretation_ru": (
                 "В список входят только 222 Candidate v2 приоритета. Статус лабораторной готовности отвечает на вопрос, "
                 "есть ли среди реально доступных линий подходящая положительная модель и, отдельно, внутренний опухолевый контроль."
+            ),
+        })
+
+    def mechanism_panels(self) -> dict[str, Any]:
+        if not self.mechanism_panels_path.exists():
+            return {
+                "available": False,
+                "total": 0,
+                "items": [],
+                "build_command": ".\\scripts\\build-laboratory-panel.ps1",
+            }
+        panels = pd.read_parquet(self.mechanism_panels_path)
+        models = pd.read_parquet(self.mechanism_models_path) if self.mechanism_models_path.exists() else pd.DataFrame()
+        items: list[dict[str, Any]] = []
+        json_fields = (
+            "compound_names_json", "context_genes_json", "focus_lab_lines_json",
+            "candidate_names_json", "candidate_cancers_json", "positive_lab_lines_json",
+            "negative_lab_lines_json", "discordant_lab_lines_json",
+        )
+        for row in self._records(panels):
+            panel_id = str(row.get("panel_id") or "")
+            for field in json_fields:
+                if field in row:
+                    row[field.removesuffix("_json")] = self._json_value(row.pop(field), [])
+            panel_models = models[models["panel_id"].astype(str) == panel_id].copy() if not models.empty else pd.DataFrame()
+            model_records = self._records(panel_models)
+            for model in model_records:
+                if "mechanism_context_json" in model:
+                    model["mechanism_context"] = self._json_value(model.pop("mechanism_context_json"), [])
+            row["models"] = model_records
+            items.append(row)
+        manifest = (
+            json.loads(self.mechanism_manifest.read_text(encoding="utf-8"))
+            if self.mechanism_manifest.exists() else {}
+        )
+        return self._clean({
+            "available": True,
+            "total": len(items),
+            "items": items,
+            "contract": manifest,
+            "interpretation_ru": (
+                "Механистические панели объединяют доступность клеток, фармакологический ответ, CRISPR и контекст других генов механизма. "
+                "Контекст не является дополнительным баллом и не превращает ассоциацию в доказанную причинность."
             ),
         })
 
