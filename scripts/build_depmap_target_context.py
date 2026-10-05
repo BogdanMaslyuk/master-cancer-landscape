@@ -32,6 +32,34 @@ DEPENDENCY_PROBABILITY_THRESHOLD = 0.5
 MIN_CONTEXT_MODELS = 5
 GENE_LABEL_RE = re.compile(r"^(.*?)\s*\((\d+)\)\s*$")
 
+MUTATION_STRING_COLUMNS = (
+    "mutation_resolution",
+    "protein_changes_json",
+    "dna_changes_json",
+    "variant_info_json",
+    "vep_impacts_json",
+    "rescue_reasons_json",
+)
+MUTATION_INT_COLUMNS = (
+    "selected_variant_count",
+    "hotspot_variant_count",
+    "likely_lof_variant_count",
+)
+MUTATION_BOOL_COLUMNS = (
+    "has_hotspot",
+    "has_likely_lof",
+    "has_hess_driver",
+    "has_oncogene_high_impact",
+    "has_tsg_high_impact",
+    "has_rescued_variant",
+)
+MUTATION_FLOAT_COLUMNS = (
+    "max_variant_allele_fraction",
+    "max_read_depth",
+    "hotspot_matrix_call",
+    "damaging_matrix_call",
+)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -58,6 +86,43 @@ def _normalize_gene(label: Any) -> str:
     text = _text(label)
     match = GENE_LABEL_RE.match(text)
     return (match.group(1).strip() if match else text).upper()
+
+
+def _ensure_mutation_schema(frame: pd.DataFrame) -> pd.DataFrame:
+    """Keep one stable Arrow schema across mutation sources and context chunks."""
+    out = frame.copy()
+    for key in ("model_id", "target_gene"):
+        if key not in out.columns:
+            out[key] = pd.Series(dtype="string")
+        out[key] = out[key].astype("string")
+
+    for column in MUTATION_STRING_COLUMNS:
+        if column not in out.columns:
+            out[column] = pd.Series(pd.NA, index=out.index, dtype="string")
+        else:
+            out[column] = out[column].astype("string")
+    for column in (
+        "protein_changes_json", "dna_changes_json", "variant_info_json",
+        "vep_impacts_json", "rescue_reasons_json",
+    ):
+        out[column] = out[column].fillna("[]")
+
+    for column in MUTATION_INT_COLUMNS:
+        if column not in out.columns:
+            out[column] = pd.Series(pd.NA, index=out.index, dtype="Int64")
+        else:
+            out[column] = pd.to_numeric(out[column], errors="coerce").astype("Int64")
+
+    for column in MUTATION_BOOL_COLUMNS:
+        if column not in out.columns:
+            out[column] = False
+        out[column] = out[column].fillna(False).astype(bool)
+
+    for column in MUTATION_FLOAT_COLUMNS:
+        if column not in out.columns:
+            out[column] = np.nan
+        out[column] = pd.to_numeric(out[column], errors="coerce").astype("float64")
+    return out
 
 
 def _resolve_release(explicit: str | None) -> str:
@@ -131,7 +196,7 @@ def _build_variant_level_mutations(
     model_col = _column(header, "ModelID", "DepMap_ID", "DepMapID", "ModelConditionID")
     gene_col = _column(header, "HugoSymbol", "Hugo_Symbol", "gene", "Gene")
     if not model_col or not gene_col:
-        raise SystemExit(f"Unsupported mutation schema in {path.name}: missing model/gene columns")
+        return _ensure_mutation_schema(pd.DataFrame())
 
     optional = {
         "protein_change": _column(header, "ProteinChange", "HGVSp", "VepHGVSp"),
@@ -148,18 +213,18 @@ def _build_variant_level_mutations(
         "rescue": _column(header, "Rescue"),
         "rescue_reason": _column(header, "RescueReason"),
     }
-    usecols = [model_col, gene_col, *[c for c in optional.values() if c]]
-    usecols = list(dict.fromkeys(usecols))
+    usecols = list(dict.fromkeys([model_col, gene_col, *[c for c in optional.values() if c]]))
     hits: list[pd.DataFrame] = []
     for chunk in pd.read_csv(path, usecols=usecols, chunksize=max(10_000, chunksize), low_memory=False):
         chunk["_model_id"] = chunk[model_col].map(_text)
-        # ModelConditionID is not guaranteed to equal ACH ModelID. Only keep direct ACH IDs here.
         chunk["_gene"] = chunk[gene_col].map(_normalize_gene)
+        # A ModelConditionID is not assumed to be equivalent to an ACH ModelID. If the
+        # detailed table cannot resolve directly, _build_mutations falls back to matrices.
         mask = chunk["_model_id"].isin(model_ids) & chunk["_gene"].isin(target_genes)
         if mask.any():
             hits.append(chunk.loc[mask].copy())
     if not hits:
-        return pd.DataFrame(columns=["model_id", "target_gene", "mutation_resolution"])
+        return _ensure_mutation_schema(pd.DataFrame())
 
     frame = pd.concat(hits, ignore_index=True, sort=False)
     frame["model_id"] = frame["_model_id"]
@@ -176,7 +241,7 @@ def _build_variant_level_mutations(
         col = optional[field]
         if not col:
             return "[]"
-        values = []
+        values: list[str] = []
         for value in group[col]:
             text = _text(value)
             if text and text not in values:
@@ -208,7 +273,7 @@ def _build_variant_level_mutations(
                 "rescue_reasons_json": unique_json(group, "rescue_reason"),
             }
         )
-    return pd.DataFrame(rows)
+    return _ensure_mutation_schema(pd.DataFrame(rows))
 
 
 def _read_mutation_matrix(path: Path, model_ids: set[str], target_genes: set[str], value_name: str) -> pd.DataFrame:
@@ -239,7 +304,7 @@ def _build_matrix_mutations(release_dir: Path, model_ids: set[str], target_genes
     hotspot = _read_mutation_matrix(hotspot_path, model_ids, target_genes, "hotspot_matrix_call") if hotspot_path else pd.DataFrame()
     damaging = _read_mutation_matrix(damaging_path, model_ids, target_genes, "damaging_matrix_call") if damaging_path else pd.DataFrame()
     if hotspot.empty and damaging.empty:
-        return pd.DataFrame(columns=["model_id", "target_gene", "mutation_resolution"])
+        return _ensure_mutation_schema(pd.DataFrame())
     keys = ["model_id", "target_gene"]
     if hotspot.empty:
         out = damaging.copy()
@@ -251,22 +316,22 @@ def _build_matrix_mutations(release_dir: Path, model_ids: set[str], target_genes
         out = hotspot.merge(damaging, on=keys, how="outer")
     out[["hotspot_matrix_call", "damaging_matrix_call"]] = out[["hotspot_matrix_call", "damaging_matrix_call"]].fillna(0)
     out["mutation_resolution"] = "matrix_only"
-    out["selected_variant_count"] = pd.NA
-    out["hotspot_variant_count"] = pd.NA
-    out["likely_lof_variant_count"] = pd.NA
     out["has_hotspot"] = out["hotspot_matrix_call"] > 0
     out["has_likely_lof"] = out["damaging_matrix_call"] > 0
-    return out
+    return _ensure_mutation_schema(out)
 
 
 def _build_mutations(release_dir: Path, model_ids: set[str], target_genes: set[str], chunksize: int) -> tuple[pd.DataFrame, str | None]:
     detailed = _first_existing(release_dir, ("OmicsSomaticMutations.csv", "OmicsSomaticMutationsProfile.csv"))
     if detailed:
-        return _build_variant_level_mutations(detailed, model_ids, target_genes, chunksize), detailed.name
+        detailed_frame = _build_variant_level_mutations(detailed, model_ids, target_genes, chunksize)
+        if not detailed_frame.empty:
+            return detailed_frame, detailed.name
+        print(f"Mutation detail file {detailed.name} did not resolve direct ACH model IDs; trying mutation matrices.")
     matrix = _build_matrix_mutations(release_dir, model_ids, target_genes)
     if not matrix.empty:
         return matrix, "OmicsSomaticMutationsMatrixHotspot/Damaging"
-    return pd.DataFrame(columns=["model_id", "target_gene", "mutation_resolution"]), None
+    return _ensure_mutation_schema(pd.DataFrame()), None
 
 
 def _context_percentile(frame: pd.DataFrame, value_col: str, out_col: str, n_col: str) -> None:
@@ -295,10 +360,11 @@ def main() -> None:
 
     release = _resolve_release(args.release)
     release_dir = RAW_DEPMAP / release
-    atlas = pd.read_parquet(
-        ATLAS,
-        columns=[c for c in ["model_id", "mcl_cancer_id", "mcl_cancer_name", "mcl_organ_ru"] if c in pq.ParquetFile(ATLAS).schema.names],
-    )
+    atlas_columns = [
+        c for c in ["model_id", "mcl_cancer_id", "mcl_cancer_name", "mcl_organ_ru"]
+        if c in pq.ParquetFile(ATLAS).schema.names
+    ]
+    atlas = pd.read_parquet(ATLAS, columns=atlas_columns)
     atlas["model_id"] = atlas["model_id"].astype(str)
     atlas = atlas.drop_duplicates("model_id")
     model_ids = set(atlas["model_id"])
@@ -308,11 +374,9 @@ def main() -> None:
     target_gene_set = set(target_genes)
 
     mutations, mutation_source = _build_mutations(release_dir, model_ids, target_gene_set, args.mutation_chunksize)
+    mutations = _ensure_mutation_schema(mutations)
     PROCESSED.mkdir(parents=True, exist_ok=True)
-    if mutations.empty:
-        pd.DataFrame(columns=["model_id", "target_gene", "mutation_resolution"]).to_parquet(MUTATION_OUTPUT, index=False)
-    else:
-        mutations.to_parquet(MUTATION_OUTPUT, index=False, compression="zstd")
+    mutations.to_parquet(MUTATION_OUTPUT, index=False, compression="zstd")
 
     layer_paths = {
         "gene_effect": GENE_EFFECT,
@@ -353,22 +417,18 @@ def main() -> None:
         _context_percentile(base, "expression_log2_tpm1", "expression_percentile_in_cancer", "expression_context_models_n")
         _context_percentile(base, "copy_number_relative", "copy_number_percentile_in_cancer", "copy_number_context_models_n")
 
-        mut_sub = mutations[mutations["target_gene"].isin(genes)].copy() if not mutations.empty else pd.DataFrame()
+        mut_sub = mutations[mutations["target_gene"].isin(genes)].copy()
         if not mut_sub.empty:
             base = base.merge(mut_sub, on=["model_id", "target_gene"], how="left")
-        if "mutation_resolution" not in base.columns:
-            base["mutation_resolution"] = None
-        for col in ("has_hotspot", "has_likely_lof"):
-            if col not in base.columns:
-                base[col] = False
-            else:
-                base[col] = base[col].fillna(False).astype(bool)
+        base = _ensure_mutation_schema(base)
         base["depmap_release"] = release
         base["context_built_at"] = _now()
 
         table = pa.Table.from_pandas(base, preserve_index=False)
         if writer is None:
             writer = pq.ParquetWriter(OUTPUT, table.schema, compression="zstd")
+        elif table.schema != writer.schema:
+            table = table.cast(writer.schema, safe=False)
         writer.write_table(table)
         rows_written += len(base)
         chunks_written += 1
