@@ -22,8 +22,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "Known compound structure enrichment failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "`n=== MCL Own Compound Structural Similarity v1.1 ===" -ForegroundColor Cyan
-& $Python ".\scripts\build_own_compound_similarity_v1_1.py"
+Write-Host "`n=== MCL Own Compound Structural Similarity v1.2 ===" -ForegroundColor Cyan
+& $Python ".\scripts\build_own_compound_similarity_v1_2.py"
 if ($LASTEXITCODE -ne 0) {
     throw "Own compound structural similarity build failed with exit code $LASTEXITCODE"
 }
