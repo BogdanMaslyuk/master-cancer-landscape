@@ -202,6 +202,18 @@ def _write_layer(layer: str, frame: pd.DataFrame) -> Path:
     return path
 
 
+def _remove_stale_layer(layer: str) -> list[str]:
+    """Never let a missing pinned-release input silently reuse an older processed layer."""
+    removed: list[str] = []
+    output = PROCESSED / OUTPUTS[layer]
+    gene_map = PROCESSED / f"depmap_model_{layer}_genes.json"
+    for path in (output, gene_map):
+        if path.exists():
+            path.unlink()
+            removed.append(path.name)
+    return removed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -244,6 +256,7 @@ def main() -> None:
         source = _resolve_source(release_dir, candidates)
         if source is None:
             missing.append(" or ".join(candidates))
+            removed = _remove_stale_layer(layer)
             manifest["layers"][layer] = {
                 **LAYER_META[layer],
                 "available": False,
@@ -252,8 +265,11 @@ def main() -> None:
                 "models_n": 0,
                 "genes_n": 0,
                 "missing_models_n": len(model_ids),
+                "stale_outputs_removed": removed,
             }
             print(f"[{layer}] missing source: {' or '.join(candidates)}")
+            if removed:
+                print(f"[{layer}] removed stale processed files: {', '.join(removed)}")
             continue
 
         print(f"[{layer}] reading {source.name} ...")
