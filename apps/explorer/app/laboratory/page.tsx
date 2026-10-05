@@ -37,10 +37,13 @@ const matchRu:Record<string,string>={
 const modelRoleRu:Record<string,string>={
   positive:"положительная",
   negative_same_cancer:"отрицательный опухолевый контроль",
+  negative_panel_comparator:"отрицательный компаратор панели",
   discordant_sensitive_without_dependency:"чувствительна без зависимости от заявленной мишени",
   discordant_dependency_without_activity:"зависима, но фармакологического эффекта нет",
   unclassified_missing_dependency_probability:"нет Probability of Dependency",
   not_evaluated_in_candidate_triage:"пока не оценена по полному правилу",
+  not_evaluated_no_prism:"нет PRISM-ответа для этого вещества",
+  unclassified:"данные есть, но правило роли не выполнено",
   general_non_tumor_control:"общий неопухолевый контроль",
 };
 const contextRu:Record<string,string>={
@@ -83,7 +86,7 @@ export default async function LaboratoryPage({searchParams}:{searchParams:Promis
       <div className={styles.heroStats}>
         <div className={styles.heroStat}><strong>{n(panel.human_tumor_lines_n)}</strong><span>человеческих опухолевых линий</span></div>
         <div className={styles.heroStat}><strong>{n(counts.ready_with_internal_tumor_control||0)}</strong><span>гипотез с внутренним опухолевым контролем</span></div>
-        <div className={styles.heroStat}><strong>{n(mechanismPanels.total||0)}</strong><span>механистических панелей v1</span></div>
+        <div className={styles.heroStat}><strong>{n(mechanismPanels.total||0)}</strong><span>механистических панелей</span></div>
       </div>
     </section>
 
