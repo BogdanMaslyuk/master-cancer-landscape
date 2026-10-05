@@ -15,5 +15,9 @@ class LaboratoryCandidatesResponse(ApiResponseModel):
     pass
 
 
+class LaboratoryMechanismPanelsResponse(ApiResponseModel):
+    pass
+
+
 class LaboratoryCandidateDetailResponse(ApiResponseModel):
     pass
