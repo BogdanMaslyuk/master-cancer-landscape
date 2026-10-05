@@ -16,5 +16,8 @@ class LaboratoryRepository:
     def candidates(self, **kwargs):
         return self.store.candidate_list(**kwargs)
 
+    def mechanism_panels(self):
+        return self.store.mechanism_panels()
+
     def candidate_detail(self, hypothesis_id: str):
         return self.store.candidate_detail(hypothesis_id)
