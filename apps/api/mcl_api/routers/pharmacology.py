@@ -4,10 +4,13 @@ from fastapi import APIRouter, Query
 
 from ..api_utils import guard
 from ..schemas.pharmacology import (
+    CompoundCatalogResponse,
     CompoundPharmacologyResponse,
     ModelPharmacologyResponse,
     PharmacologyConcordanceResponse,
     PharmacologySummaryResponse,
+    TargetCatalogResponse,
+    TargetPharmacologyResponse,
 )
 from ..state import pharmacology_service
 
@@ -39,6 +42,37 @@ def model_pharmacology(
     return guard(lambda: pharmacology_service.model(model_id, limit, source))
 
 
+@router.get("/api/compounds", response_model=CompoundCatalogResponse)
+def compounds(
+    q: str | None = None,
+    target_gene: str | None = None,
+    has_smiles: bool = False,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    return guard(lambda: pharmacology_service.compounds(q, target_gene, has_smiles, limit, offset))
+
+
 @router.get("/api/compounds/{compound_id}", response_model=CompoundPharmacologyResponse)
-def compound_pharmacology(compound_id: str):
-    return guard(lambda: pharmacology_service.compound(compound_id))
+def compound_pharmacology(
+    compound_id: str,
+    limit: int = Query(60, ge=1, le=200),
+):
+    return guard(lambda: pharmacology_service.compound(compound_id, limit))
+
+
+@router.get("/api/targets", response_model=TargetCatalogResponse)
+def targets(
+    q: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    return guard(lambda: pharmacology_service.targets(q, limit, offset))
+
+
+@router.get("/api/targets/{target_id}", response_model=TargetPharmacologyResponse)
+def target_pharmacology(
+    target_id: str,
+    limit: int = Query(100, ge=1, le=250),
+):
+    return guard(lambda: pharmacology_service.target(target_id, limit))
