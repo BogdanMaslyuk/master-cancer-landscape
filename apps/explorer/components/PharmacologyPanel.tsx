@@ -3,7 +3,7 @@ import styles from "./PharmacologyPanel.module.css";
 
 type Pharmacology = Record<string, any>;
 
-function fmt(value:any,digits=3){const n=Number(value);return Number.isFinite(n)?n.toFixed(digits):"—";}
+function fmt(value:any,digits=3){if(value===null||value===undefined||value==="")return "—";const n=Number(value);return Number.isFinite(n)?n.toFixed(digits):String(value);}
 function resultText(row:any){
   if(row.endpoint && row.value!==null && row.value!==undefined && row.value!=="") return `${row.endpoint}: ${fmt(row.value)}${row.unit?` ${row.unit}`:""}`;
   for(const key of ["ic50","ec50","gi50","auc","viability"]){
@@ -18,6 +18,16 @@ function supportClass(level:string){
 }
 function supportLabel(level:string){
   return ({strong_dependency:"сильная CRISPR-зависимость",dependency:"CRISPR-зависимость",weak_or_none:"слабая / нет зависимости",not_available:"CRISPR нет"} as Record<string,string>)[level]||level||"—";
+}
+function rankedTargets(row:any){
+  const order:Record<string,number>={strong_dependency:0,dependency:1,weak_or_none:2,not_available:3};
+  return [...(row.target_hypotheses||[])].sort((a:any,b:any)=>{
+    const byClass=(order[a.crispr_support_level]??9)-(order[b.crispr_support_level]??9);
+    if(byClass!==0)return byClass;
+    const av=Number(a.gene_effect),bv=Number(b.gene_effect);
+    if(Number.isFinite(av)&&Number.isFinite(bv))return av-bv;
+    if(Number.isFinite(av))return -1;if(Number.isFinite(bv))return 1;return String(a.target_gene||"").localeCompare(String(b.target_gene||""));
+  }).slice(0,6);
 }
 
 export default function PharmacologyPanel({payload}:{payload:Pharmacology}){
@@ -37,15 +47,15 @@ export default function PharmacologyPanel({payload}:{payload:Pharmacology}){
     </div>
     {(payload.sources||[]).length>0&&<div className={styles.sources}>{payload.sources.map((s:string)=><span className={styles.source} key={s}>{s}</span>)}</div>}
     {items.length?<div className={styles.tableWrap}><table className={styles.table}>
-      <thead><tr><th>Вещество</th><th>Источник / анализ</th><th>Результат</th><th>Условия</th><th>Мишени и согласованность с CRISPR</th></tr></thead>
-      <tbody>{items.map((row:any,index:number)=><tr key={row.observation_id||`${row.compound_id}-${index}`}>
-        <td><span className={styles.compound}>{row.preferred_name||row.compound_id}</span><span className={styles.sub}>{row.compound_id}{row.chembl_id?` · ${row.chembl_id}`:""}</span></td>
+      <thead><tr><th>Вещество</th><th>Источник / анализ</th><th>Результат</th><th>Условия</th><th>Кандидатные мишени в этой модели</th></tr></thead>
+      <tbody>{items.map((row:any,index:number)=>{const targets=rankedTargets(row);return <tr key={row.observation_id||`${row.compound_id}-${index}`}>
+        <td><Link href={`/compounds/${encodeURIComponent(row.compound_id||"")}`} className={styles.compound}>{row.preferred_name||row.compound_id}</Link><span className={styles.sub}>{row.compound_id}{row.chembl_id?` · ${row.chembl_id}`:""}</span>{row.canonical_smiles&&<span className={styles.sub}>SMILES доступен</span>}</td>
         <td><b>{row.source||"—"}</b><span className={styles.sub}>{row.assay_type||row.source_assay_id||"—"}</span></td>
         <td><b>{resultText(row)}</b><span className={styles.sub}>{row.endpoint||"endpoint не указан"}</span></td>
         <td>{row.dose!==null&&row.dose!==undefined?`доза ${fmt(row.dose)} ${row.dose_unit||""}`:"—"}<span className={styles.sub}>{row.exposure_time_h?`${fmt(row.exposure_time_h,1)} ч`:""}</span></td>
-        <td>{(row.target_hypotheses||[]).length?<div className={styles.targets}>{row.target_hypotheses.map((t:any,j:number)=><Link href={`/genes/${encodeURIComponent(t.target_gene||"")}`} className={`${styles.target} ${supportClass(t.crispr_support_level)}`} key={`${t.target_gene}-${j}`}><b>{t.target_gene||"?"}</b><span>{t.action||t.evidence_type||"мишень"}</span><span>{supportLabel(t.crispr_support_level)}{t.gene_effect!==null&&t.gene_effect!==undefined?` · GE ${fmt(t.gene_effect)}`:""}</span></Link>)}</div>:<span className={styles.sub}>мишень не аннотирована в текущем слое</span>}</td>
-      </tr>)}</tbody>
+        <td>{targets.length?<div className={styles.targets}>{targets.map((t:any,j:number)=><Link href={`/targets/${encodeURIComponent(t.target_gene||"")}`} className={`${styles.target} ${supportClass(t.crispr_support_level)}`} key={`${t.target_gene}-${j}`}><b>{t.target_gene||"?"}</b><span>{t.action||t.evidence_type||"аннотированная мишень"}</span><span>{supportLabel(t.crispr_support_level)}{t.gene_effect!==null&&t.gene_effect!==undefined?` · GE ${fmt(t.gene_effect)}`:""}</span></Link>)}</div>:<span className={styles.sub}>мишень не аннотирована в текущем слое</span>}</td>
+      </tr>})}</tbody>
     </table></div>:<div className={styles.empty}>Для этой модели нет нормализованных фармакологических наблюдений.</div>}
-    <p className={styles.note}>Важно: чувствительность клетки к веществу, аннотация мишени и CRISPR-зависимость — разные типы доказательств. Их совпадение поддерживает механизм, но само по себе его не доказывает. IC50, AUC, GI50 и viability не объединяются в одну общую шкалу.</p>
+    <p className={styles.note}>Кандидаты-мишени здесь сначала происходят из аннотации вещества, а затем упорядочиваются по CRISPR-согласованности именно этой модели. Это не вероятность связывания и не доказательство причинного механизма. Чувствительность клетки, аннотация мишени и CRISPR-зависимость остаются разными типами доказательств.</p>
   </>;
 }
