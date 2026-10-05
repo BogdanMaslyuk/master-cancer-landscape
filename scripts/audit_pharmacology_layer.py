@@ -39,9 +39,9 @@ def main() -> None:
         f"""
         SELECT
             count(*) AS observations_n,
-            count(DISTINCT model_id) AS models_n,
-            count(DISTINCT compound_id) AS compounds_with_response_n,
-            count(DISTINCT source) AS sources_n
+            count(DISTINCT CAST(model_id AS VARCHAR)) AS models_n,
+            count(DISTINCT CAST(compound_id AS VARCHAR)) AS compounds_with_response_n,
+            count(DISTINCT CAST(source AS VARCHAR)) AS sources_n
         FROM read_parquet('{_p(responses)}')
         """
     ).df().iloc[0].to_dict()
@@ -52,38 +52,70 @@ def main() -> None:
             source, source_release, assay_type, endpoint, unit,
             dose, dose_unit, exposure_time_h,
             count(*) AS observations_n,
-            count(DISTINCT model_id) AS models_n,
-            count(DISTINCT compound_id) AS compounds_n
+            count(DISTINCT CAST(model_id AS VARCHAR)) AS models_n,
+            count(DISTINCT CAST(compound_id AS VARCHAR)) AS compounds_n
         FROM read_parquet('{_p(responses)}')
         GROUP BY source, source_release, assay_type, endpoint, unit, dose, dose_unit, exposure_time_h
         ORDER BY observations_n DESC
         """
     ).df()
 
+    # Some optional identifier/chemistry columns can be inferred by pandas/Parquet as
+    # DOUBLE when every source value is missing. Never compare those columns directly
+    # with string literals in DuckDB. Cast to VARCHAR first and normalize textual null
+    # sentinels so the audit is schema-tolerant without changing the source tables.
     compound_stats = con.execute(
         f"""
+        WITH normalized AS (
+            SELECT
+                trim(CAST(compound_id AS VARCHAR)) AS compound_id_text,
+                CASE
+                    WHEN broad_id IS NULL THEN NULL
+                    WHEN lower(trim(CAST(broad_id AS VARCHAR))) IN ('', 'nan', 'none', 'null') THEN NULL
+                    ELSE trim(CAST(broad_id AS VARCHAR))
+                END AS broad_id_text,
+                CASE
+                    WHEN canonical_smiles IS NULL THEN NULL
+                    WHEN lower(trim(CAST(canonical_smiles AS VARCHAR))) IN ('', 'nan', 'none', 'null') THEN NULL
+                    ELSE trim(CAST(canonical_smiles AS VARCHAR))
+                END AS smiles_text
+            FROM read_parquet('{_p(compounds)}')
+        )
         SELECT
             count(*) AS compound_rows_n,
-            count(DISTINCT compound_id) AS compound_ids_n,
-            count(DISTINCT NULLIF(broad_id, '')) AS nonempty_broad_ids_n,
-            count(DISTINCT NULLIF(canonical_smiles, '')) AS nonempty_smiles_n,
-            sum(CASE WHEN canonical_smiles IS NULL OR canonical_smiles = '' THEN 1 ELSE 0 END) AS missing_smiles_n
-        FROM read_parquet('{_p(compounds)}')
+            count(DISTINCT compound_id_text) AS compound_ids_n,
+            count(DISTINCT broad_id_text) AS nonempty_broad_ids_n,
+            count(DISTINCT smiles_text) AS nonempty_smiles_n,
+            sum(CASE WHEN smiles_text IS NULL THEN 1 ELSE 0 END) AS missing_smiles_n
+        FROM normalized
         """
     ).df().iloc[0].to_dict()
 
     duplicate_identity = con.execute(
         f"""
-        WITH broad AS (
-            SELECT broad_id, count(*) AS n
+        WITH normalized AS (
+            SELECT
+                CASE
+                    WHEN broad_id IS NULL THEN NULL
+                    WHEN lower(trim(CAST(broad_id AS VARCHAR))) IN ('', 'nan', 'none', 'null') THEN NULL
+                    ELSE trim(CAST(broad_id AS VARCHAR))
+                END AS broad_id_text,
+                CASE
+                    WHEN canonical_smiles IS NULL THEN NULL
+                    WHEN lower(trim(CAST(canonical_smiles AS VARCHAR))) IN ('', 'nan', 'none', 'null') THEN NULL
+                    ELSE trim(CAST(canonical_smiles AS VARCHAR))
+                END AS smiles_text
             FROM read_parquet('{_p(compounds)}')
-            WHERE broad_id IS NOT NULL AND broad_id <> ''
-            GROUP BY broad_id HAVING count(*) > 1
+        ), broad AS (
+            SELECT broad_id_text, count(*) AS n
+            FROM normalized
+            WHERE broad_id_text IS NOT NULL
+            GROUP BY broad_id_text HAVING count(*) > 1
         ), smiles AS (
-            SELECT canonical_smiles, count(*) AS n
-            FROM read_parquet('{_p(compounds)}')
-            WHERE canonical_smiles IS NOT NULL AND canonical_smiles <> ''
-            GROUP BY canonical_smiles HAVING count(*) > 1
+            SELECT smiles_text, count(*) AS n
+            FROM normalized
+            WHERE smiles_text IS NOT NULL
+            GROUP BY smiles_text HAVING count(*) > 1
         )
         SELECT
             (SELECT count(*) FROM broad) AS duplicated_broad_ids_n,
@@ -95,12 +127,22 @@ def main() -> None:
 
     target_stats = con.execute(
         f"""
+        WITH normalized AS (
+            SELECT
+                trim(CAST(compound_id AS VARCHAR)) AS compound_id_text,
+                CASE
+                    WHEN target_gene IS NULL THEN NULL
+                    WHEN lower(trim(CAST(target_gene AS VARCHAR))) IN ('', 'nan', 'none', 'null') THEN NULL
+                    ELSE upper(trim(CAST(target_gene AS VARCHAR)))
+                END AS target_gene_text
+            FROM read_parquet('{_p(targets)}')
+        )
         SELECT
             count(*) AS target_evidence_rows_n,
-            count(DISTINCT compound_id) AS compounds_with_target_n,
-            count(DISTINCT upper(target_gene)) AS target_genes_n,
-            sum(CASE WHEN target_gene IS NULL OR target_gene = '' THEN 1 ELSE 0 END) AS missing_target_gene_n
-        FROM read_parquet('{_p(targets)}')
+            count(DISTINCT compound_id_text) AS compounds_with_target_n,
+            count(DISTINCT target_gene_text) AS target_genes_n,
+            sum(CASE WHEN target_gene_text IS NULL THEN 1 ELSE 0 END) AS missing_target_gene_n
+        FROM normalized
         """
     ).df().iloc[0].to_dict()
 
