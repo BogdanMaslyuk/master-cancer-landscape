@@ -22,8 +22,10 @@ PHARM = ROOT / "data" / "runtime" / "pharmacology"
 PROCESSED = ROOT / "data" / "processed"
 ATLAS = PROCESSED / "depmap_crispr_model_atlas.parquet"
 TARGET_CONTEXT = PROCESSED / "depmap_model_target_context.parquet"
+GENE_DEPENDENCY = PROCESSED / "depmap_model_gene_dependency.parquet"
 TARGET_REGISTRY = PROCESSED / "target_registry" / "protein_targets.parquet"
 GENE_SUMMARY = ROOT / "data" / "runtime" / "explorer" / "gene_dependency_summary.parquet"
+CONCORDANCE = PHARM / "target_concordance_v2.parquet"
 OUTPUT = PHARM / "candidate_hypotheses_v2.parquet"
 MODEL_OUTPUT = PHARM / "candidate_hypothesis_models_v2.parquet"
 MANIFEST = PHARM / "candidate_hypotheses_v2_manifest.json"
@@ -58,7 +60,9 @@ def _p(path: Path) -> str:
 
 
 def _hypothesis_id(compound_id: str, target_gene: str, cancer_id: str) -> str:
-    return "HYP2-" + hashlib.sha1(f"{compound_id}|{target_gene}|{cancer_id}".encode("utf-8")).hexdigest()[:14].upper()
+    return "HYP2-" + hashlib.sha1(
+        f"{compound_id}|{target_gene}|{cancer_id}".encode("utf-8")
+    ).hexdigest()[:14].upper()
 
 
 def _float(value: Any) -> float | None:
@@ -88,15 +92,26 @@ def _mechanism_axis(label: Any) -> str:
         return "conflicting"
     if value in {"direction_not_resolved", "endpoint_not_resolved"}:
         return "not_assessable"
-    if value in {"inconclusive", "insufficient"}:
+    if value in {"inconclusive", "insufficient", "dependency_probability_missing"}:
         return "uncertain"
     return "not_available"
 
 
-def _phenotype_axis(active_fraction: float | None, sensitive_fraction: float | None, active_n: int, sensitive_n: int, models_n: int) -> str:
+def _phenotype_axis(
+    active_fraction: float | None,
+    sensitive_fraction: float | None,
+    active_n: int,
+    sensitive_n: int,
+    models_n: int,
+) -> str:
     if models_n < 2:
         return "sparse"
-    if active_n >= 2 and sensitive_n >= 2 and (active_fraction or 0) >= 0.30 and (sensitive_fraction or 0) >= 0.20:
+    if (
+        active_n >= 2
+        and sensitive_n >= 2
+        and (active_fraction or 0) >= 0.30
+        and (sensitive_fraction or 0) >= 0.20
+    ):
         return "strong"
     if active_n >= 1 and (active_fraction or 0) >= 0.20:
         return "supportive"
@@ -113,16 +128,30 @@ def _dependency_axis(dep_fraction: float | None, dependent_n: int, measured_n: i
     return "weak"
 
 
+def _specificity_axis(active_enrichment: float | None, dependency_enrichment: float | None, models_n: int) -> str:
+    if models_n < MIN_CONTEXT_MODELS:
+        return "limited_sample"
+    active = active_enrichment if active_enrichment is not None else 0.0
+    dependency = dependency_enrichment if dependency_enrichment is not None else 0.0
+    if active >= 0.15 and dependency >= 0.15:
+        return "concordant_enrichment"
+    if active >= 0.15 or dependency >= 0.15:
+        return "partial_enrichment"
+    if active <= 0 and dependency <= 0:
+        return "not_enriched"
+    return "weak_enrichment"
+
+
 def _molecular_context_axis(row: pd.Series) -> str:
     measured = int(row.get("context_models_n") or 0)
     if measured == 0:
         return "not_available"
     hotspot = int(row.get("hotspot_models_n") or 0)
     lof = int(row.get("likely_lof_models_n") or 0)
-    expr = int(row.get("expression_detected_models_n") or 0)
+    expression = int(row.get("expression_detected_models_n") or 0)
     if hotspot or lof:
         return "mutation_context_present_direction_unresolved"
-    if expr:
+    if expression:
         return "expression_context_available"
     return "omics_context_available"
 
@@ -150,20 +179,28 @@ def _priority_status(row: pd.Series) -> tuple[str, list[str], list[str]]:
     if dependency_measured_n == 0:
         gaps.append("Для моделей гипотезы отсутствует Probability of Dependency; высокий in vitro приоритет запрещён.")
     if mechanism == "conflicting":
-        gaps.append("Панельная фармакология расходится с простой CRISPR loss-of-function моделью заявленной мишени.")
+        gaps.append("Профиль фармакологии расходится с простой CRISPR loss-of-function моделью заявленной мишени.")
     if mechanism == "not_assessable":
         gaps.append("Направление действия вещества нельзя корректно сопоставить с CRISPR loss-of-function.")
 
     if active_n:
         reasons.append(f"{active_n} модель(и) имеют PRISM LFC ≤ {PRISM_ACTIVE_LFC_THRESHOLD:g}.")
     if sensitive_n:
-        reasons.append(f"{sensitive_n} модель(и) одновременно проходят абсолютный activity threshold и входят в наиболее чувствительную четверть.")
+        reasons.append(
+            f"{sensitive_n} модель(и) одновременно проходят абсолютный порог активности и входят в наиболее чувствительную четверть."
+        )
     if dependency_n:
-        reasons.append(f"{dependency_n} модель(и) имеют Probability of Dependency > {DEPENDENCY_PROBABILITY_THRESHOLD:g} для кодирующего гена мишени.")
+        reasons.append(
+            f"{dependency_n} модель(и) имеют Probability of Dependency > {DEPENDENCY_PROBABILITY_THRESHOLD:g} для кодирующего гена мишени."
+        )
     if joint_n:
-        reasons.append(f"{joint_n} модель(и) одновременно фармакологически чувствительны и CRISPR-зависимы по Probability of Dependency.")
+        reasons.append(
+            f"{joint_n} модель(и) одновременно фармакологически чувствительны и CRISPR-зависимы по Probability of Dependency."
+        )
     if mechanism in {"strong", "supportive"}:
-        reasons.append("Профиль чувствительности к веществу согласуется с непрерывным CRISPR Gene Effect заявленной мишени.")
+        reasons.append(
+            "Профиль чувствительности к веществу согласуется с непрерывным CRISPR Gene Effect после доступной поправки на lineage."
+        )
 
     if (
         mechanism in {"strong", "supportive"}
@@ -208,12 +245,14 @@ def main() -> None:
         "compounds": PHARM / "compound_catalog.parquet",
         "atlas": ATLAS,
         "context": TARGET_CONTEXT,
+        "gene_dependency": GENE_DEPENDENCY,
+        "concordance": CONCORDANCE,
     }
     missing = [str(path.relative_to(ROOT)) for path in required.values() if not path.exists()]
     if missing:
         raise SystemExit(
             "Missing Candidate v2 inputs:\n" + "\n".join(missing) +
-            "\nRun scripts/build_depmap_multiomics.py and scripts/build_depmap_target_context.py first."
+            "\nRun build_depmap_multiomics.py, build_depmap_target_context.py and build_pharmacology_target_concordance_v2.py first."
         )
 
     con = duckdb.connect(database=":memory:")
@@ -241,7 +280,9 @@ def main() -> None:
             model_id,
             compound_id,
             response_value,
-            1.0 - percent_rank() OVER (PARTITION BY compound_id ORDER BY response_value ASC) AS relative_sensitivity
+            1.0 - percent_rank() OVER (
+                PARTITION BY compound_id ORDER BY response_value ASC
+            ) AS relative_sensitivity
         FROM response_by_model;
 
         CREATE VIEW response_flagged AS
@@ -353,14 +394,20 @@ def main() -> None:
             count(DISTINCT j.model_id) FILTER (WHERE j.gene_effect <= -1.0) AS strong_gene_effect_models_n,
             count(DISTINCT j.model_id) FILTER (WHERE j.priority_sensitive AND j.dependency_call) AS joint_support_models_n,
             count(DISTINCT j.model_id) FILTER (
-                WHERE j.priority_sensitive AND j.dependency_probability IS NOT NULL AND NOT j.dependency_call
+                WHERE j.priority_sensitive
+                  AND j.dependency_probability IS NOT NULL
+                  AND NOT j.dependency_call
             ) AS sensitive_without_dependency_n,
             count(DISTINCT j.model_id) FILTER (
                 WHERE NOT j.absolute_active AND j.dependency_call
             ) AS dependency_without_activity_n,
             count(DISTINCT j.model_id) FILTER (WHERE j.has_hotspot) AS hotspot_models_n,
             count(DISTINCT j.model_id) FILTER (WHERE j.has_likely_lof) AS likely_lof_models_n,
-            count(DISTINCT j.model_id) FILTER (WHERE j.expression_log2_tpm1 IS NOT NULL) AS context_models_n,
+            count(DISTINCT j.model_id) FILTER (
+                WHERE j.expression_log2_tpm1 IS NOT NULL
+                   OR j.copy_number_relative IS NOT NULL
+                   OR j.mutation_resolution IS NOT NULL
+            ) AS context_models_n,
             count(DISTINCT j.model_id) FILTER (WHERE j.expression_log2_tpm1 > 0) AS expression_detected_models_n,
             median(j.response_value) AS median_response,
             min(j.response_value) AS best_response,
@@ -376,66 +423,103 @@ def main() -> None:
             g.global_sensitive_fraction
         FROM candidate_joined j
         LEFT JOIN compound_global g USING (compound_id)
-        GROUP BY j.compound_id, j.target_gene, j.mcl_cancer_id,
-                 g.global_response_models_n, g.global_active_fraction, g.global_sensitive_fraction
+        GROUP BY
+            j.compound_id, j.target_gene, j.mcl_cancer_id,
+            g.global_response_models_n, g.global_active_fraction, g.global_sensitive_fraction
         """
     ).df()
 
     compounds = pd.read_parquet(required["compounds"])
-    keep = [c for c in ("compound_id", "preferred_name", "canonical_smiles", "inchikey", "chembl_id", "broad_id") if c in compounds.columns]
-    grouped = grouped.merge(compounds[keep].drop_duplicates("compound_id"), on="compound_id", how="left")
+    keep = [
+        c for c in (
+            "compound_id", "preferred_name", "canonical_smiles", "inchikey",
+            "chembl_id", "broad_id"
+        ) if c in compounds.columns
+    ]
+    grouped = grouped.merge(
+        compounds[keep].drop_duplicates("compound_id"), on="compound_id", how="left"
+    )
 
-    concordance_path = PHARM / "target_concordance.parquet"
-    if concordance_path.exists():
-        concordance = pd.read_parquet(concordance_path)
-        concordance["target_gene"] = concordance["target_gene"].astype(str).str.upper()
-        order = {
-            "strong_support": 0, "supportive": 1, "inconclusive": 2, "discordant": 3,
-            "direction_not_resolved": 4, "endpoint_not_resolved": 5, "insufficient": 6,
+    concordance = pd.read_parquet(CONCORDANCE)
+    concordance["target_gene"] = concordance["target_gene"].astype(str).str.upper()
+    order = {
+        "strong_support": 0,
+        "supportive": 1,
+        "inconclusive": 2,
+        "discordant": 3,
+        "dependency_probability_missing": 4,
+        "direction_not_resolved": 5,
+        "endpoint_not_resolved": 6,
+        "insufficient": 7,
+    }
+    concordance["_order"] = concordance["concordance_label"].map(order).fillna(99)
+    sort_columns = ["compound_id", "target_gene", "_order", "q_value", "primary_rho"]
+    concordance = concordance.sort_values(
+        sort_columns,
+        ascending=[True, True, True, True, False],
+        na_position="last",
+    ).drop_duplicates(["compound_id", "target_gene"], keep="first")
+    ckeep = [
+        c for c in (
+            "compound_id", "target_gene", "concordance_label", "primary_rho",
+            "primary_rho_method", "spearman_raw_rho", "spearman_lineage_adjusted_rho",
+            "q_value", "models_n", "lineage_adjusted_models_n", "lineages_n"
+        ) if c in concordance.columns
+    ]
+    concordance = concordance[ckeep].rename(
+        columns={
+            "primary_rho": "spearman_rho",
+            "models_n": "concordance_models_n",
         }
-        concordance["_order"] = concordance["concordance_label"].map(order).fillna(99)
-        concordance = concordance.sort_values(
-            ["compound_id", "target_gene", "_order", "q_value", "spearman_rho"],
-            ascending=[True, True, True, True, False], na_position="last"
-        ).drop_duplicates(["compound_id", "target_gene"], keep="first")
-        ckeep = [c for c in (
-            "compound_id", "target_gene", "concordance_label", "spearman_rho", "q_value", "models_n"
-        ) if c in concordance.columns]
-        concordance = concordance[ckeep].rename(columns={"models_n": "concordance_models_n"})
-        grouped = grouped.merge(concordance, on=["compound_id", "target_gene"], how="left")
+    )
+    grouped = grouped.merge(concordance, on=["compound_id", "target_gene"], how="left")
 
     if GENE_SUMMARY.exists():
         gs = pd.read_parquet(GENE_SUMMARY)
-        gkeep = [c for c in (
-            "gene_symbol", "dependency_fraction", "dependency_call_method", "dependency_type",
-            "dependency_type_ru", "specificity_label_ru"
-        ) if c in gs.columns]
-        gs = gs[gkeep].rename(columns={
-            "gene_symbol": "target_gene",
-            "dependency_fraction": "global_dependency_fraction",
-            "specificity_label_ru": "gene_global_specificity_label_ru",
-        })
+        gkeep = [
+            c for c in (
+                "gene_symbol", "dependency_fraction", "dependency_call_method",
+                "dependency_type", "dependency_type_ru", "specificity_label_ru"
+            ) if c in gs.columns
+        ]
+        gs = gs[gkeep].rename(
+            columns={
+                "gene_symbol": "target_gene",
+                "dependency_fraction": "global_dependency_fraction",
+                "specificity_label_ru": "gene_global_specificity_label_ru",
+            }
+        )
         gs["target_gene"] = gs["target_gene"].astype(str).str.upper()
         grouped = grouped.merge(gs, on="target_gene", how="left")
     else:
         grouped["global_dependency_fraction"] = pd.NA
+        grouped["dependency_call_method"] = "probability_of_dependency"
 
     if TARGET_REGISTRY.exists():
-        reg = pd.read_parquet(TARGET_REGISTRY)
-        rkeep = [c for c in (
-            "target_gene", "protein_preferred_name", "uniprot_primary_accession",
-            "protein_mapping_status", "protein_families", "source_resolution"
-        ) if c in reg.columns]
-        reg = reg[rkeep].drop_duplicates("target_gene")
-        reg["target_gene"] = reg["target_gene"].astype(str).str.upper()
-        grouped = grouped.merge(reg, on="target_gene", how="left")
+        registry = pd.read_parquet(TARGET_REGISTRY)
+        rkeep = [
+            c for c in (
+                "target_gene", "protein_preferred_name", "uniprot_primary_accession",
+                "protein_mapping_status", "protein_families", "source_resolution"
+            ) if c in registry.columns
+        ]
+        registry = registry[rkeep].drop_duplicates("target_gene")
+        registry["target_gene"] = registry["target_gene"].astype(str).str.upper()
+        grouped = grouped.merge(registry, on="target_gene", how="left")
 
-    grouped["active_fraction"] = [_fraction(a, b) for a, b in zip(grouped["active_models_n"], grouped["models_n"])]
-    grouped["sensitive_fraction"] = [_fraction(a, b) for a, b in zip(grouped["sensitive_models_n"], grouped["models_n"])]
-    grouped["dependency_fraction_in_cancer"] = [
-        _fraction(a, b) for a, b in zip(grouped["dependency_models_n"], grouped["dependency_measured_models_n"])
+    grouped["active_fraction"] = [
+        _fraction(a, b) for a, b in zip(grouped["active_models_n"], grouped["models_n"])
     ]
-    grouped["joint_support_fraction"] = [_fraction(a, b) for a, b in zip(grouped["joint_support_models_n"], grouped["models_n"])]
+    grouped["sensitive_fraction"] = [
+        _fraction(a, b) for a, b in zip(grouped["sensitive_models_n"], grouped["models_n"])
+    ]
+    grouped["dependency_fraction_in_cancer"] = [
+        _fraction(a, b)
+        for a, b in zip(grouped["dependency_models_n"], grouped["dependency_measured_models_n"])
+    ]
+    grouped["joint_support_fraction"] = [
+        _fraction(a, b) for a, b in zip(grouped["joint_support_models_n"], grouped["models_n"])
+    ]
     grouped["active_enrichment"] = [
         (_float(a) - _float(b)) if _float(a) is not None and _float(b) is not None else None
         for a, b in zip(grouped["active_fraction"], grouped["global_active_fraction"])
@@ -446,22 +530,40 @@ def main() -> None:
     ]
     grouped["dependency_enrichment"] = [
         (_float(a) - _float(b)) if _float(a) is not None and _float(b) is not None else None
-        for a, b in zip(grouped["dependency_fraction_in_cancer"], grouped.get("global_dependency_fraction", pd.Series(pd.NA, index=grouped.index)))
+        for a, b in zip(
+            grouped["dependency_fraction_in_cancer"],
+            grouped.get("global_dependency_fraction", pd.Series(pd.NA, index=grouped.index)),
+        )
     ]
 
     grouped["phenotype_axis"] = [
         _phenotype_axis(_float(a), _float(s), int(an), int(sn), int(n))
         for a, s, an, sn, n in zip(
-            grouped["active_fraction"], grouped["sensitive_fraction"], grouped["active_models_n"], grouped["sensitive_models_n"], grouped["models_n"]
+            grouped["active_fraction"], grouped["sensitive_fraction"],
+            grouped["active_models_n"], grouped["sensitive_models_n"], grouped["models_n"]
         )
     ]
     grouped["dependency_axis"] = [
         _dependency_axis(_float(f), int(dn), int(mn))
-        for f, dn, mn in zip(grouped["dependency_fraction_in_cancer"], grouped["dependency_models_n"], grouped["dependency_measured_models_n"])
+        for f, dn, mn in zip(
+            grouped["dependency_fraction_in_cancer"],
+            grouped["dependency_models_n"],
+            grouped["dependency_measured_models_n"],
+        )
     ]
-    grouped["mechanism_axis"] = grouped.get("concordance_label", pd.Series("", index=grouped.index)).map(_mechanism_axis)
+    grouped["mechanism_axis"] = grouped.get(
+        "concordance_label", pd.Series("", index=grouped.index)
+    ).map(_mechanism_axis)
+    grouped["specificity_axis"] = [
+        _specificity_axis(_float(a), _float(d), int(n))
+        for a, d, n in zip(
+            grouped["active_enrichment"], grouped["dependency_enrichment"], grouped["models_n"]
+        )
+    ]
     grouped["molecular_context_axis"] = grouped.apply(_molecular_context_axis, axis=1)
     grouped["normal_tissue_axis"] = "not_assessed"
+    # Compatibility for API/UI components while the scientific meaning is explicit.
+    grouped["crispr_models_n"] = grouped["dependency_measured_models_n"]
 
     statuses: list[str] = []
     reasons: list[str] = []
@@ -483,13 +585,19 @@ def main() -> None:
 
     grouped["_status_order"] = grouped["priority_status"].map(STATUS_ORDER).fillna(99)
     grouped = grouped.sort_values(
-        ["_status_order", "joint_support_models_n", "sensitive_models_n", "active_models_n", "dependency_models_n", "models_n"],
-        ascending=[True, False, False, False, False, False], na_position="last"
+        [
+            "_status_order", "joint_support_models_n", "sensitive_models_n",
+            "active_models_n", "dependency_models_n", "models_n"
+        ],
+        ascending=[True, False, False, False, False, False],
+        na_position="last",
     ).drop(columns="_status_order").reset_index(drop=True)
 
-    supported = grouped[grouped["priority_status"].isin(
-        ["priority_for_in_vitro", "supported_hypothesis", "exploratory_hypothesis"]
-    )][["hypothesis_id", "compound_id", "target_gene", "mcl_cancer_id"]].copy()
+    supported = grouped[
+        grouped["priority_status"].isin(
+            ["priority_for_in_vitro", "supported_hypothesis", "exploratory_hypothesis"]
+        )
+    ][["hypothesis_id", "compound_id", "target_gene", "mcl_cancer_id"]].copy()
     con.register("supported", supported)
 
     model_rows = con.execute(
@@ -500,8 +608,12 @@ def main() -> None:
                 j.*,
                 CASE
                     WHEN j.priority_sensitive AND j.dependency_call THEN 'positive'
-                    WHEN j.clearly_nonresponsive AND j.dependency_probability IS NOT NULL AND NOT j.dependency_call THEN 'negative_same_cancer'
-                    WHEN j.priority_sensitive AND j.dependency_probability IS NOT NULL AND NOT j.dependency_call THEN 'discordant_sensitive_without_dependency'
+                    WHEN j.clearly_nonresponsive
+                         AND j.dependency_probability IS NOT NULL
+                         AND NOT j.dependency_call THEN 'negative_same_cancer'
+                    WHEN j.priority_sensitive
+                         AND j.dependency_probability IS NOT NULL
+                         AND NOT j.dependency_call THEN 'discordant_sensitive_without_dependency'
                     WHEN NOT j.absolute_active AND j.dependency_call THEN 'discordant_dependency_without_activity'
                     WHEN j.dependency_probability IS NULL THEN 'unclassified_missing_dependency_probability'
                     ELSE 'unclassified'
@@ -516,11 +628,16 @@ def main() -> None:
                 PARTITION BY hypothesis_id, model_role
                 ORDER BY
                     CASE
-                        WHEN model_role IN ('positive','discordant_sensitive_without_dependency') THEN response_value
-                        WHEN model_role = 'negative_same_cancer' THEN -response_value
+                        WHEN model_role IN ('positive','discordant_sensitive_without_dependency')
+                            THEN response_value
+                        WHEN model_role = 'negative_same_cancer'
+                            THEN -response_value
                         ELSE coalesce(gene_effect, 0.0)
                     END ASC NULLS LAST,
-                    CASE WHEN model_role = 'positive' THEN -dependency_probability ELSE dependency_probability END ASC NULLS LAST,
+                    CASE
+                        WHEN model_role = 'positive' THEN -dependency_probability
+                        ELSE dependency_probability
+                    END ASC NULLS LAST,
                     model_id
             ) AS role_rank
             FROM labelled
@@ -535,11 +652,26 @@ def main() -> None:
 
     if not model_rows.empty:
         role_reason = {
-            "positive": "PRISM LFC проходит абсолютный activity threshold, модель входит в чувствительную четверть и Probability of Dependency > 0.5.",
-            "negative_same_cancer": "Модель того же опухолевого контекста находится среди наименее чувствительных, не проходит activity threshold и имеет измеренную Probability of Dependency ≤ 0.5.",
-            "discordant_sensitive_without_dependency": "Фармакологическая чувствительность выражена, но Probability of Dependency для заявленной мишени ≤ 0.5; возможен альтернативный механизм или полифармакология.",
-            "discordant_dependency_without_activity": "Probability of Dependency > 0.5, но выраженного PRISM activity signal нет; простая модель target dependency → drug response не подтверждается.",
-            "unclassified_missing_dependency_probability": "Probability of Dependency отсутствует; модель нельзя считать ни положительной, ни отрицательной по бинарной CRISPR-зависимости.",
+            "positive": (
+                "PRISM LFC проходит абсолютный порог активности, модель входит в чувствительную четверть "
+                "и Probability of Dependency > 0.5."
+            ),
+            "negative_same_cancer": (
+                "Модель того же опухолевого контекста находится среди наименее чувствительных, не проходит "
+                "абсолютный порог активности и имеет измеренную Probability of Dependency ≤ 0.5."
+            ),
+            "discordant_sensitive_without_dependency": (
+                "Фармакологическая чувствительность выражена, но Probability of Dependency для заявленной "
+                "мишени ≤ 0.5; возможен альтернативный механизм или полифармакология."
+            ),
+            "discordant_dependency_without_activity": (
+                "Probability of Dependency > 0.5, но выраженного PRISM activity signal нет; простая модель "
+                "target dependency → drug response не подтверждается."
+            ),
+            "unclassified_missing_dependency_probability": (
+                "Probability of Dependency отсутствует; модель нельзя считать ни положительной, ни отрицательной "
+                "по бинарной CRISPR-зависимости."
+            ),
         }
         model_rows["role_reason_ru"] = model_rows["model_role"].map(role_reason)
 
@@ -563,10 +695,18 @@ def main() -> None:
         "dependency_probability_threshold": DEPENDENCY_PROBABILITY_THRESHOLD,
         "ranking_contract": (
             "No composite numeric score. High priority requires absolute PRISM activity plus relative selectivity, "
-            "measured Probability of Dependency and non-conflicting pharmacology-CRISPR concordance. Molecular omics context is shown separately and does not automatically add priority."
+            "measured Probability of Dependency and non-conflicting pharmacology-CRISPR concordance. Molecular "
+            "omics context is displayed separately and does not automatically add priority."
+        ),
+        "concordance_contract": (
+            "Continuous Gene Effect is correlated with drug response. The primary correlation uses lineage-centered "
+            "rank residuals when sufficiently supported; raw Spearman remains available. Dependent/non-dependent "
+            "groups use Probability of Dependency > 0.5."
         ),
         "copy_number_contract": "relative linear CN only; no automatic amplification/deletion call",
-        "mutation_contract": "Hotspot and LikelyLoF are separate annotations; hotspot is not automatically treated as gain-of-function",
+        "mutation_contract": (
+            "Hotspot and LikelyLoF are separate annotations; hotspot is not automatically treated as gain-of-function"
+        ),
         "not_yet_in_status": [
             "curated direction-aware biomarker rules",
             "normal-tissue expression and human loss-of-function tolerance",
@@ -574,16 +714,26 @@ def main() -> None:
             "dose-response confirmation",
             "ADMET/developability",
         ],
+        "sources": {
+            "context": str(TARGET_CONTEXT.relative_to(ROOT)),
+            "gene_dependency": str(GENE_DEPENDENCY.relative_to(ROOT)),
+            "concordance": str(CONCORDANCE.relative_to(ROOT)),
+        },
         "outputs": [str(OUTPUT.relative_to(ROOT)), str(MODEL_OUTPUT.relative_to(ROOT))],
     }
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     pd.DataFrame([
-        {"priority_status": status, "priority_status_ru": STATUS_LABELS.get(status, status), "hypotheses_n": status_counts.get(status, 0)}
+        {
+            "priority_status": status,
+            "priority_status_ru": STATUS_LABELS.get(status, status),
+            "hypotheses_n": status_counts.get(status, 0),
+        }
         for status in STATUS_ORDER
     ]).to_csv(QC_DIR / "candidate_hypotheses_v2_status_counts.tsv", sep="\t", index=False)
     pd.DataFrame([
-        {"model_role": role, "models_n": count} for role, count in sorted(role_counts.items())
+        {"model_role": role, "models_n": count}
+        for role, count in sorted(role_counts.items())
     ]).to_csv(QC_DIR / "candidate_hypothesis_models_v2_roles.tsv", sep="\t", index=False)
 
     print("MCL Candidate Prioritization v2")
