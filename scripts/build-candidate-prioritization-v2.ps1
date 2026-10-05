@@ -29,12 +29,18 @@ if (-not $SkipAudit) {
 
 Run-Step "Build pinned DepMap multi-omics indexes" @(".\scripts\build_depmap_multiomics.py", "--allow-partial")
 
+$MultiomicsManifest = Join-Path $Processed "depmap_model_multiomics_manifest.json"
+if (-not (Test-Path $MultiomicsManifest)) {
+    throw "Missing depmap_model_multiomics_manifest.json after multi-omics build."
+}
+$Multiomics = Get-Content $MultiomicsManifest -Raw | ConvertFrom-Json
 $Dependency = Join-Path $Processed "depmap_model_gene_dependency.parquet"
-if (-not (Test-Path $Dependency)) {
+if ((-not $Multiomics.layers.gene_dependency.available) -or (-not (Test-Path $Dependency))) {
     Write-Host "`nCandidate v2 requires CRISPR Probability of Dependency for binary dependent/non-dependent calls." -ForegroundColor Red
-    Write-Host "Expected raw source in the pinned DepMap release: CRISPRGeneDependency.csv" -ForegroundColor Yellow
-    Write-Host "Current DepMap raw root: $RawDepMap" -ForegroundColor Yellow
-    throw "Missing depmap_model_gene_dependency.parquet. Do not fall back to Gene Effect for Candidate v2."
+    Write-Host ("Pinned DepMap release: " + $Multiomics.depmap_release) -ForegroundColor Yellow
+    Write-Host "Expected raw source: CRISPRGeneDependency.csv" -ForegroundColor Yellow
+    Write-Host ("Expected under: " + (Join-Path $RawDepMap $Multiomics.depmap_release)) -ForegroundColor Yellow
+    throw "Pinned-release CRISPRGeneDependency is missing. Candidate v2 intentionally refuses a Gene Effect fallback."
 }
 
 Run-Step "Rebuild gene dependency summary with Probability of Dependency" @(".\scripts\build_gene_dependency_summary.py")
@@ -44,14 +50,15 @@ $ContextManifest = Join-Path $Processed "depmap_model_target_context_manifest.js
 if (Test-Path $ContextManifest) {
     $Context = Get-Content $ContextManifest -Raw | ConvertFrom-Json
     Write-Host "`n=== Molecular context availability ===" -ForegroundColor Cyan
+    Write-Host ("DepMap release:         " + $Context.depmap_release)
     Write-Host ("Dependency probability: " + $Context.available_layers.dependency_probability)
-    Write-Host ("RNA expression:        " + $Context.available_layers.expression_log2_tpm1)
-    Write-Host ("Relative copy number:  " + $Context.available_layers.copy_number_relative)
+    Write-Host ("RNA expression:         " + $Context.available_layers.expression_log2_tpm1)
+    Write-Host ("Relative copy number:   " + $Context.available_layers.copy_number_relative)
     if ($Context.mutation_source) {
-        Write-Host ("Mutation source:       " + $Context.mutation_source)
+        Write-Host ("Mutation source:        " + $Context.mutation_source)
     } else {
-        Write-Host "Mutation source:       MISSING" -ForegroundColor Yellow
-        Write-Host "Candidate v2 can still build, but mutation context will be absent until a 26Q1 mutation source is added." -ForegroundColor Yellow
+        Write-Host "Mutation source:        MISSING" -ForegroundColor Yellow
+        Write-Host "Candidate v2 can still build, but mutation context will be absent until a mutation source from the same pinned release is added." -ForegroundColor Yellow
     }
 }
 
