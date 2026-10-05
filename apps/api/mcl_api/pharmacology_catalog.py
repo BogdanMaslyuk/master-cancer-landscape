@@ -11,7 +11,11 @@ from .store import MCLDataError
 
 
 class MCLPharmacologyCatalogStore:
-    """Fast read-only indexes for compound and gene-mapped protein target pages."""
+    """Fast read-only indexes for compound and gene-mapped protein target pages.
+
+    Catalog pages use compact precomputed indexes. Detail pages request only filtered
+    slices from the large response/link Parquet files through MCLPharmacologyStore.
+    """
 
     def __init__(self, root: Path, base_store: Any):
         self.root = Path(root).resolve()
@@ -79,7 +83,14 @@ class MCLPharmacologyCatalogStore:
         path = self.processed / "depmap_crispr_model_atlas.parquet"
         if not path.exists():
             return pd.DataFrame()
-        frame = pd.read_parquet(path)
+        keep = [
+            "model_id", "cell_line_name", "mcl_cancer_name", "mcl_organ_ru", "mcl_system_ru"
+        ]
+        try:
+            frame = pd.read_parquet(path, columns=keep)
+        except Exception:
+            frame = pd.read_parquet(path)
+            frame = frame[[c for c in keep if c in frame.columns]]
         if "model_id" in frame.columns:
             frame["model_id"] = frame["model_id"].astype(str)
         return frame
@@ -125,9 +136,7 @@ class MCLPharmacologyCatalogStore:
             ]
 
         if has_smiles and "canonical_smiles" in frame.columns:
-            frame = frame[
-                frame["canonical_smiles"].fillna("").astype(str).str.strip().ne("")
-            ]
+            frame = frame[frame["canonical_smiles"].fillna("").astype(str).str.strip().ne("")]
 
         sort_cols = [c for c in ("models_n", "observations_n", "preferred_name") if c in frame.columns]
         if sort_cols:
@@ -179,9 +188,7 @@ class MCLPharmacologyCatalogStore:
 
         if search:
             needle = search.strip().upper()
-            frame = frame[
-                frame["target_gene"].astype(str).str.upper().str.contains(needle, regex=False)
-            ]
+            frame = frame[frame["target_gene"].astype(str).str.upper().str.contains(needle, regex=False)]
 
         sort_cols = [c for c in ("compounds_n", "models_n", "target_gene") if c in frame.columns]
         if sort_cols:
@@ -223,6 +230,7 @@ class MCLPharmacologyCatalogStore:
         hit = catalog[catalog["compound_id"].astype(str) == str(compound_id)]
         if hit.empty:
             raise MCLDataError(f"Unknown pharmacology compound: {compound_id}")
+
         identity = self._clean(hit.iloc[0].to_dict())
         identity["target_genes"] = self._json_list(identity.pop("target_genes_json", "[]"))
         identity["sources"] = self._json_list(identity.pop("sources_json", "[]"))
@@ -231,8 +239,7 @@ class MCLPharmacologyCatalogStore:
         evidence = self.base.target_evidence()
         target_rows = (
             evidence[evidence["compound_id"].astype(str) == str(compound_id)].copy()
-            if not evidence.empty
-            else pd.DataFrame()
+            if not evidence.empty else pd.DataFrame()
         )
         target_summary: list[dict[str, Any]] = []
         if not target_rows.empty:
@@ -247,12 +254,8 @@ class MCLPharmacologyCatalogStore:
                     }
                 )
 
-        responses = self.base.responses()
-        response_rows = (
-            responses[responses["compound_id"].astype(str) == str(compound_id)].copy()
-            if not responses.empty
-            else pd.DataFrame()
-        )
+        # Critical performance rule: read only this compound from the 3.46M-row table.
+        response_rows = self.base.responses_for_compound(str(compound_id))
         if not response_rows.empty:
             endpoints = set(response_rows["endpoint"].dropna().astype(str).str.upper()) if "endpoint" in response_rows.columns else set()
             if endpoints == {"LFC"} and "value" in response_rows.columns:
@@ -260,12 +263,8 @@ class MCLPharmacologyCatalogStore:
                 response_rows = response_rows.sort_values("value", ascending=True, na_position="last")
             atlas = self.atlas()
             if not atlas.empty:
-                keep = [c for c in (
-                    "model_id", "cell_line_name", "mcl_cancer_name", "mcl_organ_ru", "mcl_system_ru"
-                ) if c in atlas.columns]
-                response_rows = response_rows.merge(
-                    atlas[keep].drop_duplicates("model_id"), on="model_id", how="left"
-                )
+                response_rows = response_rows.merge(atlas.drop_duplicates("model_id"), on="model_id", how="left")
+
         example_cols = [c for c in (
             "model_id", "cell_line_name", "mcl_cancer_name", "mcl_organ_ru", "source", "endpoint",
             "value", "unit", "dose", "dose_unit", "exposure_time_h", "quality_flag",
@@ -278,9 +277,11 @@ class MCLPharmacologyCatalogStore:
                 "targets": target_summary,
                 "response_summary": {
                     "observations_n": int(len(response_rows)),
-                    "models_n": int(response_rows["model_id"].nunique()) if not response_rows.empty else 0,
+                    "models_n": int(response_rows["model_id"].nunique()) if not response_rows.empty and "model_id" in response_rows.columns else 0,
                 },
-                "response_examples": self._records(response_rows[example_cols].head(max(1, min(int(limit), 200)))) if not response_rows.empty else [],
+                "response_examples": self._records(
+                    response_rows[example_cols].head(max(1, min(int(limit), 200)))
+                ) if not response_rows.empty else [],
                 "target_concordance": concordance,
                 "interpretation_ru": (
                     "Чувствительность модели к веществу и аннотация белковой мишени являются разными "
@@ -297,6 +298,7 @@ class MCLPharmacologyCatalogStore:
         hit = catalog[catalog["target_gene"].astype(str).str.upper() == gene]
         if hit.empty:
             raise MCLDataError(f"Unknown pharmacology target: {gene}")
+
         identity = self._clean(hit.iloc[0].to_dict())
         identity["actions"] = self._json_list(identity.pop("actions_json", "[]"))
         identity["evidence_types"] = self._json_list(identity.pop("evidence_types_json", "[]"))
@@ -305,34 +307,33 @@ class MCLPharmacologyCatalogStore:
         identity["dependency_fraction"] = dependent_n / crispr_n if crispr_n else None
 
         compounds = self.target_compounds()
-        compound_rows = compounds[
-            compounds["target_gene"].astype(str).str.upper() == gene
-        ].copy() if not compounds.empty else pd.DataFrame()
+        compound_rows = (
+            compounds[compounds["target_gene"].astype(str).str.upper() == gene].copy()
+            if not compounds.empty else pd.DataFrame()
+        )
         if not compound_rows.empty:
-            compound_rows = compound_rows.sort_values(
-                [c for c in ("models_n", "dependent_models_n", "preferred_name") if c in compound_rows.columns],
-                ascending=[False, False, True][: len([c for c in ("models_n", "dependent_models_n", "preferred_name") if c in compound_rows.columns])],
-                na_position="last",
-            )
+            sort_cols = [c for c in ("models_n", "dependent_models_n", "preferred_name") if c in compound_rows.columns]
+            if sort_cols:
+                compound_rows = compound_rows.sort_values(
+                    sort_cols,
+                    ascending=[False if c in {"models_n", "dependent_models_n"} else True for c in sort_cols],
+                    na_position="last",
+                )
             for column in ("actions_json", "evidence_types_json"):
                 if column in compound_rows.columns:
                     compound_rows[column.replace("_json", "")] = compound_rows[column].map(self._json_list)
             compound_rows = compound_rows.drop(columns=["actions_json", "evidence_types_json"], errors="ignore")
 
-        links = self.base.model_target_links()
-        model_rows = links[
-            links["target_gene"].astype(str).str.upper() == gene
-        ].copy() if not links.empty and "target_gene" in links.columns else pd.DataFrame()
+        # Critical performance rule: read only this target from the 6.03M-row link table.
+        model_rows = self.base.links_for_target(gene)
         if not model_rows.empty:
             model_rows["gene_effect"] = pd.to_numeric(model_rows["gene_effect"], errors="coerce")
             model_rows = model_rows.sort_values("gene_effect", ascending=True, na_position="last")
             model_rows = model_rows.drop_duplicates("model_id", keep="first")
             atlas = self.atlas()
             if not atlas.empty:
-                keep = [c for c in (
-                    "model_id", "cell_line_name", "mcl_cancer_name", "mcl_organ_ru", "mcl_system_ru"
-                ) if c in atlas.columns]
-                model_rows = model_rows.merge(atlas[keep].drop_duplicates("model_id"), on="model_id", how="left")
+                model_rows = model_rows.merge(atlas.drop_duplicates("model_id"), on="model_id", how="left")
+
         model_cols = [c for c in (
             "model_id", "cell_line_name", "mcl_cancer_name", "mcl_organ_ru", "gene_effect",
             "crispr_support_level",
@@ -348,7 +349,9 @@ class MCLPharmacologyCatalogStore:
                     "Мишень связана с кодирующим геном по аннотации источника. Конкретная изоформа белка, "
                     "протеоформа или белковый комплекс требуют отдельного подтверждения."
                 ),
-                "compounds": self._records(compound_rows.head(max(1, min(int(limit), 250)))) if not compound_rows.empty else [],
+                "compounds": self._records(
+                    compound_rows.head(max(1, min(int(limit), 250)))
+                ) if not compound_rows.empty else [],
                 "model_examples": self._records(model_rows[model_cols].head(40)) if not model_rows.empty else [],
                 "target_concordance": concordance,
             }
