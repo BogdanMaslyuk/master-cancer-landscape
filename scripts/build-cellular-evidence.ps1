@@ -1,6 +1,9 @@
 param(
     [switch]$RebuildTargetLigandSpace,
-    [switch]$ForceTargetLigandRefresh
+    [switch]$ForceTargetLigandRefresh,
+    [switch]$ForcePrismStructureRefresh,
+    [switch]$RetryUnresolvedPrismStructures,
+    [double]$PubChemPause = 0.15
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,14 +53,27 @@ $Missing = @($Required | Where-Object { -not (Test-Path $_) })
 if ($Missing.Count -gt 0) {
     Write-Host "Missing required inputs:" -ForegroundColor Red
     $Missing | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-    throw "Build Target Ligand Space, PRISM pharmacology and Candidate v2 before Cellular Evidence Layer v1."
+    throw "Build Target Ligand Space, PRISM pharmacology and Candidate v2 before Cellular Evidence Layer v1.1."
 }
 
-Run-Step "MCL Cellular Evidence Layer v1: direct ligand -> PRISM cells -> DepMap CRISPR" @(
-    ".\scripts\build_cellular_evidence_layer.py"
+$ResolveArgs = @(
+    ".\scripts\resolve_prism_structures_pubchem.py",
+    "--pause", [string]$PubChemPause
+)
+if ($ForcePrismStructureRefresh) {
+    $ResolveArgs += "--force"
+} elseif ($RetryUnresolvedPrismStructures) {
+    $ResolveArgs += "--retry-unresolved"
+}
+
+Run-Step "Resolve PRISM chemical structures for exact cross-database mapping" $ResolveArgs
+
+Run-Step "MCL Cellular Evidence Layer v1.1: direct ligand -> PRISM cells -> DepMap CRISPR" @(
+    ".\scripts\build_cellular_evidence_layer_v1_1.py"
 )
 
 Write-Host "`nCellular Evidence Layer build completed." -ForegroundColor Green
+Write-Host "PRISM structure registry: data\runtime\pharmacology\prism_structure_registry.tsv"
 Write-Host "Primary ligand summary: data\runtime\cellular_evidence\target_ligand_cellular_summary.tsv"
 Write-Host "Model-level evidence: data\runtime\cellular_evidence\target_ligand_cellular_models.parquet"
 Write-Host "PYZ summary: data\runtime\cellular_evidence\pyz_cellular_evidence_summary.tsv"
