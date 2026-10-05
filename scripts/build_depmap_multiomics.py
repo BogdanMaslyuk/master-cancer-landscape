@@ -21,29 +21,44 @@ LAYER_SOURCES: dict[str, tuple[str, ...]] = {
     ),
     "copy_number": ("OmicsCNGeneWGS.csv", "OmicsCNGene.csv"),
     "gene_effect": ("CRISPRGeneEffect.csv",),
+    "gene_dependency": ("CRISPRGeneDependency.csv",),
 }
 
 OUTPUTS = {
     "expression": "depmap_model_expression.parquet",
     "copy_number": "depmap_model_copy_number.parquet",
     "gene_effect": "depmap_model_gene_effect.parquet",
+    "gene_dependency": "depmap_model_gene_dependency.parquet",
 }
 
 LAYER_META = {
     "expression": {
         "label": "RNA expression",
         "value_semantics": "log2(TPM + 1)",
-        "note": "DepMap model-level protein-coding gene expression matrix.",
+        "note": "DepMap model-level protein-coding gene expression matrix; 0 means no detected expression in this representation.",
     },
     "copy_number": {
         "label": "Relative copy number",
         "value_semantics": "relative copy number, linear scale",
-        "note": "MCL stores the DepMap relative WGS copy-number values as supplied; it does not convert them to absolute integer copy number or call amplification/deletion here.",
+        "note": (
+            "MCL stores the DepMap WGS relative copy-number values as supplied. These values are not absolute integer copy number. "
+            "MCL does not call amplification/deletion from a universal threshold because DepMap does not recommend one for this matrix."
+        ),
     },
     "gene_effect": {
         "label": "CRISPR Gene Effect",
-        "value_semantics": "Chronos Gene Effect; more negative values indicate stronger loss-of-function dependency",
-        "note": "CRISPR knockout dependency is not equivalent to pharmacological inhibition.",
+        "value_semantics": "Chronos Gene Effect; more negative values indicate stronger loss-of-function phenotype",
+        "note": (
+            "Use as a continuous phenotype and for correlation/ranking. -1 is a common-essential reference anchor, not a universal binary dependency cutoff. "
+            "CRISPR knockout is not equivalent to pharmacological inhibition."
+        ),
+    },
+    "gene_dependency": {
+        "label": "CRISPR probability of dependency",
+        "value_semantics": "probability from 0 to 1; >0.5 is the DepMap binary dependency convention",
+        "note": (
+            "Use this layer for dependent/non-dependent calls. MCL keeps Gene Effect separately as the continuous phenotype-strength measure."
+        ),
     },
 }
 
@@ -157,7 +172,6 @@ def _build_matrix(path: Path, model_ids: set[str], chunksize: int) -> tuple[pd.D
     id_col, keep, rename, gene_map = _column_plan(header)
     chunks: list[pd.DataFrame] = []
 
-    # Chunking by rows keeps peak memory bounded even for ~20k-gene matrices.
     for chunk in pd.read_csv(path, usecols=keep, chunksize=max(8, chunksize), low_memory=False):
         mask = chunk[id_col].astype(str).str.strip().isin(model_ids)
         if not mask.any():
@@ -190,14 +204,17 @@ def _write_layer(layer: str, frame: pd.DataFrame) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Build model-level DepMap expression, relative copy-number and CRISPR Gene Effect indexes for the full MCL CRISPR model universe."
+        description=(
+            "Build model-level DepMap expression, relative copy-number, Chronos Gene Effect and "
+            "probability-of-dependency indexes for the full MCL CRISPR model universe."
+        )
     )
     parser.add_argument("--release", default=None, help="DepMap release directory, e.g. 26Q1. Inferred by default.")
     parser.add_argument("--chunksize", type=int, default=48, help="Rows per wide-matrix CSV chunk. Lower this if memory is limited.")
     parser.add_argument(
         "--allow-partial",
         action="store_true",
-        help="Build available layers even when expression or copy-number files are missing.",
+        help="Build available layers even when one or more source matrices are missing.",
     )
     args = parser.parse_args()
 
@@ -214,6 +231,12 @@ def main() -> None:
         "model_universe_source": universe_source,
         "raw_dir": str(release_dir),
         "layers": {},
+        "methodology": {
+            "binary_dependency": "CRISPRGeneDependency > 0.5 when available",
+            "continuous_dependency_strength": "CRISPRGeneEffect (Chronos)",
+            "copy_number": "relative linear copy number; no universal amplification/deletion threshold",
+            "expression": "log2(TPM + 1)",
+        },
     }
     missing: list[str] = []
 
@@ -261,7 +284,7 @@ def main() -> None:
             "Multi-omics index is incomplete because source files are missing.\n"
             "Download the missing files from the same pinned DepMap release and rerun:\n"
             f"{expected}\n"
-            "CRISPRGeneEffect may already be present. Use --allow-partial only if you intentionally want the available layers."
+            "Use --allow-partial only if you intentionally want the available layers."
         )
 
 
