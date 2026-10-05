@@ -55,7 +55,7 @@ gene_service = GeneService(gene_repository)
 atlas_repository = AtlasRepository(atlas_store, cohort_store, multiomics_store)
 atlas_service = AtlasService(atlas_repository)
 
-model_repository = ModelRepository(atlas_store, multiomics_store)
+model_repository = ModelRepository(atlas_store, multiomics_store, model_dependency_store)
 model_service = ModelService(model_repository)
 
 pharmacology_repository = PharmacologyRepository(pharmacology_store, pharmacology_catalog_store)
