@@ -35,9 +35,9 @@ if (-not $SkipDownload) {
 }
 
 Run-Step "Normalize PRISM 24Q2" @(".\scripts\ingest_prism_24q2.py")
-Run-Step "Build MCL Pharmacology Layer v1" @(".\scripts\build_pharmacology_layer.py")
+Run-Step "Build MCL Pharmacology Layer v1.1 catalogs" @(".\scripts\build_pharmacology_layer.py")
 Run-Step "Validate annotated targets against CRISPR profiles" @(".\scripts\build_pharmacology_target_concordance.py")
 
-Write-Host "`nMCL Pharmacology Layer v1 build completed." -ForegroundColor Green
-Write-Host "The build now also creates target_concordance.parquet: drug sensitivity vs annotated-target CRISPR dependency across shared cell models."
-Write-Host "Open a model card and inspect the new 'Фармакология модели' section after restarting backend/frontend."
+Write-Host "`nMCL Pharmacology Layer v1.1 build completed." -ForegroundColor Green
+Write-Host "Runtime now includes compound_catalog.parquet, target_catalog.parquet, target_compound_catalog.parquet and target_concordance.parquet."
+Write-Host "Restart backend/frontend and open /compounds, /targets, or a model pharmacology section."
