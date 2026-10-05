@@ -11,14 +11,15 @@ const researchLinks = [
   { href: "/genes", label: "Гены", index: "04", note: "Функции → CRISPR → контексты" },
   { href: "/compounds", label: "Вещества", index: "05", note: "Структура → модели → мишени" },
   { href: "/targets", label: "Белковые мишени", index: "06", note: "Белок ↔ вещества ↔ кодирующий ген" },
-  { href: "/genes/matrix", label: "Ген × опухоль", index: "07", note: "Сравнение зависимостей" },
-  { href: "/pathways", label: "Функциональные модули", index: "08", note: "Пути и комплексы" },
-  { href: "/network", label: "Карта связей", index: "09", note: "Гены ↔ модули" },
+  { href: "/hypotheses", label: "Исследовательские гипотезы", index: "07", note: "Кандидат → модели → эксперимент" },
+  { href: "/genes/matrix", label: "Ген × опухоль", index: "08", note: "Сравнение зависимостей" },
+  { href: "/pathways", label: "Функциональные модули", index: "09", note: "Пути и комплексы" },
+  { href: "/network", label: "Карта связей", index: "10", note: "Гены ↔ модули" },
 ];
 
 const systemLinks = [
-  { href: "/qc", label: "Контроль качества", index: "10", note: "Ошибки и ограничения" },
-  { href: "/methodology", label: "Методика и термины", index: "11", note: "Как читать MCL" },
+  { href: "/qc", label: "Контроль качества", index: "11", note: "Ошибки и ограничения" },
+  { href: "/methodology", label: "Методика и термины", index: "12", note: "Как читать MCL" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -54,14 +55,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const inAtlas = pathname.startsWith("/atlas") || pathname.startsWith("/models") || pathname.startsWith("/comparisons");
   const inGenes = pathname.startsWith("/genes");
+  const inHypotheses = pathname.startsWith("/hypotheses");
   const inPharmacology = pathname.startsWith("/compounds") || pathname.startsWith("/targets");
-  const context = inPharmacology
-    ? "От вещества к клеточной модели, белковой мишени и кодирующему гену"
-    : inGenes
-      ? "От функции и гена к опухолевому контексту"
-      : inAtlas
-        ? "От опухоли к модели и функциональным зависимостям"
-        : "Поиск противоопухолевых зависимостей";
+  const context = inHypotheses
+    ? "От вычислительных доказательств к следующему лабораторному эксперименту"
+    : inPharmacology
+      ? "От вещества к клеточной модели, белковой мишени и кодирующему гену"
+      : inGenes
+        ? "От функции и гена к опухолевому контексту"
+        : inAtlas
+          ? "От опухоли к модели и функциональным зависимостям"
+          : "Поиск противоопухолевых зависимостей";
 
   return (
     <div className="app-shell">
@@ -82,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-footer">
           <div className="status-dot" />
           <div>
-            <strong>MCL Explorer v0.7</strong>
+            <strong>MCL Explorer v0.8</strong>
             <span>Локальная исследовательская среда</span>
           </div>
         </div>
@@ -96,7 +100,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span>{context}</span>
           </div>
           <GeneSearch compact />
-          <div className="workspace-badge">M3.4 · исследовательский режим</div>
+          <div className="workspace-badge">M3.5 · приоритизация кандидатов</div>
         </header>
         <main className="workspace-main">{children}</main>
       </div>
