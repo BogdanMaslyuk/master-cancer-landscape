@@ -5,6 +5,7 @@ from .candidate_hypotheses import CandidateHypothesisStore
 from .cohort import MCLModelCohortStore
 from .crispr_catalog import CRISPRModelCatalog
 from .dependency_gene_explorer import DependencyAwareGeneExplorerStore
+from .laboratory import LaboratoryPanelStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
 from .pharmacology import MCLPharmacologyStore
@@ -13,6 +14,7 @@ from .repositories.atlas_repository import AtlasRepository
 from .repositories.comparison_repository import ComparisonRepository
 from .repositories.gene_repository import GeneRepository
 from .repositories.hypothesis_repository import HypothesisRepository
+from .repositories.laboratory_repository import LaboratoryRepository
 from .repositories.model_repository import ModelRepository
 from .repositories.overview_repository import OverviewRepository
 from .repositories.pathway_repository import PathwayRepository
@@ -22,6 +24,7 @@ from .services.atlas_service import AtlasService
 from .services.comparison_service import ComparisonService
 from .services.gene_service import GeneService
 from .services.hypothesis_service import HypothesisService
+from .services.laboratory_service import LaboratoryService
 from .services.model_service import ModelService
 from .services.overview_service import OverviewService
 from .services.pathway_service import PathwayService
@@ -43,6 +46,7 @@ gene_explorer_store = DependencyAwareGeneExplorerStore(MCL_ROOT, store)
 pharmacology_store = MCLPharmacologyStore(MCL_ROOT)
 pharmacology_catalog_store = MCLPharmacologyCatalogStore(MCL_ROOT, pharmacology_store)
 hypothesis_store = CandidateHypothesisStore(MCL_ROOT)
+laboratory_store = LaboratoryPanelStore(MCL_ROOT)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
@@ -59,6 +63,9 @@ pharmacology_service = PharmacologyService(pharmacology_repository)
 
 hypothesis_repository = HypothesisRepository(hypothesis_store)
 hypothesis_service = HypothesisService(hypothesis_repository)
+
+laboratory_repository = LaboratoryRepository(laboratory_store)
+laboratory_service = LaboratoryService(laboratory_repository)
 
 comparison_repository = ComparisonRepository(store)
 comparison_service = ComparisonService(comparison_repository)
