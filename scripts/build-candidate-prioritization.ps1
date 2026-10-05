@@ -26,6 +26,7 @@ if (-not $SkipAudit) {
 }
 
 Run-Step "Build transparent candidate hypotheses" @(".\scripts\build_candidate_hypotheses.py")
+Run-Step "QC candidate model roles" @(".\scripts\qc_candidate_hypothesis_models.py")
 
 if (-not $SkipBenchmark) {
     Run-Step "Known mechanism benchmark" @(".\scripts\build_known_mechanism_benchmark.py")
