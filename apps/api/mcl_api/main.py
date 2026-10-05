@@ -11,6 +11,7 @@ from .routers.comparisons import router as comparisons_router
 from .routers.crispr_catalog import router as crispr_catalog_router
 from .routers.genes import router as genes_router
 from .routers.hypotheses import router as hypotheses_router
+from .routers.laboratory import router as laboratory_router
 from .routers.models import router as models_router
 from .routers.pathways import router as pathways_router
 from .routers.pharmacology import router as pharmacology_router
@@ -22,7 +23,7 @@ from .state import overview_service
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.10.0",
+    version="0.11.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -39,6 +40,7 @@ for router in (
     models_router,
     pharmacology_router,
     hypotheses_router,
+    laboratory_router,
     comparisons_router,
     genes_router,
     pathways_router,
@@ -60,7 +62,7 @@ async def add_mcl_timing(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status":"ok", "mcl_root": str(MCL_ROOT)}
+    return {"status": "ok", "mcl_root": str(MCL_ROOT)}
 
 
 @app.get("/api/summary", response_model=OverviewResponse)
