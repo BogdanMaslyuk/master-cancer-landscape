@@ -32,6 +32,16 @@ def _text(value: object) -> str:
     return str(value).strip()
 
 
+def _safe_int(value: object, default: int = 0) -> int:
+    """Convert pandas/NumPy scalar counters to int without crashing on NaN/NA."""
+    try:
+        if value is None or pd.isna(value):
+            return default
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
 def _action_class(value: object) -> str:
     text = _text(value).lower()
     if not text:
@@ -168,13 +178,13 @@ def _bh(values: pd.Series) -> pd.Series:
 
 
 def _label(row: pd.Series) -> tuple[str, str]:
-    n = int(row.get("models_n") or 0)
+    n = _safe_int(row.get("models_n"))
     rho = row.get("primary_rho")
     q = row.get("q_value")
     delta = row.get("median_response_delta_dependent_minus_other")
     action = _text(row.get("action_class"))
     orientation = _text(row.get("response_orientation"))
-    dependency_measured_n = int(row.get("dependency_probability_models_n") or 0)
+    dependency_measured_n = _safe_int(row.get("dependency_probability_models_n"))
 
     if n < MIN_SHARED_MODELS:
         return "insufficient", "Недостаточно общих моделей для устойчивой профильной оценки."
@@ -273,7 +283,7 @@ def main() -> None:
                 "evidence_type": target.get("evidence_type"),
                 "confidence": target.get("confidence"),
                 "directness": target.get("directness"),
-                "target_evidence_rows_n": int(target.get("target_evidence_rows_n") or 0),
+                "target_evidence_rows_n": _safe_int(target.get("target_evidence_rows_n")),
                 "response_orientation": orientation,
             }
             if not gene or gene not in available_genes:
