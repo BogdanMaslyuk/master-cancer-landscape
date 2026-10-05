@@ -47,15 +47,15 @@ export default function PharmacologyPanel({payload}:{payload:Pharmacology}){
     </div>
     {(payload.sources||[]).length>0&&<div className={styles.sources}>{payload.sources.map((s:string)=><span className={styles.source} key={s}>{s}</span>)}</div>}
     {items.length?<div className={styles.tableWrap}><table className={styles.table}>
-      <thead><tr><th>Вещество</th><th>Источник / анализ</th><th>Результат</th><th>Условия</th><th>Кандидатные мишени в этой модели</th></tr></thead>
+      <thead><tr><th>Вещество</th><th>Источник / анализ</th><th>Результат</th><th>Условия</th><th>Кандидатные белковые мишени в этой модели</th></tr></thead>
       <tbody>{items.map((row:any,index:number)=>{const targets=rankedTargets(row);return <tr key={row.observation_id||`${row.compound_id}-${index}`}>
         <td><Link href={`/compounds/${encodeURIComponent(row.compound_id||"")}`} className={styles.compound}>{row.preferred_name||row.compound_id}</Link><span className={styles.sub}>{row.compound_id}{row.chembl_id?` · ${row.chembl_id}`:""}</span>{row.canonical_smiles&&<span className={styles.sub}>SMILES доступен</span>}</td>
         <td><b>{row.source||"—"}</b><span className={styles.sub}>{row.assay_type||row.source_assay_id||"—"}</span></td>
         <td><b>{resultText(row)}</b><span className={styles.sub}>{row.endpoint||"endpoint не указан"}</span></td>
         <td>{row.dose!==null&&row.dose!==undefined?`доза ${fmt(row.dose)} ${row.dose_unit||""}`:"—"}<span className={styles.sub}>{row.exposure_time_h?`${fmt(row.exposure_time_h,1)} ч`:""}</span></td>
-        <td>{targets.length?<div className={styles.targets}>{targets.map((t:any,j:number)=><Link href={`/targets/${encodeURIComponent(t.target_gene||"")}`} className={`${styles.target} ${supportClass(t.crispr_support_level)}`} key={`${t.target_gene}-${j}`}><b>{t.target_gene||"?"}</b><span>{t.action||t.evidence_type||"аннотированная мишень"}</span><span>{supportLabel(t.crispr_support_level)}{t.gene_effect!==null&&t.gene_effect!==undefined?` · GE ${fmt(t.gene_effect)}`:""}</span></Link>)}</div>:<span className={styles.sub}>мишень не аннотирована в текущем слое</span>}</td>
+        <td>{targets.length?<div className={styles.targets}>{targets.map((t:any,j:number)=>{const protein=t.protein_preferred_name||null;return <Link href={`/targets/${encodeURIComponent(t.target_gene||"")}`} className={`${styles.target} ${supportClass(t.crispr_support_level)}`} key={`${t.target_gene}-${j}`}><b>{protein||`мишень гена ${t.target_gene||"?"}`}</b><span>ген {t.target_gene||"?"}{t.uniprot_primary_accession?` · UniProt ${t.uniprot_primary_accession}`:""}</span><span>{supportLabel(t.crispr_support_level)}{t.gene_effect!==null&&t.gene_effect!==undefined?` · GE ${fmt(t.gene_effect)}`:""}</span></Link>})}</div>:<span className={styles.sub}>мишень не аннотирована в текущем слое</span>}</td>
       </tr>})}</tbody>
     </table></div>:<div className={styles.empty}>Для этой модели нет нормализованных фармакологических наблюдений.</div>}
-    <p className={styles.note}>Кандидаты-мишени здесь сначала происходят из аннотации вещества, а затем упорядочиваются по CRISPR-согласованности именно этой модели. Это не вероятность связывания и не доказательство причинного механизма. Чувствительность клетки, аннотация мишени и CRISPR-зависимость остаются разными типами доказательств.</p>
+    <p className={styles.note}>Фармакологический источник обычно задаёт мишень через символ гена; MCL отдельно добавляет название соответствующего reviewed-белка из UniProt, если сопоставление однозначно. CRISPR относится к кодирующему гену. Эти слои поддерживают механистическую гипотезу, но не доказывают связывание или конкретную изоформу.</p>
   </>;
 }
