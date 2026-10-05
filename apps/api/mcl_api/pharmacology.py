@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from .store import MCLDataError
+from .target_registry import ProteinTargetRegistry
 
 
 class MCLPharmacologyStore:
@@ -26,6 +27,7 @@ class MCLPharmacologyStore:
     def __init__(self, root: Path):
         self.root = Path(root).resolve()
         self.runtime = self.root / "data" / "runtime" / "pharmacology"
+        self.target_registry = ProteinTargetRegistry(self.root)
 
     @staticmethod
     def _clean(value: Any) -> Any:
@@ -93,6 +95,7 @@ class MCLPharmacologyStore:
         frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+            frame = self.target_registry.enrich(frame)
         return frame
 
     @lru_cache(maxsize=1)
@@ -101,6 +104,7 @@ class MCLPharmacologyStore:
         frame = pd.read_parquet(path) if path.exists() else pd.DataFrame()
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+            frame = self.target_registry.enrich(frame)
         return frame
 
     # Full-table accessors are retained for offline compatibility only. Interactive
@@ -142,6 +146,7 @@ class MCLPharmacologyStore:
             frame["model_id"] = frame["model_id"].astype(str)
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+            frame = self.target_registry.enrich(frame)
         return frame
 
     def links_for_target(self, target_gene: str) -> pd.DataFrame:
@@ -154,6 +159,7 @@ class MCLPharmacologyStore:
             frame["model_id"] = frame["model_id"].astype(str)
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+            frame = self.target_registry.enrich(frame)
         return frame
 
     def links_for_compound(self, compound_id: str) -> pd.DataFrame:
@@ -165,16 +171,19 @@ class MCLPharmacologyStore:
             frame["model_id"] = frame["model_id"].astype(str)
         if "target_gene" in frame.columns:
             frame["target_gene"] = frame["target_gene"].astype(str).str.upper()
+            frame = self.target_registry.enrich(frame)
         return frame
 
     def summary(self) -> dict[str, Any]:
         manifest = dict(self.manifest())
         manifest.setdefault("sources", [])
         manifest["target_concordance"] = self.concordance_summary()
+        registry = self.target_registry.frame()
+        manifest["protein_target_registry_n"] = int(len(registry)) if not registry.empty else 0
         manifest["contract_note_ru"] = (
-            "Ответ клеточной модели на вещество, известная мишень вещества и CRISPR-зависимость "
-            "хранятся как независимые типы доказательств. Их согласованность поддерживает гипотезу, "
-            "но не доказывает причинный механизм."
+            "Ответ клеточной модели на вещество, аннотация мишени вещества и CRISPR-зависимость "
+            "хранятся как независимые типы доказательств. Белковое название добавляется отдельным "
+            "gene → protein референсным слоем и не повышает разрешение исходной фармакологической аннотации."
         )
         return self._clean(manifest)
 
@@ -290,8 +299,10 @@ class MCLPharmacologyStore:
         if not links.empty and "compound_id" in links.columns:
             for compound, group in links.groupby("compound_id", sort=False):
                 cols = [c for c in (
-                    "target_gene", "action", "evidence_type", "confidence", "gene_effect",
-                    "crispr_support_level", "source", "activity_type", "activity_value", "activity_unit"
+                    "target_gene", "protein_preferred_name", "uniprot_primary_accession",
+                    "protein_mapping_status", "source_resolution", "action", "evidence_type",
+                    "confidence", "gene_effect", "crispr_support_level", "source",
+                    "activity_type", "activity_value", "activity_unit"
                 ) if c in group.columns]
                 ranked = group.copy()
                 if "gene_effect" in ranked.columns:
@@ -304,7 +315,8 @@ class MCLPharmacologyStore:
         if not concordance.empty and "compound_id" in concordance.columns and preview_compounds:
             sub_concordance = concordance[concordance["compound_id"].astype(str).isin(preview_compounds)].copy()
             cols = [c for c in (
-                "target_gene", "concordance_label", "spearman_rho", "q_value", "models_n",
+                "target_gene", "protein_preferred_name", "uniprot_primary_accession",
+                "concordance_label", "spearman_rho", "q_value", "models_n",
                 "median_response_delta_dependent_minus_other", "interpretation_ru"
             ) if c in sub_concordance.columns]
             for compound, group in sub_concordance.groupby("compound_id", sort=False):
@@ -327,9 +339,9 @@ class MCLPharmacologyStore:
                 "items": items,
                 "interpretation": {
                     "response": "Каждая строка — отдельное экспериментальное наблюдение model × compound; endpoints и единицы не смешиваются в единый рейтинг.",
-                    "target": "Мишени происходят из отдельного слоя compound-target evidence.",
-                    "crispr": "Отрицательный Gene Effect у аннотированной мишени поддерживает функциональную согласованность, но не доказывает механизм препарата.",
-                    "concordance": "Профильная согласованность проверяет связь чувствительности к препарату и CRISPR-зависимости мишени сразу по общей панели моделей.",
+                    "target": "Фармакологический источник задаёт мишень на уровне target_gene; белковое название MCL добавляет из отдельного UniProt-референса.",
+                    "crispr": "Отрицательный Gene Effect у кодирующего гена поддерживает функциональную согласованность, но не доказывает механизм препарата.",
+                    "concordance": "Профильная согласованность проверяет связь чувствительности к препарату и CRISPR-зависимости кодирующего гена сразу по общей панели моделей.",
                 },
             }
         )
