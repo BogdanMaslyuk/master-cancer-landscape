@@ -26,7 +26,7 @@ export default async function PyzDetailPage({params,searchParams}:{params:Promis
   return <>
     <Link href="/pyz" className={styles.backLink}>← Все молекулы PYZ</Link>
     <section className={styles.detailHero}>
-      <div className={styles.structureCard}><img src={`${apiBase}/api/pyz/${encodeURIComponent(c.own_compound_id)}/structure.svg`} alt={`2D-структура ${c.own_compound_id}`}/></div>
+      <div className={styles.structureCard}><img src={`${apiBase}/media/pyz/${encodeURIComponent(c.own_compound_id)}/structure.svg`} alt={`2D-структура ${c.own_compound_id}`}/></div>
       <div className={styles.detailCard}>
         <div className={styles.detailTitle}><div><div className="eyebrow">СОБСТВЕННАЯ МОЛЕКУЛА</div><h1>{c.own_compound_id}</h1><div className={styles.sectionCopy}>{c.chemotype_ru} · {c.ring_variant} · тир {c.tier}</div></div><span className={c.integrated_risk==="high_predicted_risk"?styles.badgeRisk:styles.badgeSoft}>{riskRu(c.integrated_risk)}</span></div>
         <div className={styles.badges}>{priorityTargets.length?priorityTargets.map(g=><span key={g} className={styles.badgePriority}>{g} · проверять</span>):<span className={styles.badge}>нет пар ≥0,35</span>}<span className={styles.badge}>докинг: ожидается</span></div>
@@ -43,7 +43,7 @@ export default async function PyzDetailPage({params,searchParams}:{params:Promis
 
     <section className={styles.section}>
       <div className={styles.sectionHead}><div><div className="eyebrow">TARGET LIGAND SPACE · 13 CORE-МИШЕНЕЙ</div><h2>Какие мишени сейчас поддерживает химическое пространство</h2><div className={styles.sectionCopy}>Для каждой мишени показан лучший экспериментально измеренный лиганд. Ki, Kd и IC50 не считаются взаимозаменяемыми; значение относится к известному лиганду, а не к {c.own_compound_id}.</div></div><Link href={`/pyz/matrix?q=${encodeURIComponent(c.own_compound_id)}`} className={styles.secondaryButton}>Показать в матрице →</Link></div>
-      <div className={styles.targetGrid}>{evidence.map((row:any,idx:number)=>{
+      <div className={styles.targetGrid}>{evidence.map((row:any)=>{
         const priority=Number(row.best_tanimoto_morgan_r2_2048)>=0.35;
         const focused=focusTarget&&String(row.target_gene).toUpperCase()===focusTarget.toUpperCase();
         return <article className={`${styles.targetCard} ${focused?styles.focus:""}`} key={row.target_gene}>
