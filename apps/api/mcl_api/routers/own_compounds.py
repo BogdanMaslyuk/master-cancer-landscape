@@ -3,33 +3,39 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from ..api_utils import guard
-from ..state import own_compound_store
+from ..schemas.own_compounds import (
+    PyzCatalogResponse,
+    PyzDetailResponse,
+    PyzMatrixResponse,
+    PyzSummaryResponse,
+)
+from ..state import own_compound_service
 
 
 router = APIRouter()
 
 
-@router.get("/api/pyz/summary")
+@router.get("/api/pyz/summary", response_model=PyzSummaryResponse)
 def pyz_summary():
-    return guard(own_compound_store.summary)
+    return guard(own_compound_service.summary)
 
 
-@router.get("/api/pyz/matrix")
+@router.get("/api/pyz/matrix", response_model=PyzMatrixResponse)
 def pyz_matrix(
     q: str | None = None,
     min_tanimoto: float = Query(0.0, ge=0.0, le=1.0),
     shortlist_only: bool = False,
 ):
     return guard(
-        lambda: own_compound_store.matrix_view(
-            search=q,
-            min_tanimoto=min_tanimoto,
-            shortlist_only=shortlist_only,
+        lambda: own_compound_service.matrix(
+            q,
+            min_tanimoto,
+            shortlist_only,
         )
     )
 
 
-@router.get("/api/pyz")
+@router.get("/api/pyz", response_model=PyzCatalogResponse)
 def pyz_catalog(
     q: str | None = None,
     target_gene: str | None = None,
@@ -38,19 +44,21 @@ def pyz_catalog(
     offset: int = Query(0, ge=0),
 ):
     return guard(
-        lambda: own_compound_store.catalog(
-            search=q,
-            target_gene=target_gene,
-            shortlist_only=shortlist_only,
-            limit=limit,
-            offset=offset,
+        lambda: own_compound_service.catalog(
+            q,
+            target_gene,
+            shortlist_only,
+            limit,
+            offset,
         )
     )
 
 
-@router.get("/api/pyz/{compound_id}/structure.svg")
+# Media is deliberately outside /api/: the API contract is JSON-only and every
+# /api GET endpoint has a named response model. This route serves a visual aid.
+@router.get("/media/pyz/{compound_id}/structure.svg", response_class=Response)
 def pyz_structure(compound_id: str):
-    smiles = guard(lambda: own_compound_store.smiles(compound_id))
+    smiles = guard(lambda: own_compound_service.smiles(compound_id))
     try:
         from rdkit import Chem
         from rdkit.Chem.Draw import rdMolDraw2D
@@ -68,6 +76,6 @@ def pyz_structure(compound_id: str):
     return Response(content=drawer.GetDrawingText(), media_type="image/svg+xml")
 
 
-@router.get("/api/pyz/{compound_id}")
+@router.get("/api/pyz/{compound_id}", response_model=PyzDetailResponse)
 def pyz_detail(compound_id: str, target_gene: str | None = None):
-    return guard(lambda: own_compound_store.detail(compound_id, focus_target=target_gene))
+    return guard(lambda: own_compound_service.detail(compound_id, target_gene))
