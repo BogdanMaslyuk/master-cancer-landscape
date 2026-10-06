@@ -1,4 +1,5 @@
 const API_BASE = process.env.NEXT_PUBLIC_MCL_API_URL || "http://127.0.0.1:8000";
+export const apiBase = API_BASE;
 
 // MCL Explorer reads immutable/slow-changing processed research outputs.
 // Cache ordinary server-side API reads between route transitions. The legacy full
