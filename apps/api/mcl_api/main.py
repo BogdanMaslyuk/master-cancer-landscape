@@ -13,6 +13,7 @@ from .routers.genes import router as genes_router
 from .routers.hypotheses import router as hypotheses_router
 from .routers.laboratory import router as laboratory_router
 from .routers.models import router as models_router
+from .routers.own_compounds import router as own_compounds_router
 from .routers.pathways import router as pathways_router
 from .routers.pharmacology import router as pharmacology_router
 from .routers.qc import router as qc_router
@@ -23,7 +24,7 @@ from .state import overview_service
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.11.0",
+    version="0.12.0",
     description="Read-only API over Master Cancer Landscape processed outputs.",
 )
 app.add_middleware(
@@ -39,6 +40,7 @@ for router in (
     crispr_catalog_router,
     models_router,
     pharmacology_router,
+    own_compounds_router,
     hypotheses_router,
     laboratory_router,
     comparisons_router,
