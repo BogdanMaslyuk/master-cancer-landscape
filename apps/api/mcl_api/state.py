@@ -18,6 +18,7 @@ from .repositories.hypothesis_repository import HypothesisRepository
 from .repositories.laboratory_repository import LaboratoryRepository
 from .repositories.model_repository import ModelRepository
 from .repositories.overview_repository import OverviewRepository
+from .repositories.own_compound_repository import OwnCompoundRepository
 from .repositories.pathway_repository import PathwayRepository
 from .repositories.pharmacology_repository import PharmacologyRepository
 from .repositories.qc_repository import QCRepository
@@ -28,6 +29,7 @@ from .services.hypothesis_service import HypothesisService
 from .services.laboratory_service import LaboratoryService
 from .services.model_service import ModelService
 from .services.overview_service import OverviewService
+from .services.own_compound_service import OwnCompoundService
 from .services.pathway_service import PathwayService
 from .services.pharmacology_service import PharmacologyService
 from .services.qc_service import QCService
@@ -68,6 +70,9 @@ hypothesis_service = HypothesisService(hypothesis_repository)
 
 laboratory_repository = LaboratoryRepository(laboratory_store)
 laboratory_service = LaboratoryService(laboratory_repository)
+
+own_compound_repository = OwnCompoundRepository(own_compound_store)
+own_compound_service = OwnCompoundService(own_compound_repository)
 
 comparison_repository = ComparisonRepository(store)
 comparison_service = ComparisonService(comparison_repository)
