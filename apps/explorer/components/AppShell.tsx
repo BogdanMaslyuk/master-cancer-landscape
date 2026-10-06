@@ -9,18 +9,19 @@ const researchLinks = [
   { href: "/atlas", label: "Атлас опухолей", index: "02", note: "Орган → опухоль → модели" },
   { href: "/models", label: "Исследователь моделей", index: "03", note: "Клеточная модель → данные" },
   { href: "/genes", label: "Гены", index: "04", note: "Функции → CRISPR → контексты" },
-  { href: "/compounds", label: "Вещества", index: "05", note: "Структура → модели → мишени" },
+  { href: "/compounds", label: "Известные вещества", index: "05", note: "Структура → модели → мишени" },
   { href: "/targets", label: "Белковые мишени", index: "06", note: "Белок ↔ вещества ↔ кодирующий ген" },
-  { href: "/hypotheses", label: "Исследовательские гипотезы", index: "07", note: "Кандидат → модели → эксперимент" },
-  { href: "/laboratory", label: "Лаборатория", index: "08", note: "Что реально можно проверить" },
-  { href: "/genes/matrix", label: "Ген × опухоль", index: "09", note: "Сравнение зависимостей" },
-  { href: "/pathways", label: "Функциональные модули", index: "10", note: "Пути и комплексы" },
-  { href: "/network", label: "Карта связей", index: "11", note: "Гены ↔ модули" },
+  { href: "/pyz", label: "Молекулы PYZ", index: "07", note: "Наша молекула → мишень → культура" },
+  { href: "/hypotheses", label: "Исследовательские гипотезы", index: "08", note: "Кандидат → модели → эксперимент" },
+  { href: "/laboratory", label: "Лаборатория", index: "09", note: "Что реально можно проверить" },
+  { href: "/genes/matrix", label: "Ген × опухоль", index: "10", note: "Сравнение зависимостей" },
+  { href: "/pathways", label: "Функциональные модули", index: "11", note: "Пути и комплексы" },
+  { href: "/network", label: "Карта связей", index: "12", note: "Гены ↔ модули" },
 ];
 
 const systemLinks = [
-  { href: "/qc", label: "Контроль качества", index: "12", note: "Ошибки и ограничения" },
-  { href: "/methodology", label: "Методика и термины", index: "13", note: "Как читать MCL" },
+  { href: "/qc", label: "Контроль качества", index: "13", note: "Ошибки и ограничения" },
+  { href: "/methodology", label: "Методика и термины", index: "14", note: "Как читать MCL" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -58,18 +59,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const inGenes = pathname.startsWith("/genes");
   const inHypotheses = pathname.startsWith("/hypotheses");
   const inLaboratory = pathname.startsWith("/laboratory");
+  const inPyz = pathname.startsWith("/pyz");
   const inPharmacology = pathname.startsWith("/compounds") || pathname.startsWith("/targets");
-  const context = inLaboratory
-    ? "От вычислительной гипотезы к эксперименту на доступных клеточных линиях"
-    : inHypotheses
-      ? "От вычислительных доказательств к следующему лабораторному эксперименту"
-      : inPharmacology
-        ? "От вещества к клеточной модели, белковой мишени и кодирующему гену"
-        : inGenes
-          ? "От функции и гена к опухолевому контексту"
-          : inAtlas
-            ? "От опухоли к модели и функциональным зависимостям"
-            : "Поиск противоопухолевых зависимостей";
+  const context = inPyz
+    ? "От собственной молекулы к мишени, опухоли, клеточной культуре и эксперименту"
+    : inLaboratory
+      ? "От вычислительной гипотезы к эксперименту на доступных клеточных линиях"
+      : inHypotheses
+        ? "От вычислительных доказательств к следующему лабораторному эксперименту"
+        : inPharmacology
+          ? "От вещества к клеточной модели, белковой мишени и кодирующему гену"
+          : inGenes
+            ? "От функции и гена к опухолевому контексту"
+            : inAtlas
+              ? "От опухоли к модели и функциональным зависимостям"
+              : "Поиск противоопухолевых зависимостей";
 
   return (
     <div className="app-shell">
@@ -90,7 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-footer">
           <div className="status-dot" />
           <div>
-            <strong>MCL Explorer v0.9</strong>
+            <strong>MCL Explorer v1.0</strong>
             <span>Локальная исследовательская среда</span>
           </div>
         </div>
@@ -104,7 +108,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span>{context}</span>
           </div>
           <GeneSearch compact />
-          <div className="workspace-badge">M4 · лабораторная выполнимость</div>
+          <div className="workspace-badge">M5 · PYZ → эксперимент</div>
         </header>
         <main className="workspace-main">{children}</main>
       </div>
