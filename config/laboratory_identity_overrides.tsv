@@ -1,0 +1,4 @@
+lab_name	decision	depmap_model_id	status	evidence_note_ru
+A549	force_match	ACH-000681	curated	Стандартная линия A549; отдельная модель ACH-003012 является производной A549CRAFKD и не должна автоматически подменять исходную A549.
+PC3	force_match	ACH-000090	curated	Стандартная линия PC3 предстательной железы. ACH-002184 — отдельная модель PC3JPC3_LUNG лёгочного происхождения.
+U251	preferred_only	ACH-000232	requires_source_confirmation	ACH-000232 соответствует U251MG; ACH-001172 — U251MGDM, отдельная дрейфовавшая производная. Не разрешать автоматически без подтверждения происхождения кафедрального флакона.

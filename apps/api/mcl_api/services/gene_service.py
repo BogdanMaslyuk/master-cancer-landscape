@@ -6,12 +6,7 @@ from ..repositories.gene_repository import GeneRepository
 
 
 class GeneService:
-    """Cached application service for Gene Explorer use-cases.
-
-    Routers delegate orchestration here so HTTP concerns stay separate from data
-    access and scientific runtime stores. Cache sizes mirror the previous router
-    implementation to preserve behavior while making the boundary explicit.
-    """
+    """Cached application service for Gene Explorer use-cases."""
 
     def __init__(self, repository: GeneRepository):
         self.repository = repository
@@ -56,6 +51,9 @@ class GeneService:
         stable_only: bool,
         exclude_broad: bool,
         exclude_low_sample: bool,
+        dependency_type: str | None,
+        dependency_fraction_min: float | None,
+        specificity_score_min: float | None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -79,6 +77,9 @@ class GeneService:
             stable_only=stable_only,
             exclude_broad=exclude_broad,
             exclude_low_sample=exclude_low_sample,
+            dependency_type=dependency_type,
+            dependency_fraction_min=dependency_fraction_min,
+            specificity_score_min=specificity_score_min,
             page=page,
             page_size=page_size,
             sort_by=sort_by,
@@ -129,6 +130,10 @@ class GeneService:
     @lru_cache(maxsize=512)
     def contexts(self, gene_symbol: str):
         return self.repository.contexts(gene_symbol)
+
+    @lru_cache(maxsize=512)
+    def dependency_landscape(self, gene_symbol: str):
+        return self.repository.dependency_landscape(gene_symbol)
 
     @lru_cache(maxsize=2048)
     def models(

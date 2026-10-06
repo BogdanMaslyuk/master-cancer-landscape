@@ -1,0 +1,31 @@
+/* Cancer Atlas wide layout — one organ per full-width row. */
+
+.organ-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.organ-card {
+  width: 100%;
+}
+
+.organ-contexts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .organ-contexts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .organ-grid {
+    gap: 14px;
+  }
+
+  .organ-card {
+    padding: 18px;
+  }
+}

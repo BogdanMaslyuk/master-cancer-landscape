@@ -23,6 +23,12 @@ export type AtlasResponse = {
   "organs": AtlasOrgan[];
 };
 
+export type CRISPRAtlasResponse = Record<string, unknown>;
+
+export type CRISPRModelResponse = Record<string, unknown>;
+
+export type CRISPRModelsResponse = Record<string, unknown>;
+
 export type CancerContextResponse = {
   [key: string]: unknown;
   "id": string;
@@ -66,6 +72,10 @@ export type ComparisonSummary = {
   "qc_status": string;
 };
 
+export type CompoundCatalogResponse = Record<string, unknown>;
+
+export type CompoundPharmacologyResponse = Record<string, unknown>;
+
 export type CoverageSummary = {
   [key: string]: unknown;
   "annotated_genes_n"?: number | null;
@@ -78,6 +88,8 @@ export type CoverageSummary = {
 export type GeneAnnotationsResponse = Record<string, unknown>;
 
 export type GeneContextsResponse = Record<string, unknown>;
+
+export type GeneDependencyLandscapeResponse = Record<string, unknown>;
 
 export type GeneDetailResponse = {
   [key: string]: unknown;
@@ -133,6 +145,24 @@ export type GeneSearchResponse = {
 
 export type GeneSuggestResponse = Record<string, unknown>[];
 
+export type HypothesisCatalogResponse = Record<string, unknown>;
+
+export type HypothesisDetailResponse = Record<string, unknown>;
+
+export type HypothesisSummaryResponse = Record<string, unknown>;
+
+export type LaboratoryCandidateDetailResponse = Record<string, unknown>;
+
+export type LaboratoryCandidatesResponse = Record<string, unknown>;
+
+export type LaboratoryLinesResponse = Record<string, unknown>;
+
+export type LaboratoryMechanismPanelsResponse = Record<string, unknown>;
+
+export type LaboratorySummaryResponse = Record<string, unknown>;
+
+export type ModelDependenciesResponse = Record<string, unknown>;
+
 export type ModelDetailResponse = Record<string, unknown>;
 
 export type ModelListItem = {
@@ -152,6 +182,8 @@ export type ModelListItem = {
 };
 
 export type ModelMultiomicsResponse = Record<string, unknown>;
+
+export type ModelPharmacologyResponse = Record<string, unknown>;
 
 export type ModelVariant = {
   [key: string]: unknown;
@@ -191,6 +223,18 @@ export type PathwayListResponse = Record<string, unknown>[];
 
 export type PathwayStabilityResponse = Record<string, unknown>[];
 
+export type PharmacologyConcordanceResponse = Record<string, unknown>;
+
+export type PharmacologySummaryResponse = Record<string, unknown>;
+
+export type PyzCatalogResponse = Record<string, unknown>;
+
+export type PyzDetailResponse = Record<string, unknown>;
+
+export type PyzMatrixResponse = Record<string, unknown>;
+
+export type PyzSummaryResponse = Record<string, unknown>;
+
 export type QCResponse = Record<string, unknown>;
 
 export type ReferenceCoverageSummary = {
@@ -202,4 +246,8 @@ export type ReferenceCoverageSummary = {
 };
 
 export type StableGenesResponse = Record<string, unknown>[];
+
+export type TargetCatalogResponse = Record<string, unknown>;
+
+export type TargetPharmacologyResponse = Record<string, unknown>;
 

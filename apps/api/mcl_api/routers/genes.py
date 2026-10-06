@@ -6,6 +6,7 @@ from ..api_utils import guard
 from ..schemas.genes import (
     GeneAnnotationsResponse,
     GeneContextsResponse,
+    GeneDependencyLandscapeResponse,
     GeneDetailResponse,
     GeneFacetResponse,
     GeneListResponse,
@@ -56,34 +57,20 @@ def gene_search(
     stable_only: bool = False,
     exclude_broad: bool = False,
     exclude_low_sample: bool = False,
+    dependency_type: str | None = None,
+    dependency_fraction_min: float | None = Query(None, ge=0, le=1),
+    specificity_score_min: float | None = Query(None, ge=0, le=1),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=250),
-    sort_by: str = "best_delta_gene_effect",
-    sort_order: str = "asc",
+    sort_by: str = "specificity_score",
+    sort_order: str = "desc",
 ):
     return guard(
         lambda: gene_service.search(
-            q,
-            domain,
-            subdomain,
-            pathway,
-            annotation_source,
-            protein_class,
-            compartment,
-            hallmark,
-            cancer_id,
-            comparison_id,
-            gene_effect_max,
-            delta_gene_effect_max,
-            q_value_max,
-            cliffs_delta_abs_min,
-            stable_only,
-            exclude_broad,
-            exclude_low_sample,
-            page,
-            page_size,
-            sort_by,
-            sort_order,
+            q, domain, subdomain, pathway, annotation_source, protein_class, compartment, hallmark,
+            cancer_id, comparison_id, gene_effect_max, delta_gene_effect_max, q_value_max,
+            cliffs_delta_abs_min, stable_only, exclude_broad, exclude_low_sample, dependency_type,
+            dependency_fraction_min, specificity_score_min, page, page_size, sort_by, sort_order,
         )
     )
 
@@ -110,23 +97,9 @@ def gene_matrix(
 ):
     return guard(
         lambda: gene_service.matrix(
-            q,
-            domain,
-            subdomain,
-            protein_class,
-            compartment,
-            hallmark,
-            cancer_id,
-            gene_effect_max,
-            delta_gene_effect_max,
-            q_value_max,
-            cliffs_delta_abs_min,
-            stable_only,
-            exclude_broad,
-            exclude_low_sample,
-            limit,
-            sort_by,
-            sort_order,
+            q, domain, subdomain, protein_class, compartment, hallmark, cancer_id,
+            gene_effect_max, delta_gene_effect_max, q_value_max, cliffs_delta_abs_min,
+            stable_only, exclude_broad, exclude_low_sample, limit, sort_by, sort_order,
         )
     )
 
@@ -134,6 +107,12 @@ def gene_matrix(
 @router.get("/api/genes/stable", response_model=StableGenesResponse)
 def stable_genes():
     return guard(gene_service.stable_genes)
+
+
+@router.get("/api/genes/{gene_symbol}/dependency-landscape", response_model=GeneDependencyLandscapeResponse)
+def gene_dependency_landscape(gene_symbol: str):
+    symbol = gene_symbol.strip().upper()
+    return guard(lambda: gene_service.dependency_landscape(symbol))
 
 
 @router.get("/api/genes/{gene_symbol}/contexts", response_model=GeneContextsResponse)
@@ -153,17 +132,7 @@ def gene_models(
     sort_order: str = "asc",
 ):
     symbol = gene_symbol.strip().upper()
-    return guard(
-        lambda: gene_service.models(
-            symbol,
-            cancer_id,
-            gene_effect_max,
-            page,
-            page_size,
-            sort_by,
-            sort_order,
-        )
-    )
+    return guard(lambda: gene_service.models(symbol, cancer_id, gene_effect_max, page, page_size, sort_by, sort_order))
 
 
 @router.get("/api/genes/{gene_symbol}/annotations", response_model=GeneAnnotationsResponse)
@@ -172,14 +141,8 @@ def gene_annotations(gene_symbol: str):
     return guard(lambda: gene_service.annotations(symbol))
 
 
-@router.get(
-    "/api/genes/{gene_symbol}/mutation-associations",
-    response_model=GeneMutationAssociationsResponse,
-)
-def gene_mutation_associations(
-    gene_symbol: str,
-    limit: int = Query(30, ge=1, le=100),
-):
+@router.get("/api/genes/{gene_symbol}/mutation-associations", response_model=GeneMutationAssociationsResponse)
+def gene_mutation_associations(gene_symbol: str, limit: int = Query(30, ge=1, le=100)):
     symbol = gene_symbol.strip().upper()
     return guard(lambda: gene_service.mutation_associations(symbol, limit))
 

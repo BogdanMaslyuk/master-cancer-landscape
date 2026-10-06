@@ -1,0 +1,42 @@
+lab_id	lab_name	aliases	species	model_class	disease_group_ru	highlighted_on_source	priority_group	control_role	note_ru
+LAB-001	22Rv1	22RV1|22-RV1	human	tumor	Рак предстательной железы	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-002	3B11	3B11	mouse	other	B-клеточная модель	false	nonhuman		Мышиная иммортализованная B-клеточная линия.
+LAB-003	3T3-L1	3T3 L1|3T3L1	mouse	non_tumor	Фибробласты	false	nonhuman		Мышиная фибробластная линия.
+LAB-004	4T1	4T1	mouse	tumor	Опухоль молочной железы	false	nonhuman		Мышиная опухолевая линия.
+LAB-005	A549	A549	human	tumor	Рак лёгкого	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-006	B16	B16	mouse	tumor	Меланома	false	nonhuman		Мышиная меланома.
+LAB-007	BJ5ta	BJ5TA|BJ-5ta|BJ5ta	human	non_tumor_immortalized	Фибробласты	false	human_control	general_non_tumor_control	Единственный доступный на кафедре человеческий неопухолевый контроль; hTERT-иммортализован, не является органоспецифической нормальной тканью.
+LAB-008	BT-549	BT549|BT-549	human	tumor	Рак молочной железы	true	human_priority		Тройной отрицательный рак молочной железы.
+LAB-009	BT-474	BT474|BT-474	human	tumor	Рак молочной железы	true	human_priority		Опухолевая линия молочной железы.
+LAB-010	CHO	CHO	hamster	other	Яичник	false	nonhuman		Клетки яичника китайского хомячка; техническая неонкологическая модель.
+LAB-011	CT26	CT26	mouse	tumor	Колоректальная опухоль	false	nonhuman		Мышиная опухолевая линия.
+LAB-012	COLO 201	COLO201|COLO 201|Colo201	human	tumor	Колоректальный рак	false	human		Метастатическая колоректальная опухолевая линия из списка кафедры.
+LAB-013	HEK293FT	293FT|HEK293FT|HEK 293FT	human	technical_transformed	Техническая клеточная модель	true	human_technical		Трансформированная/иммортализованная техническая линия; не использовать как нормальную почку.
+LAB-014	HEK293T	293T|HEK293T|HEK 293T	human	technical_transformed	Техническая клеточная модель	true	human_technical		Трансформированная/иммортализованная техническая линия; не использовать как нормальную почку.
+LAB-015	HCT116	HCT116|HCT-116	human	tumor	Колоректальный рак	false	human		Опухолевая линия из списка кафедры.
+LAB-016	Ramos	RAMOS|Ramos	human	tumor	Лимфома Беркитта	false	human		B-лимфоцитарная опухолевая линия.
+LAB-017	HeLa	HELA|HeLa	human	tumor	Рак шейки матки	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-018	HepG2	HEPG2|HepG2	human	tumor_derived	Опухоль печени	true	human_priority		Печёночная опухолевая модель; точную нозологическую интерпретацию хранить отдельно от лабораторного ярлыка.
+LAB-019	HOS	HOS	human	tumor	Остеосаркома	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-020	HTC	HTC	rat	tumor	Опухоль печени	false	nonhuman		Крысиная опухолевая линия.
+LAB-021	Huh7	HUH7|Huh7|Huh-7	human	tumor	Гепатоцеллюлярный рак	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-022	J774A.1	J774A.1|J774A1	mouse	tumor	Ретикулоклеточная саркома	false	nonhuman		Мышиная опухолевая линия.
+LAB-023	Jurkat	JURKAT|Jurkat	human	tumor	Острый T-клеточный лейкоз	true	human_priority		T-лимфоцитарная опухолевая линия.
+LAB-024	LLC	LLC|Lewis lung carcinoma	mouse	tumor	Рак лёгкого	false	nonhuman		Мышиная Lewis lung carcinoma.
+LAB-025	LNCaP	LNCAP|LNCaP	human	tumor	Рак предстательной железы	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-026	MCF7	MCF7|MCF-7	human	tumor	Рак молочной железы	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-027	MDA-MB-231	MDAMB231|MDA-MB-231|MDA MB 231	human	tumor	Рак молочной железы	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-028	PC3	PC3|PC-3	human	tumor	Рак предстательной железы	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-029	Phoenix	PHOENIX|Phoenix	human	technical_transformed	Техническая клеточная модель	true	human_technical		Упаковочная/техническая трансформированная линия; не использовать как нормальную почку.
+LAB-030	RAW264.7	RAW264.7|RAW2647	mouse	tumor_derived	Макрофагальная модель	false	nonhuman		Мышиная макрофагальная линия опухолевого происхождения.
+LAB-031	RIN-5F	RIN5F|RIN-5F	rat	tumor	Опухоль островковых клеток поджелудочной железы	false	nonhuman		Крысиная опухолевая линия.
+LAB-032	SC-1	SC-1|SC1	mouse	non_tumor	Эмбриональные фибробласты	false	nonhuman		Мышиная фибробластная линия.
+LAB-033	SH-SY5Y	SHSY5Y|SH-SY5Y	human	tumor	Нейробластома	true	human_priority		Опухолевая линия из списка кафедры.
+LAB-034	SK-OV-3	SKOV3|SK-OV-3	human	tumor	Рак яичника	false	human		Опухолевая линия из списка кафедры.
+LAB-035	SK-BR-3	SKBR3|SK-BR-3	human	tumor	Рак молочной железы	true	human_priority		HER2-выраженная модель молочной железы согласно лабораторному описанию.
+LAB-036	T47D	T47D|T-47D	human	tumor	Рак молочной железы	false	human		Опухолевая линия из списка кафедры.
+LAB-037	THP-1	THP1|THP-1	human	tumor	Острый моноцитарный лейкоз	true	human_priority		Моноцитарная опухолевая линия.
+LAB-038	U2-OS	U2OS|U2-OS	human	tumor	Остеосаркома	false	human		Опухолевая линия из списка кафедры.
+LAB-039	U251	U251|U-251	human	tumor	Глиальная опухоль	true	human_priority		Глиальная опухолевая линия из списка кафедры.
+LAB-040	U87	U87|U87MG|U-87 MG	human	tumor	Глиобластома	true	human_priority		Глиальная опухолевая линия; точный вариант/идентификатор необходимо подтвердить при сопоставлении.
+LAB-041	U937	U937|U-937	human	tumor	Гематологическая опухоль	true	human_priority		Моноцитарная/гистиоцитарная опухолевая линия.

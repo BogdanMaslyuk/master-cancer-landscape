@@ -1,0 +1,8 @@
+benchmark_id	compound_name_query	target_gene	expected_context_note
+BRAF-VEMURAFENIB	vemurafenib	BRAF	BRAF-driven melanoma is a canonical positive-control context; mutation-level context is not yet part of v1 scoring.
+BRAF-DABRAFENIB	dabrafenib	BRAF	BRAF-driven melanoma is a canonical positive-control context; mutation-level context is not yet part of v1 scoring.
+EGFR-ERLOTINIB	erlotinib	EGFR	EGFR-dependent lung cancer provides a canonical mechanism benchmark; activating EGFR alterations will be integrated in a later context layer.
+EGFR-GEFITINIB	gefitinib	EGFR	EGFR-dependent lung cancer provides a canonical mechanism benchmark; activating EGFR alterations will be integrated in a later context layer.
+ALK-CRIZOTINIB	crizotinib	ALK	ALK-driven cancer is a canonical mechanism benchmark; fusion status is not yet part of v1 scoring.
+PARP1-OLAPARIB	olaparib	PARP1	PARP inhibitor response is strongly context-dependent; homologous-recombination deficiency is not yet part of v1 scoring.
+PARP1-NIRAPARIB	niraparib	PARP1	PARP inhibitor response is strongly context-dependent; homologous-recombination deficiency is not yet part of v1 scoring.

@@ -1,0 +1,21 @@
+{
+  "contract": "mcl-pyz-admet-snapshot-v1",
+  "source_report": "SYL-RPT-2026-022 v1.6",
+  "source_date": "2026-10-03",
+  "compounds_n": 65,
+  "ames_positive_n": 48,
+  "genotoxicity_positive_n": 65,
+  "dili_positive_n": 55,
+  "acute_oral_positive_n": 47,
+  "ahr_positive_n": 65,
+  "herg_red_zone_n": 0,
+  "outside_applicability_domain_n": 49,
+  "high_integrated_risk_n": 10,
+  "qed_gt_0_5_n": 25,
+  "ro5_zero_violations_n": 65,
+  "veber_pass_n": 65,
+  "sa_score_le_3_5_n": 61,
+  "pains_alert_n": 60,
+  "interpretation_ru": "Это снимок предиктивного ADMET-отчёта, а не экспериментальная токсикология. Высокий риск означает приоритет лабораторной проверки, а не установленную опасность. Для соединений вне области применимости отрицательные прогнозы нельзя трактовать как доказательство безопасности.",
+  "oral_development_note_ru": "Ряд не следует позиционировать как готовую пероральную лекарственную серию без экспериментальной проверки мутагенности, гепатотоксичности, проницаемости и системной токсичности."
+}

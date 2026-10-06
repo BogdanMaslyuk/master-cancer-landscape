@@ -22,6 +22,8 @@ def main() -> None:
         "gene_catalog.parquet",
         "gene_context_metrics.parquet",
         "gene_annotations.parquet",
+        "gene_dependency_summary.parquet",
+        "gene_dependency_summary.json",
         "manifest.json",
     }
     missing = sorted(name for name in required_files if not (INDEX_DIR / name).exists())
@@ -35,6 +37,7 @@ def main() -> None:
     catalog = pd.read_parquet(INDEX_DIR / "gene_catalog.parquet")
     contexts = pd.read_parquet(INDEX_DIR / "gene_context_metrics.parquet")
     annotations = pd.read_parquet(INDEX_DIR / "gene_annotations.parquet")
+    dependency = pd.read_parquet(INDEX_DIR / "gene_dependency_summary.parquet")
 
     catalog_required = {
         "gene_symbol",
@@ -45,17 +48,32 @@ def main() -> None:
     }
     context_required = {"gene_symbol", "comparison_id", "delta_gene_effect"}
     annotation_required = {"gene_symbol", "annotation_type", "annotation_id"}
+    dependency_required = {
+        "gene_symbol",
+        "dependency_models_n",
+        "dependency_models_total_n",
+        "dependency_fraction",
+        "dependency_type",
+        "best_cancer_name",
+        "best_cancer_dependency_fraction",
+        "specificity_score",
+        "specificity_label_ru",
+    }
 
     require(catalog_required.issubset(catalog.columns), f"gene_catalog.parquet missing columns: {sorted(catalog_required - set(catalog.columns))}")
     require(context_required.issubset(contexts.columns), f"gene_context_metrics.parquet missing columns: {sorted(context_required - set(contexts.columns))}")
     require(annotation_required.issubset(annotations.columns), f"gene_annotations.parquet missing columns: {sorted(annotation_required - set(annotations.columns))}")
+    require(dependency_required.issubset(dependency.columns), f"gene_dependency_summary.parquet missing columns: {sorted(dependency_required - set(dependency.columns))}")
     require(not catalog.empty, "gene_catalog.parquet is empty")
+    require(not dependency.empty, "gene_dependency_summary.parquet is empty")
     require(catalog["gene_symbol"].notna().all(), "gene_catalog.parquet contains null gene_symbol values")
     require(catalog["gene_symbol"].astype(str).str.len().gt(0).all(), "gene_catalog.parquet contains empty gene_symbol values")
 
     manifest_genes = int(manifest.get("genes_n") or 0)
     actual_genes = int(catalog["gene_symbol"].astype(str).nunique())
+    dependency_genes = int(dependency["gene_symbol"].astype(str).nunique())
     require(manifest_genes == actual_genes, f"Manifest genes_n={manifest_genes} but catalog contains {actual_genes} unique genes")
+    require(dependency_genes > 0, "Dependency summary contains no genes")
 
     model_layers = INDEX_DIR / "model_layers"
     for layer in ("gene_effect", "expression", "copy_number"):
@@ -67,6 +85,7 @@ def main() -> None:
     print(f"Contract: {CONTRACT}")
     print(f"Schema version: {SCHEMA_VERSION}")
     print(f"Genes: {actual_genes}")
+    print(f"Gene dependency summaries: {dependency_genes}")
     print(f"Gene x comparison rows: {len(contexts)}")
     print(f"Annotation rows: {len(annotations)}")
     print("Fast model layers: gene_effect, expression, copy_number")
