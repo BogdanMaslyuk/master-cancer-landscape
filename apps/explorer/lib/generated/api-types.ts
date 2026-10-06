@@ -250,3 +250,4 @@ export type StableGenesResponse = Record<string, unknown>[];
 export type TargetCatalogResponse = Record<string, unknown>;
 
 export type TargetPharmacologyResponse = Record<string, unknown>;
+
