@@ -227,6 +227,14 @@ export type PharmacologyConcordanceResponse = Record<string, unknown>;
 
 export type PharmacologySummaryResponse = Record<string, unknown>;
 
+export type PyzCatalogResponse = Record<string, unknown>;
+
+export type PyzDetailResponse = Record<string, unknown>;
+
+export type PyzMatrixResponse = Record<string, unknown>;
+
+export type PyzSummaryResponse = Record<string, unknown>;
+
 export type QCResponse = Record<string, unknown>;
 
 export type ReferenceCoverageSummary = {
@@ -242,4 +250,3 @@ export type StableGenesResponse = Record<string, unknown>[];
 export type TargetCatalogResponse = Record<string, unknown>;
 
 export type TargetPharmacologyResponse = Record<string, unknown>;
-
