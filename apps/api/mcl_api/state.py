@@ -8,6 +8,7 @@ from .dependency_gene_explorer import DependencyAwareGeneExplorerStore
 from .laboratory import LaboratoryPanelStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
+from .own_compounds import OwnCompoundStore
 from .pharmacology import MCLPharmacologyStore
 from .pharmacology_catalog import MCLPharmacologyCatalogStore
 from .repositories.atlas_repository import AtlasRepository
@@ -47,6 +48,7 @@ pharmacology_store = MCLPharmacologyStore(MCL_ROOT)
 pharmacology_catalog_store = MCLPharmacologyCatalogStore(MCL_ROOT, pharmacology_store)
 hypothesis_store = CandidateHypothesisStore(MCL_ROOT)
 laboratory_store = LaboratoryPanelStore(MCL_ROOT)
+own_compound_store = OwnCompoundStore(MCL_ROOT)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
