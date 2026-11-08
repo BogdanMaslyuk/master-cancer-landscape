@@ -202,6 +202,21 @@ export type ModelsResponse = {
   "items": ModelListItem[];
 };
 
+export type MoleculeAnalysisResponse = Record<string, unknown>;
+
+export type MoleculeAnalyzeRequest = {
+  "smiles": string;
+  "name"?: string | null;
+};
+
+export type MoleculeCellLinesResponse = Record<string, unknown>;
+
+export type MoleculeDetailResponse = Record<string, unknown>;
+
+export type MoleculeExperimentResponse = Record<string, unknown>;
+
+export type MoleculeTargetsResponse = Record<string, unknown>;
+
 export type MultiomicsResponse = Record<string, unknown>;
 
 export type NetworkResponse = Record<string, unknown>;
