@@ -14,6 +14,7 @@ from .routers.hypotheses import router as hypotheses_router
 from .routers.laboratory import router as laboratory_router
 from .routers.models import router as models_router
 from .routers.own_compounds import router as own_compounds_router
+from .routers.uploaded_molecules import router as uploaded_molecules_router
 from .routers.pathways import router as pathways_router
 from .routers.pharmacology import router as pharmacology_router
 from .routers.qc import router as qc_router
@@ -41,6 +42,7 @@ for router in (
     models_router,
     pharmacology_router,
     own_compounds_router,
+    uploaded_molecules_router,
     hypotheses_router,
     laboratory_router,
     comparisons_router,
