@@ -207,6 +207,7 @@ export type MoleculeAnalysisResponse = Record<string, unknown>;
 export type MoleculeAnalyzeRequest = {
   "smiles": string;
   "name"?: string | null;
+  "force_recompute"?: boolean;
 };
 
 export type MoleculeCellLinesResponse = Record<string, unknown>;
