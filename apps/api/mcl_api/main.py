@@ -24,14 +24,14 @@ from .state import overview_service
 
 app = FastAPI(
     title="MCL Explorer API",
-    version="0.12.0",
-    description="Read-only API over Master Cancer Landscape processed outputs.",
+    version="0.13.0",
+    description="Research API over Master Cancer Landscape processed outputs and local molecule analyses.",
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
