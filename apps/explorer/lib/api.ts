@@ -7,7 +7,8 @@ export const apiBase = API_BASE;
 // stability views are deliberately small enough to use the normal route cache.
 const API_REVALIDATE_SECONDS = Number(process.env.MCL_API_REVALIDATE_SECONDS || 300);
 
-function isOversizedPayload(path: string): boolean {
+function shouldBypassCache(path: string): boolean {
+  if (path.startsWith("/api/molecules/")) return true;
   if (!path.startsWith("/api/pathways/stability")) return false;
   return !path.includes("stable_only=true") && !path.includes("min_significant_thresholds=");
 }
@@ -15,7 +16,7 @@ function isOversizedPayload(path: string): boolean {
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(
     `${API_BASE}${path}`,
-    isOversizedPayload(path)
+    shouldBypassCache(path)
       ? { cache: "no-store" }
       : {
           cache: "force-cache",
