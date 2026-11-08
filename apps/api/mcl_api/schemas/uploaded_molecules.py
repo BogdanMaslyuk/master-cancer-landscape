@@ -8,6 +8,7 @@ from .common import ApiResponseModel
 class MoleculeAnalyzeRequest(BaseModel):
     smiles: str = Field(min_length=1, max_length=5000)
     name: str | None = Field(default=None, max_length=200)
+    force_recompute: bool = False
 
 
 class MoleculeAnalysisResponse(ApiResponseModel):
