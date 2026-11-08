@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,9 @@ class UploadedMoleculeStore:
         self.runtime_dir = self.root / "data" / "runtime" / "uploaded_molecules"
         self.ligand_catalog_path = (
             self.root / "data" / "runtime" / "target_ligand_space" / "ligand_catalog.parquet"
+        )
+        self.ligand_manifest_path = (
+            self.root / "data" / "runtime" / "target_ligand_space" / "target_ligand_space_manifest.json"
         )
 
     @staticmethod
@@ -305,9 +309,17 @@ class UploadedMoleculeStore:
         }
 
     def _experiment_panel(self, targets: list[dict[str, Any]], cells: list[dict[str, Any]]) -> dict[str, Any]:
-        focus = next((t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35), targets[0] if targets else None)
+        focus = next((t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35), None)
         if focus is None:
-            return {"available": False, "reason": "no_target_context"}
+            return {
+                "available": False,
+                "reason": "no_target_reaches_exploratory_similarity_threshold",
+                "interpretation_ru": (
+                    "Ни одна текущая target-гипотеза не достигла Tanimoto 0,35. "
+                    "MCL не формирует target-based экспериментальную панель; "
+                    "нужен независимый поиск мишени или phenotype-first скрининг."
+                ),
+            }
         gene = str(focus["target_gene"])
         subset = [c for c in cells if c.get("target_gene") == gene]
         positives = [c for c in subset if c.get("role") == "positive"]
@@ -336,6 +348,25 @@ class UploadedMoleculeStore:
                 "note_ru": "Диапазон концентраций задаётся после проверки растворимости и пилота; это план первого эксперимента, а не доказательство эффективности.",
             },
         }
+
+    def _source_versions(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "mcl_molecule_analysis_contract": "mcl-uploaded-molecule-analysis-v1",
+            "target_ligand_space": "current_local_runtime",
+            "candidate_prioritization": "v2",
+            "fingerprint": "Morgan radius=2, 2048 bits",
+        }
+        if self.ligand_manifest_path.exists():
+            try:
+                manifest = json.loads(self.ligand_manifest_path.read_text(encoding="utf-8"))
+                payload["target_ligand_space_manifest"] = {
+                    key: manifest.get(key)
+                    for key in ("contract", "built_at", "targets_n", "ligands_n", "measurements_n")
+                    if manifest.get(key) is not None
+                }
+            except (OSError, json.JSONDecodeError):
+                pass
+        return payload
 
     def _known_pyz(self, canonical: str) -> str | None:
         registry = self.own_compounds.registry()
@@ -373,6 +404,8 @@ class UploadedMoleculeStore:
         payload = self._clean({
             "available": True,
             "analysis_id": analysis_id,
+            "analysis_version": "1.0.0-mvp",
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "name": (name or "").strip() or analysis_id,
             "input_smiles": smiles,
             "standardized_smiles": canonical,
@@ -394,7 +427,9 @@ class UploadedMoleculeStore:
                 "fingerprint": "Morgan radius=2, 2048 bits",
                 "similarity": "Tanimoto",
                 "target_space": "current local Target Ligand Space",
+                "target_space_scope": "current curated MCL core targets; not a proteome-wide target search",
             },
+            "source_versions": self._source_versions(),
             "guardrail_ru": "MCL выбирает наиболее информативные модели для проверки гипотезы; он не утверждает, что загруженная молекула уже действует на выбранную мишень или клеточную линию.",
             "reused_existing_analysis": False,
         })
