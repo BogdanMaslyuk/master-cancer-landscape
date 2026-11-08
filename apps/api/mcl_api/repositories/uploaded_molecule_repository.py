@@ -7,8 +7,13 @@ class UploadedMoleculeRepository:
     def __init__(self, store: UploadedMoleculeStore):
         self.store = store
 
-    def analyze(self, smiles: str, name: str | None = None):
-        return self.store.analyze(smiles, name)
+    def analyze(
+        self,
+        smiles: str,
+        name: str | None = None,
+        force_recompute: bool = False,
+    ):
+        return self.store.analyze(smiles, name, force_recompute)
 
     def detail(self, analysis_id: str):
         return self.store.detail(analysis_id)
