@@ -9,7 +9,8 @@ export default function MoleculeAnalysisPage() {
   const router = useRouter();
   const [smiles, setSmiles] = useState("");
   const [name, setName] = useState("");
-  const [forceRecompute, setForceRecompute] = useState(false);\n  const [busy, setBusy] = useState(false);
+  const [forceRecompute, setForceRecompute] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function submit(event: FormEvent) {
@@ -24,7 +25,11 @@ export default function MoleculeAnalysisPage() {
       const response = await fetch(`${apiBase}/api/molecules/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({\n          smiles: smiles.trim(),\n          name: name.trim() || null,\n          force_recompute: forceRecompute,\n        }),
+        body: JSON.stringify({
+          smiles: smiles.trim(),
+          name: name.trim() || null,
+          force_recompute: forceRecompute,
+        }),
       });
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
