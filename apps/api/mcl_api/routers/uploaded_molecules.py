@@ -19,7 +19,11 @@ router = APIRouter()
 
 @router.post("/api/molecules/analyze", response_model=MoleculeAnalysisResponse)
 def analyze_molecule(request: MoleculeAnalyzeRequest):
-    return guard(\n        lambda: uploaded_molecule_service.analyze(\n            request.smiles, request.name, request.force_recompute\n        )\n    )
+    return guard(
+        lambda: uploaded_molecule_service.analyze(
+            request.smiles, request.name, request.force_recompute
+        )
+    )
 
 
 @router.get("/api/molecules/{analysis_id}", response_model=MoleculeDetailResponse)
