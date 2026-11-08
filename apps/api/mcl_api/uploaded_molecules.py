@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -387,15 +388,20 @@ class UploadedMoleculeStore:
 
     def _record_path(self, analysis_id: str) -> Path:
         safe = analysis_id.strip().upper()
-        if not safe.startswith("MCL-UPL-"):
+        if not re.fullmatch(r"MCL-UPL-[A-F0-9]{12}", safe):
             raise MCLDataError(f"Unknown uploaded molecule: {analysis_id}")
         return self.runtime_dir / f"{safe}.json"
 
-    def analyze(self, smiles: str, name: str | None = None) -> dict[str, Any]:
+    def analyze(
+        self,
+        smiles: str,
+        name: str | None = None,
+        force_recompute: bool = False,
+    ) -> dict[str, Any]:
         mol, canonical, inchikey = self._standardize(smiles)
         analysis_id = self._analysis_id(canonical)
         path = self._record_path(analysis_id)
-        if path.exists():
+        if path.exists() and not force_recompute:
             payload = json.loads(path.read_text(encoding="utf-8"))
             payload["reused_existing_analysis"] = True
             return payload
