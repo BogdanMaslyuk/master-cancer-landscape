@@ -9,7 +9,7 @@ export default function MoleculeAnalysisPage() {
   const router = useRouter();
   const [smiles, setSmiles] = useState("");
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [forceRecompute, setForceRecompute] = useState(false);\n  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function submit(event: FormEvent) {
@@ -24,7 +24,7 @@ export default function MoleculeAnalysisPage() {
       const response = await fetch(`${apiBase}/api/molecules/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ smiles: smiles.trim(), name: name.trim() || null }),
+        body: JSON.stringify({\n          smiles: smiles.trim(),\n          name: name.trim() || null,\n          force_recompute: forceRecompute,\n        }),
       });
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
@@ -81,6 +81,14 @@ export default function MoleculeAnalysisPage() {
               rows={5}
               spellCheck={false}
             />
+          </label>
+          <label className={styles.recompute}>
+            <input
+              type="checkbox"
+              checked={forceRecompute}
+              onChange={(e) => setForceRecompute(e.target.checked)}
+            />
+            <span>Пересчитать, даже если эта структура уже анализировалась</span>
           </label>
           <div className={styles.actions}>
             <label className={styles.fileButton}>
