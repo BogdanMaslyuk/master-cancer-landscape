@@ -9,6 +9,7 @@ from .laboratory import LaboratoryPanelStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
 from .own_compounds import OwnCompoundStore
+from .uploaded_molecules import UploadedMoleculeStore
 from .pharmacology import MCLPharmacologyStore
 from .pharmacology_catalog import MCLPharmacologyCatalogStore
 from .repositories.atlas_repository import AtlasRepository
@@ -19,6 +20,7 @@ from .repositories.laboratory_repository import LaboratoryRepository
 from .repositories.model_repository import ModelRepository
 from .repositories.overview_repository import OverviewRepository
 from .repositories.own_compound_repository import OwnCompoundRepository
+from .repositories.uploaded_molecule_repository import UploadedMoleculeRepository
 from .repositories.pathway_repository import PathwayRepository
 from .repositories.pharmacology_repository import PharmacologyRepository
 from .repositories.qc_repository import QCRepository
@@ -30,6 +32,7 @@ from .services.laboratory_service import LaboratoryService
 from .services.model_service import ModelService
 from .services.overview_service import OverviewService
 from .services.own_compound_service import OwnCompoundService
+from .services.uploaded_molecule_service import UploadedMoleculeService
 from .services.pathway_service import PathwayService
 from .services.pharmacology_service import PharmacologyService
 from .services.qc_service import QCService
@@ -51,6 +54,7 @@ pharmacology_catalog_store = MCLPharmacologyCatalogStore(MCL_ROOT, pharmacology_
 hypothesis_store = CandidateHypothesisStore(MCL_ROOT)
 laboratory_store = LaboratoryPanelStore(MCL_ROOT)
 own_compound_store = OwnCompoundStore(MCL_ROOT)
+uploaded_molecule_store = UploadedMoleculeStore(MCL_ROOT, own_compound_store)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
@@ -73,6 +77,9 @@ laboratory_service = LaboratoryService(laboratory_repository)
 
 own_compound_repository = OwnCompoundRepository(own_compound_store)
 own_compound_service = OwnCompoundService(own_compound_repository)
+
+uploaded_molecule_repository = UploadedMoleculeRepository(uploaded_molecule_store)
+uploaded_molecule_service = UploadedMoleculeService(uploaded_molecule_repository)
 
 comparison_repository = ComparisonRepository(store)
 comparison_service = ComparisonService(comparison_repository)
