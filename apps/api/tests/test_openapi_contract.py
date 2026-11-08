@@ -31,6 +31,10 @@ EXPECTED_RESPONSE_MODELS = {
     "/api/pathways/stability": "PathwayStabilityResponse",
     "/api/network": "NetworkResponse",
     "/api/qc": "QCResponse",
+    "/api/molecules/{analysis_id}": "MoleculeDetailResponse",
+    "/api/molecules/{analysis_id}/targets": "MoleculeTargetsResponse",
+    "/api/molecules/{analysis_id}/cell-lines": "MoleculeCellLinesResponse",
+    "/api/molecules/{analysis_id}/experiment": "MoleculeExperimentResponse",
 }
 
 
@@ -76,3 +80,13 @@ def test_gene_response_models_preserve_untyped_legacy_fields():
     for model_name in GENE_RESPONSE_MODELS:
         model_schema = schema["components"]["schemas"][model_name]
         assert model_schema.get("additionalProperties") is True
+
+
+def test_molecule_analysis_post_has_named_request_and_response_models():
+    schema = app.openapi()
+    operation = schema["paths"]["/api/molecules/analyze"]["post"]
+    request_schema = operation["requestBody"]["content"]["application/json"]["schema"]
+    response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
+
+    assert request_schema == {"$ref": "#/components/schemas/MoleculeAnalyzeRequest"}
+    assert response_schema == {"$ref": "#/components/schemas/MoleculeAnalysisResponse"}

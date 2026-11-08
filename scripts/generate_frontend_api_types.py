@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import sys
 from pathlib import Path
@@ -124,6 +125,17 @@ def main() -> None:
             raise SystemExit(f"Generated API types are missing: {OUTPUT.relative_to(ROOT)}")
         current = OUTPUT.read_text(encoding="utf-8")
         if current != generated:
+            diff = "".join(
+                difflib.unified_diff(
+                    current.splitlines(keepends=True),
+                    generated.splitlines(keepends=True),
+                    fromfile=str(OUTPUT.relative_to(ROOT)),
+                    tofile="generated-from-openapi",
+                    n=3,
+                )
+            )
+            if diff:
+                print(diff, file=sys.stderr)
             raise SystemExit(
                 "Generated frontend API types are stale. Run "
                 ".\\.venv\\Scripts\\python.exe .\\scripts\\generate_frontend_api_types.py"

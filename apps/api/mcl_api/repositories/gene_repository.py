@@ -4,11 +4,7 @@ from typing import Any
 
 
 class GeneRepository:
-    """Read-only adapter over the legacy scientific store and runtime Gene Explorer.
-
-    Repositories contain data-access composition only. They do not know about HTTP
-    and intentionally do not own request-level caching; that belongs to services.
-    """
+    """Read-only adapter over the legacy scientific store and runtime Gene Explorer."""
 
     def __init__(self, explorer: Any, legacy_store: Any):
         self.explorer = explorer
@@ -49,6 +45,9 @@ class GeneRepository:
 
     def annotations(self, gene_symbol: str):
         return self.explorer.annotations(gene_symbol)
+
+    def dependency_landscape(self, gene_symbol: str):
+        return self.explorer.dependency_landscape(gene_symbol)
 
     def mutation_associations(self, gene_symbol: str, *, limit: int = 30):
         return self.explorer.mutation_associations(gene_symbol, limit=limit)

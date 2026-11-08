@@ -35,3 +35,22 @@ class ModelService:
     @lru_cache(maxsize=512)
     def multiomics(self, model_id: str, genes: tuple[str, ...], limit: int):
         return self.repository.multiomics(model_id, genes, limit)
+
+    @lru_cache(maxsize=1024)
+    def dependencies(
+        self,
+        model_id: str,
+        search: str | None,
+        dependency_type: str | None,
+        domain: str | None,
+        limit: int,
+        offset: int,
+    ):
+        return self.repository.dependencies(
+            model_id,
+            search=search,
+            dependency_type=dependency_type,
+            domain=domain,
+            limit=limit,
+            offset=offset,
+        )

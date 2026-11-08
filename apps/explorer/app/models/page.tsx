@@ -1,32 +1,60 @@
-import CellModelTable from "../../components/CellModelTable";
+import CRISPRModelTable from "../../components/CRISPRModelTable";
 import { apiGet } from "../../lib/api";
-import type { ModelsResponse } from "../../lib/generated/api-types";
 
-export default async function ModelsPage(){
-  const models=await apiGet<ModelsResponse>("/api/models?limit=5000");
-  const unique=new Set(models.items.map((m)=>m.model_id)).size;
-  const sequenced=new Set(models.items.filter((m)=>m.sequencing_available).map((m)=>m.model_id)).size;
-  const contexts=new Set(models.items.map((m)=>m.cancer_id)).size;
+export const dynamic = "force-dynamic";
+
+type ModelsResponse = {
+  total: number;
+  status?: string;
+  canonical_index_available?: boolean;
+  build_command?: string | null;
+  note_ru?: string;
+  items: Record<string, any>[];
+};
+
+export default async function ModelsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ organ?: string; cancer?: string }>;
+}) {
+  const params = await searchParams;
+  const models = await apiGet<ModelsResponse>("/api/crispr-models?limit=5000");
+  const organs = new Set(models.items.map((m) => m.mcl_organ_id).filter(Boolean)).size;
+  const cancers = new Set(models.items.map((m) => m.mcl_cancer_id).filter(Boolean)).size;
+  const curated = models.items.filter((m) => Number(m.curated_contexts_n || 0) > 0).length;
 
   return <>
     <section className="page-intro compact-intro">
       <div>
-        <div className="eyebrow">КАТАЛОГ МОДЕЛЕЙ</div>
-        <h1>Клеточные линии</h1>
-        <p>Все клеточные модели, которые сейчас участвуют в настроенных опухолевых контекстах MCL. Используйте каталог, чтобы понять, какие экспериментальные системы доступны до интерпретации генетических зависимостей.</p>
+        <div className="eyebrow">ИССЛЕДОВАТЕЛЬ ЭКСПЕРИМЕНТАЛЬНЫХ МОДЕЛЕЙ</div>
+        <h1>Клеточные линии с CRISPR-профилем</h1>
+        <p>Здесь каждая строка — отдельная клеточная модель DepMap, для которой доступен CRISPR Gene Effect. Найдите модель по названию или последовательно сузьте выбор по органу, опухоли и подтипу.</p>
       </div>
     </section>
 
     <section className="kpi-strip">
-      <div className="kpi"><strong>{unique}</strong><span>уникальных DepMap-моделей</span></div>
-      <div className="kpi"><strong>{contexts}</strong><span>опухолевых контекста</span></div>
-      <div className="kpi"><strong>{sequenced}</strong><span>моделей с мутационным профилированием</span></div>
-      <div className="kpi"><strong>{models.total}</strong><span>записей «модель × контекст»</span></div>
+      <div className="kpi"><strong>{models.total}</strong><span>уникальных CRISPR-моделей</span></div>
+      <div className="kpi"><strong>{organs}</strong><span>органов / систем</span></div>
+      <div className="kpi"><strong>{cancers}</strong><span>групп опухолей</span></div>
+      <div className="kpi"><strong>{curated}</strong><span>моделей уже входят в контексты MCL</span></div>
     </section>
 
+    {!models.canonical_index_available && <section className="section callout atlas-callout">
+      <div className="eyebrow">ВРЕМЕННЫЙ РЕЖИМ</div>
+      <h3>Полный индекс CRISPR-моделей ещё не материализован</h3>
+      <p className="section-copy">{models.note_ru} После построения локального индекса эта страница автоматически расширится на все модели из CRISPRGeneEffect.csv.</p>
+      {models.build_command && <code>{models.build_command}</code>}
+    </section>}
+
     <section className="section">
-      <div className="section-header"><div><div className="eyebrow">ПОИСК И ФИЛЬТРАЦИЯ</div><h2>Найдите клеточную модель</h2><div className="section-copy">Одна линия может встречаться в разных аналитических контекстах. Поэтому каталог показывает не только название, но и заболевание, молекулярный контекст и роль в конкретной выборке.</div></div></div>
-      <CellModelTable models={models.items} showContext/>
+      <div className="section-header">
+        <div>
+          <div className="eyebrow">ПОИСК И ФИЛЬТРАЦИЯ</div>
+          <h2>Найдите подходящую экспериментальную модель</h2>
+          <div className="section-copy">В отличие от Атласа опухолей, эта страница начинается не с заболевания, а с самой модели. Одна линия показывается один раз; её участие в уже настроенных исследованиях MCL отмечено отдельно.</div>
+        </div>
+      </div>
+      <CRISPRModelTable models={models.items} initialOrgan={params.organ || ""} initialCancer={params.cancer || ""}/>
     </section>
   </>;
 }

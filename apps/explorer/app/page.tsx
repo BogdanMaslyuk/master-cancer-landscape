@@ -26,25 +26,41 @@ const russianModule: Record<string, { title: string; meaning: string }> = {
 };
 
 export default async function OverviewPage() {
-  const [s, stableTerms] = await Promise.all([
+  const [s, stableTerms, pyz] = await Promise.all([
     apiGet<Summary>("/api/summary"),
     apiGet<Term[]>("/api/pathways/stability?stable_only=true&limit=50"),
+    apiGet<Record<string,any>>("/api/pyz/summary"),
   ]);
 
   return <>
     <section className="hero">
-      <div className="eyebrow hero-eyebrow">MCL EXPLORER v0.2</div>
-      <h1>От опухоли и клеточной модели к лекарственной гипотезе</h1>
-      <p>Исследование начинается с органа, типа опухоли и молекулярного контекста. Затем MCL показывает реальные клеточные линии, доступные сравнения, полногеномные CRISPR-зависимости, устойчивые гены и функциональные модули.</p>
+      <div className="eyebrow hero-eyebrow">MCL EXPLORER v1.0</div>
+      <h1>От опухоли и собственной молекулы к проверяемому эксперименту</h1>
+      <p>MCL связывает орган, тип опухоли, клеточную модель и CRISPR-зависимость с фармакологией и собственной серией PYZ. Теперь исследование можно начинать как от болезни, так и от конкретной молекулы: PYZ → предполагаемая мишень → опухолевый контекст → клеточные культуры → лабораторная проверка.</p>
     </section>
 
     <ResearchTrail current={1} />
 
     <section className="grid cards">
-      <div className="card"><div className="label">Генов в одном полногеномном сравнении</div><div className="value">{formatNumber(s.genes_analyzed_n,0)}</div><div className="section-copy">Почти весь доступный CRISPR-набор DepMap</div></div>
-      <div className="card"><div className="label">Основных сравнений</div><div className="value">{s.comparisons_n}</div><div className="section-copy">Независимые молекулярные контексты для поиска повторяющихся зависимостей</div></div>
-      <div className="card"><div className="label">Устойчивых повторяющихся генов</div><div className="value">{s.stable_recurrent_genes_n}</div><div className="section-copy">Сохраняются при Top-50, Top-100 и Top-200</div></div>
+      <div className="card"><div className="label">Собственных молекул PYZ</div><div className="value">{formatNumber(pyz.compounds_n,0)}</div><div className="section-copy">Единый реестр структур, ADMET-снимка и target-гипотез</div></div>
+      <div className="card"><div className="label">Core-мишеней PYZ-контура</div><div className="value">{formatNumber(pyz.targets_n,0)}</div><div className="section-copy">Текущие мишени Candidate v2 со статусом priority_for_in_vitro</div></div>
+      <div className="card"><div className="label">Пар PYZ × мишень ≥0,35</div><div className="value">{formatNumber(pyz.shortlist_rows_n,0)}</div><div className="section-copy">Исследовательский shortlist, а не подтверждённые механизмы</div></div>
       <div className="card"><div className="label">Устойчивых функциональных сигналов</div><div className="value">{s.stable_pathways_n}</div><div className="section-copy">Значимы при всех трёх порогах отбора</div></div>
+    </section>
+
+    <section className="section split">
+      <div className="callout">
+        <div className="eyebrow">НОВЫЙ МАРШРУТ · ОТ НАШЕЙ МОЛЕКУЛЫ</div>
+        <h3>PYZ → мишень → орган → опухоль → клеточная культура</h3>
+        <p className="section-copy">Для каждой PYZ теперь можно увидеть химическое сходство с экспериментальными лигандами 13 мишеней, строгие онкологические эталоны, PRISM/CRISPR-контекст известных лигандов, релевантные опухоли и конкретные линии для проверки. Отдельно отмечается, какие культуры физически доступны в нашей лаборатории.</p>
+        <Link href="/pyz" className="primary-link">Открыть молекулы PYZ →</Link>
+      </div>
+      <div className="card next-action">
+        <div className="eyebrow">МАТРИЦА ДОКАЗАТЕЛЬСТВ</div>
+        <h3>65 молекул × 13 мишеней</h3>
+        <p className="section-copy">Матрица показывает лучший Tanimoto до экспериментального лиганда каждой мишени и быстро отделяет 10 текущих исследовательских пар от 835 слабых по 2D-сходству комбинаций.</p>
+        <Link href="/pyz/matrix" className="primary-link">Открыть матрицу PYZ × мишень →</Link>
+      </div>
     </section>
 
     <section className="section">
@@ -76,12 +92,12 @@ export default async function OverviewPage() {
       <div className="callout">
         <div className="eyebrow">ЧТО ЭТО ЗНАЧИТ</div>
         <h3>Мы нашли не готовые лекарственные мишени, а устойчивые биологические зависимости</h3>
-        <p className="section-copy">CRISPR-нокаут показывает, насколько клетка зависит от гена. Следующий этап должен проверить лекарственную достижимость, селективность, известные лиганды, структуры и риски безопасности.</p>
+        <p className="section-copy">CRISPR-нокаут показывает, насколько клетка зависит от гена. Химическое сходство, PRISM, ADMET и докинг добавляются как отдельные оси и не превращаются в непрозрачный итоговый балл.</p>
       </div>
       <div className="card next-action">
-        <div className="eyebrow">С ЧЕГО НАЧАТЬ</div>
+        <div className="eyebrow">ВТОРОЙ МАРШРУТ · ОТ БОЛЕЗНИ</div>
         <h3>Откройте атлас опухолей</h3>
-        <p className="section-copy">Сначала выберите орган, опухоль и молекулярный контекст. Проверьте, какие клеточные линии формируют выборку, и только затем переходите к сравнению зависимостей.</p>
+        <p className="section-copy">Выберите орган, опухоль и молекулярный контекст, проверьте клеточные линии и зависимости, а затем переходите к веществам и собственным PYZ.</p>
         <Link href="/atlas" className="primary-link">Открыть атлас опухолей →</Link>
       </div>
     </section>
