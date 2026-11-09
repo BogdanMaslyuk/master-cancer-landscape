@@ -93,6 +93,10 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
                 independent_confirmatory_model: "вторая независимая модель",
                 measured_negative_tumour_control: "отрицательный опухолевый контроль с измеренной CRISPR-зависимостью",
                 non_tumour_control: "неопухолевый контроль",
+                laboratory_positive_tumour_model: "положительная модель в нашей лаборатории",
+                laboratory_confirmatory_model: "вторая положительная модель в нашей лаборатории",
+                laboratory_negative_tumour_control: "отрицательный опухолевый контроль в нашей лаборатории",
+                same_cancer_negative_control: "сопоставимый отрицательный контроль того же типа опухоли",
               } as Record<string, string>)[code] || code).join("; ")}.</div>
             )}
           </div>
