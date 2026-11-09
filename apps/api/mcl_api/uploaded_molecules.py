@@ -232,8 +232,21 @@ class UploadedMoleculeStore:
             row["rank"] = rank
         return output
 
+    @staticmethod
+    def _dependency_value(value: Any) -> float | None:
+        """Only measured, finite CRISPR probabilities are eligible for roles."""
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        if pd.isna(number) or not 0 <= number <= 1:
+            return None
+        return number
+
     def _cell_lines(self, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        selected = [t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35] or targets[:3]
+        # Weak structural neighbors remain in the target table, not in
+        # evidence-backed cell-line recommendations.
+        selected = [t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35]
         output: list[dict[str, Any]] = []
         seen: set[tuple[str, str]] = set()
         for target in selected[:5]:
@@ -245,27 +258,44 @@ class UploadedMoleculeStore:
                     if not model_id or (gene, model_id) in seen:
                         continue
                     seen.add((gene, model_id))
-                    role = str(model.get("role") or "unclassified")
+                    original_role = str(model.get("role") or "unclassified")
+                    dependency = self._dependency_value(model.get("dependency_probability"))
                     lab = bool(model.get("available_in_laboratory"))
-                    if similarity >= 0.35 and role == "positive" and lab:
-                        level, level_ru = "high", "Высокий"
-                    elif similarity >= 0.35 and role == "positive":
-                        level, level_ru = "medium", "Средний"
-                    else:
+                    known = model.get("known_reference_compounds") or []
+                    reasons: list[str] = []
+                    warnings: list[str] = [
+                        "Структурное сходство не подтверждает связывание новой молекулы с мишенью."
+                    ]
+                    if dependency is None:
+                        role = "insufficient_data"
+                        level, level_ru = "insufficient_data", "Недостаточно данных"
+                        warnings.append("Нет достоверного измерения CRISPR-зависимости для этой пары модель–мишень.")
+                    elif original_role == "positive" and dependency > 0.5:
+                        role = "positive"
+                        level, level_ru = ("high", "Высокий") if lab else ("medium", "Средний")
+                        reasons.append("Подтверждена CRISPR-зависимость; модель отмечена в Candidate v2")
+                    elif original_role.startswith("negative_") and dependency <= 0.5:
+                        role = original_role
                         level, level_ru = "exploratory", "Исследовательский"
-                    reasons = []
-                    if model.get("dependency_probability") is not None:
-                        reasons.append(f"CRISPR P(dep)={float(model['dependency_probability']):.2f}")
+                        reasons.append("Измеренная низкая CRISPR-зависимость; кандидат в опухолевый контроль")
+                        warnings.append("Отсутствие CRISPR-зависимости не доказывает нечувствительность к веществу.")
+                    else:
+                        role = "discordant_or_unclassified"
+                        level, level_ru = "exploratory", "Исследовательский"
+                        warnings.append("Оценка CRISPR не согласуется с назначенной ролью Candidate v2.")
+                    if dependency is not None:
+                        reasons.append(f"CRISPR P(dep)={dependency:.2f}")
                     if model.get("gene_effect") is not None:
-                        reasons.append(f"Chronos Gene Effect={float(model['gene_effect']):.2f}")
-                    if role == "positive":
-                        reasons.append("положительная модель Candidate v2")
-                    if role.startswith("negative_"):
-                        reasons.append("кандидат в отрицательный опухолевый контроль")
-                    if model.get("known_reference_compounds_n"):
-                        reasons.append("есть фармакологический контекст известных веществ")
+                        try:
+                            reasons.append(f"Chronos Gene Effect={float(model['gene_effect']):.2f}")
+                        except (TypeError, ValueError):
+                            pass
+                    if known:
+                        reasons.append("Известны вещества в фармакологическом контексте мишени; эффект новой молекулы не измерен")
                     if lab:
-                        reasons.append("линия есть в лабораторном реестре")
+                        reasons.append("Клеточная линия есть в лабораторном реестре")
+                    if role == "positive" and not known:
+                        warnings.append("Независимая фармакологическая поддержка в этих данных не представлена.")
                     output.append(self._clean({
                         "target_gene": gene,
                         "target_similarity": similarity,
@@ -273,24 +303,27 @@ class UploadedMoleculeStore:
                         "organ": context.get("mcl_organ_ru") or context.get("mcl_system_ru"),
                         "cancer_id": context.get("mcl_cancer_id"),
                         "cancer_name": context.get("mcl_cancer_name"),
-                        "model_id": model.get("model_id"),
-                        "cell_line_name": model.get("cell_line_name") or model.get("model_id"),
+                        "model_id": model_id,
+                        "cell_line_name": model.get("cell_line_name") or model_id,
                         "role": role,
-                        "dependency_probability": model.get("dependency_probability"),
+                        "original_candidate_role": original_role,
+                        "dependency_probability": dependency,
                         "gene_effect": model.get("gene_effect"),
-                        "known_reference_compounds": model.get("known_reference_compounds") or [],
+                        "known_reference_compounds": known,
                         "available_in_laboratory": lab,
                         "laboratory_lines": model.get("laboratory_lines") or [],
                         "priority_level": level,
                         "priority_level_ru": level_ru,
                         "reasons": reasons,
+                        "warnings": warnings,
                     }))
-        order = {"high": 0, "medium": 1, "exploratory": 2}
+        order = {"high": 0, "medium": 1, "exploratory": 2, "insufficient_data": 3}
         output.sort(key=lambda row: (
             order.get(str(row.get("priority_level")), 9),
             0 if row.get("available_in_laboratory") else 1,
             0 if row.get("role") == "positive" else 1,
-            -float(row.get("dependency_probability") or -1),
+            -(row.get("dependency_probability") if row.get("dependency_probability") is not None else -1),
+            str(row.get("cell_line_name") or ""),
         ))
         return output
 
@@ -310,30 +343,81 @@ class UploadedMoleculeStore:
         }
 
     def _experiment_panel(self, targets: list[dict[str, Any]], cells: list[dict[str, Any]]) -> dict[str, Any]:
-        focus = next((t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35), None)
-        if focus is None:
+        supported = [t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35]
+        if not supported:
             return {
                 "available": False,
                 "reason": "no_target_reaches_exploratory_similarity_threshold",
                 "interpretation_ru": (
-                    "Ни одна текущая target-гипотеза не достигла Tanimoto 0,35. "
-                    "MCL не формирует target-based экспериментальную панель; "
-                    "нужен независимый поиск мишени или phenotype-first скрининг."
+                    "Ни одна target-гипотеза не достигла Tanimoto 0,35. "
+                    "Не сформирована мишень-ориентированная экспериментальная панель; "
+                    "рассмотрите независимый поиск мишени или первичный фенотипический скрининг."
                 ),
+                "positive_models": [],
+                "negative_tumor_control": None,
+                "non_tumor_control": self._non_tumor_control(),
             }
+        # A top structural neighbor without a dependent tumour model is not
+        # an experimentally actionable hypothesis: consider subsequent targets.
+        focus = next(
+            (t for t in supported if any(
+                c.get("target_gene") == t["target_gene"] and c.get("role") == "positive"
+                for c in cells
+            )),
+            supported[0],
+        )
         gene = str(focus["target_gene"])
         subset = [c for c in cells if c.get("target_gene") == gene]
         positives = [c for c in subset if c.get("role") == "positive"]
-        negatives = [c for c in subset if str(c.get("role") or "").startswith("negative_")]
-        positives.sort(key=lambda c: (0 if c.get("available_in_laboratory") else 1, -float(c.get("dependency_probability") or -1)))
-        negatives.sort(key=lambda c: (0 if c.get("available_in_laboratory") else 1, float(c.get("dependency_probability") or 9)))
+        positives.sort(key=lambda c: (
+            0 if c.get("available_in_laboratory") else 1,
+            -(c.get("dependency_probability") if c.get("dependency_probability") is not None else -1),
+        ))
+        selected = positives[:2]
+        # Prioritize a comparator from the same cancer context; exclude
+        # missing, discordant, and unmeasured CRISPR results.
+        negatives = [
+            c for c in subset
+            if str(c.get("role") or "").startswith("negative_")
+            and c.get("dependency_probability") is not None
+            and c["dependency_probability"] <= 0.5
+            and c.get("model_id") not in {p.get("model_id") for p in selected}
+        ]
+        cancer_ids = {p.get("cancer_id") for p in selected if p.get("cancer_id")}
+        negatives.sort(key=lambda c: (
+            0 if c.get("cancer_id") in cancer_ids else 1,
+            0 if c.get("available_in_laboratory") else 1,
+            c["dependency_probability"],
+        ))
+        negative = negatives[0] if negatives else None
+        normal = self._non_tumor_control()
+        missing = []
+        if not selected:
+            missing.append("positive_tumour_model")
+        if len(selected) < 2:
+            missing.append("independent_confirmatory_model")
+        if negative is None:
+            missing.append("measured_negative_tumour_control")
+        if normal is None:
+            missing.append("non_tumour_control")
+        complete = not missing
         return {
-            "available": True,
+            "available": bool(selected),
+            "complete": complete,
+            "status": "complete" if complete else ("partial" if selected else "not_ready"),
+            "missing_components": missing,
+            "interpretation_ru": (
+                "Предложена экспериментальная панель для проверки гипотезы; "
+                "прямое действие новой молекулы на мишень не установлено."
+                if complete else
+                "Панель неполная. Отсутствующие модели или контроли нельзя "
+                "считать проверенными и готовыми к эксперименту."
+            ),
             "focus_target_gene": gene,
             "focus_target_tanimoto": focus.get("best_tanimoto"),
-            "positive_models": positives[:2],
-            "negative_tumor_control": negatives[0] if negatives else None,
-            "non_tumor_control": self._non_tumor_control(),
+            "positive_models": selected,
+            "negative_tumor_control": negative,
+            "non_tumor_control": normal,
             "suggested_first_assay": {
                 "assay": "MTT/viability pilot",
                 "exposure_hours": 72,
@@ -346,7 +430,10 @@ class UploadedMoleculeStore:
                     "cell-free blank",
                     "compound + assay reagent without cells",
                 ],
-                "note_ru": "Диапазон концентраций задаётся после проверки растворимости и пилота; это план первого эксперимента, а не доказательство эффективности.",
+                "note_ru": (
+                    "Диапазон концентраций задаётся после проверки растворимости и пилота; "
+                    "план не является доказательством эффективности."
+                ),
             },
         }
 
