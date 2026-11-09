@@ -150,7 +150,11 @@ def test_weak_similarity_does_not_generate_cell_recommendations(tmp_path: Path):
     }]
     targets = [{"target_gene": "CDK4", "best_tanimoto": 0.34}]
     assert store._cell_lines(targets) == []
-    assert store._experiment_panel(targets, [])["available"] is False
+    panel = store._experiment_panel(targets, [])
+    assert panel["available"] is False
+    assert panel["complete"] is False
+    assert panel["status"] == "not_ready"
+    assert "supported_target_hypothesis" in panel["missing_components"]
 
 
 def test_discordant_candidate_role_is_not_promoted(tmp_path: Path):
