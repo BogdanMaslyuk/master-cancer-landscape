@@ -347,6 +347,14 @@ class UploadedMoleculeStore:
         if not supported:
             return {
                 "available": False,
+                "complete": False,
+                "status": "not_ready",
+                "missing_components": [
+                    "supported_target_hypothesis",
+                    "positive_tumour_model",
+                    "independent_confirmatory_model",
+                    "measured_negative_tumour_control",
+                ],
                 "reason": "no_target_reaches_exploratory_similarity_threshold",
                 "interpretation_ru": (
                     "Ни одна target-гипотеза не достигла Tanimoto 0,35. "
