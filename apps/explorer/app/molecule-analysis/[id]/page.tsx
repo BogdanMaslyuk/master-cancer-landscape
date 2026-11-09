@@ -88,6 +88,7 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
             {" "}{panel.interpretation_ru || "Для формирования панели недостаточно подтверждённых данных."}
             {Array.isArray(panel.missing_components) && panel.missing_components.length > 0 && (
               <div>Отсутствующие элементы: {panel.missing_components.map((code: string) => ({
+                supported_target_hypothesis: "мишень с достаточной структурной поддержкой",
                 positive_tumour_model: "положительная опухолевая модель",
                 independent_confirmatory_model: "вторая независимая модель",
                 measured_negative_tumour_control: "отрицательный опухолевый контроль с измеренной CRISPR-зависимостью",
