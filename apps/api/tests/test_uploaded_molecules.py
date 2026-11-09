@@ -91,3 +91,97 @@ def test_force_recompute_replaces_cached_analysis(tmp_path: Path):
     assert refreshed["analysis_id"] == first["analysis_id"]
     assert refreshed["name"] == "refreshed"
     assert refreshed["reused_existing_analysis"] is False
+
+
+def _model(model_id: str, role: str, probability, *, lab=False, cancer="CANCER-001"):
+    return {
+        "model_id": model_id,
+        "cell_line_name": model_id,
+        "role": role,
+        "dependency_probability": probability,
+        "gene_effect": -0.8 if probability is not None else None,
+        "available_in_laboratory": lab,
+        "laboratory_lines": [model_id] if lab else [],
+        "known_reference_compounds": [],
+    }
+
+
+def test_missing_crispr_never_becomes_negative_control(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "mcl_cancer_id": "CANCER-001", "mcl_cancer_name": "Test cancer",
+        "models": [
+            _model("P1", "positive", 0.91, lab=True),
+            _model("N_UNMEASURED", "negative_same_cancer", None, lab=True),
+            _model("N_MEASURED", "negative_same_cancer", 0.12, lab=False),
+        ],
+    }]
+    store._non_tumor_control = lambda: {"lab_name": "BJ5ta"}
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.75}]
+    cells = store._cell_lines(targets)
+    unmeasured = next(c for c in cells if c["model_id"] == "N_UNMEASURED")
+    assert unmeasured["role"] == "insufficient_data"
+    assert unmeasured["priority_level"] == "insufficient_data"
+    panel = store._experiment_panel(targets, cells)
+    assert panel["negative_tumor_control"]["model_id"] == "N_MEASURED"
+    assert panel["status"] == "partial"
+    assert panel["complete"] is False
+    assert "independent_confirmatory_model" in panel["missing_components"]
+
+
+def test_missing_positive_blocks_ready_panel(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "mcl_cancer_id": "CANCER-001",
+        "models": [_model("N1", "negative_same_cancer", 0.1)],
+    }]
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.6}]
+    cells = store._cell_lines(targets)
+    panel = store._experiment_panel(targets, cells)
+    assert panel["available"] is False
+    assert panel["status"] == "not_ready"
+    assert "positive_tumour_model" in panel["missing_components"]
+
+
+def test_weak_similarity_does_not_generate_cell_recommendations(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "models": [_model("P1", "positive", 0.9, lab=True)],
+    }]
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.34}]
+    assert store._cell_lines(targets) == []
+    assert store._experiment_panel(targets, [])["available"] is False
+
+
+def test_discordant_candidate_role_is_not_promoted(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "models": [
+            _model("P_CONFLICT", "positive", 0.1, lab=True),
+            _model("N_CONFLICT", "negative_same_cancer", 0.95, lab=True),
+        ],
+    }]
+    cells = store._cell_lines([{"target_gene": "CDK4", "best_tanimoto": 0.7}])
+    assert {c["role"] for c in cells} == {"discordant_or_unclassified"}
+    assert all(c["priority_level"] == "exploratory" for c in cells)
+
+
+def test_experiment_focus_skips_target_without_positive_model(tmp_path: Path):
+    store = make_store(tmp_path)
+    def contexts(gene):
+        if gene == "CDK4":
+            return [{"mcl_cancer_id": "CANCER-001", "models": [
+                _model("N1", "negative_same_cancer", 0.1)
+            ]}]
+        return [{"mcl_cancer_id": "CANCER-002", "models": [
+            _model("P1", "positive", 0.92, lab=True)
+        ]}]
+    store.own_compounds._contexts_for_target = contexts
+    targets = [
+        {"target_gene": "CDK4", "best_tanimoto": 0.8},
+        {"target_gene": "BCL2L1", "best_tanimoto": 0.6},
+    ]
+    panel = store._experiment_panel(targets, store._cell_lines(targets))
+    assert panel["focus_target_gene"] == "BCL2L1"
+    assert panel["available"] is True
+    assert panel["complete"] is False
