@@ -189,3 +189,48 @@ def test_experiment_focus_skips_target_without_positive_model(tmp_path: Path):
     assert panel["focus_target_gene"] == "BCL2L1"
     assert panel["available"] is True
     assert panel["complete"] is False
+
+
+def test_in_silico_panel_without_lab_cultures_is_not_complete(tmp_path: Path):
+    store = make_store(tmp_path)
+    store._non_tumor_control = lambda: {"lab_name": "BJ5ta"}
+    target = [{"target_gene": "CDK4", "best_tanimoto": 0.7}]
+    cells = [
+        {"target_gene": "CDK4", "model_id": "P1", "role": "positive",
+         "dependency_probability": 0.9, "available_in_laboratory": False,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "P2", "role": "positive",
+         "dependency_probability": 0.8, "available_in_laboratory": False,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "N1", "role": "negative_same_cancer",
+         "dependency_probability": 0.1, "available_in_laboratory": False,
+         "cancer_id": "CANCER-001"},
+    ]
+    panel = store._experiment_panel(target, cells)
+    assert panel["evidence_complete"] is True
+    assert panel["laboratory_ready"] is False
+    assert panel["complete"] is False
+    assert panel["status"] == "partial"
+    assert "laboratory_positive_tumour_model" in panel["missing_components"]
+
+
+def test_mismatched_negative_cancer_is_reported(tmp_path: Path):
+    store = make_store(tmp_path)
+    store._non_tumor_control = lambda: {"lab_name": "BJ5ta"}
+    target = [{"target_gene": "CDK4", "best_tanimoto": 0.7}]
+    cells = [
+        {"target_gene": "CDK4", "model_id": "P1", "role": "positive",
+         "dependency_probability": 0.9, "available_in_laboratory": True,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "P2", "role": "positive",
+         "dependency_probability": 0.8, "available_in_laboratory": True,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "N1", "role": "negative_same_cancer",
+         "dependency_probability": 0.1, "available_in_laboratory": True,
+         "cancer_id": "CANCER-002"},
+    ]
+    panel = store._experiment_panel(target, cells)
+    assert panel["laboratory_ready"] is True
+    assert panel["complete"] is False
+    assert panel["status"] == "partial"
+    assert "same_cancer_negative_control" in panel["missing_components"]
