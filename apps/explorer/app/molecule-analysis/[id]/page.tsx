@@ -73,13 +73,30 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
             <div className={styles.badges}><span>{c.target_gene} · Tanimoto {n(c.target_similarity,3)}</span><span>{roleRu(c.role)}</span>{c.available_in_laboratory && <span className={styles.lab}>есть в лаборатории</span>}</div>
             <div className={styles.miniStats}><div><b>{n(c.dependency_probability)}</b><span>P(dep)</span></div><div><b>{n(c.gene_effect)}</b><span>Gene Effect</span></div></div>
             <ul>{(c.reasons || []).slice(0,5).map((reason:string)=><li key={reason}>{reason}</li>)}</ul>
+            {Array.isArray(c.warnings) && c.warnings.length > 0 && (
+              <div className={styles.guardrail}>{c.warnings.join(" ")}</div>
+            )}
             {c.model_id && <Link className={styles.more} href={`/models/${encodeURIComponent(c.model_id)}`}>Открыть модель →</Link>}
           </article>)}</div>}
       </section>
 
       <section className={styles.panel}>
         <div className={styles.panelHead}><div><div className="eyebrow">РЕКОМЕНДУЕМЫЙ ПЕРВЫЙ ЭКСПЕРИМЕНТ</div><h2>Минимальная информативная панель</h2></div><div className={styles.status}>мишень · {panel.focus_target_gene || "—"}</div></div>
-        {!panel.available ? <div className={styles.empty}>Пока недостаточно данных для target-based панели.</div> : <>
+        {panel.status !== "complete" && (
+          <div className={styles.guardrail}>
+            <b>{panel.status === "partial" ? "Экспериментальная панель неполная." : "Панель не готова."}</b>
+            {" "}{panel.interpretation_ru || "Для формирования панели недостаточно подтверждённых данных."}
+            {Array.isArray(panel.missing_components) && panel.missing_components.length > 0 && (
+              <div>Отсутствующие элементы: {panel.missing_components.map((code: string) => ({
+                positive_tumour_model: "положительная опухолевая модель",
+                independent_confirmatory_model: "вторая независимая модель",
+                measured_negative_tumour_control: "отрицательный опухолевый контроль с измеренной CRISPR-зависимостью",
+                non_tumour_control: "неопухолевый контроль",
+              } as Record<string, string>)[code] || code).join("; ")}.</div>
+            )}
+          </div>
+        )}
+        {!panel.available ? <div className={styles.empty}>Для этой структуры пока нельзя сформировать обоснованную мишень-ориентированную панель.</div> : <>
           <div className={styles.experimentGrid}>
             <div><span>Положительные модели</span><b>{(panel.positive_models || []).map((x:any)=>x.cell_line_name).join(" · ") || "не найдены"}</b></div>
             <div><span>Отрицательный опухолевый контроль</span><b>{panel.negative_tumor_control?.cell_line_name || "не найден"}</b></div>
