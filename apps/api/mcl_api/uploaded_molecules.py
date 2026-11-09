@@ -408,10 +408,35 @@ class UploadedMoleculeStore:
             missing.append("measured_negative_tumour_control")
         if normal is None:
             missing.append("non_tumour_control")
+        # Distinguish an in-silico model set from a panel that can be run
+        # with the locally registered laboratory cultures.
+        if selected and not any(p.get("available_in_laboratory") for p in selected):
+            missing.append("laboratory_positive_tumour_model")
+        if len(selected) >= 2 and sum(bool(p.get("available_in_laboratory")) for p in selected) < 2:
+            missing.append("laboratory_confirmatory_model")
+        if negative is not None and not negative.get("available_in_laboratory"):
+            missing.append("laboratory_negative_tumour_control")
+        if negative is not None and selected:
+            same_cancer = any(
+                p.get("cancer_id") and p.get("cancer_id") == negative.get("cancer_id")
+                for p in selected
+            )
+            if not same_cancer:
+                missing.append("same_cancer_negative_control")
         complete = not missing
+        evidence_complete = bool(
+            len(selected) >= 2 and negative is not None and normal is not None
+        )
+        laboratory_ready = bool(
+            evidence_complete
+            and all(p.get("available_in_laboratory") for p in selected)
+            and negative.get("available_in_laboratory")
+        )
         return {
             "available": bool(selected),
             "complete": complete,
+            "evidence_complete": evidence_complete,
+            "laboratory_ready": laboratory_ready,
             "status": "complete" if complete else ("partial" if selected else "not_ready"),
             "missing_components": missing,
             "interpretation_ru": (
