@@ -37,10 +37,10 @@ def _make_scientific_fixture(root: Path) -> None:
         {"model_id": "M-C", "cell_line_name": "HCT 116"},
     ]).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
     pd.DataFrame([
-        {"model_id": "M-A", "lab_name": "MCF-7"},
-        {"model_id": "M-C", "lab_name": "HCT 116"},
+        {"model_id": "M-A", "lab_name": "MCF-7", "laboratory_role": "human_tumor"},
+        {"model_id": "M-C", "lab_name": "HCT 116", "laboratory_role": "human_tumor"},
         # M-X is in the laboratory register but has no measured CDK4 row.
-        {"model_id": "M-X", "lab_name": "OUTSIDE-CDK4"},
+        {"model_id": "M-X", "lab_name": "OUTSIDE-CDK4", "laboratory_role": "human_technical"},
     ]).to_parquet(processed / "laboratory_panel.parquet", index=False)
 
     pd.DataFrame([
@@ -141,6 +141,21 @@ def test_full_depmapped_context_keeps_all_models_and_only_attaches_lab_prism(tmp
     assert result["laboratory_registry_mapped_models_n"] == 3
     assert result["laboratory_registry_outside_context_n"] == 1
     assert result["laboratory_registry_outside_context_model_ids"] == ["M-X"]
+    assert result["laboratory_registry_outside_context_details"] == [{
+        "model_id": "M-X",
+        "lab_names": ["OUTSIDE-CDK4"],
+        "laboratory_roles": ["human_technical"],
+        "in_full_crispr_atlas": False,
+        "in_requested_gene_context": False,
+        "diagnostic_status": "outside_requested_gene_processed_context",
+        "interpretation_ru": (
+            "Нет строки для данного гена в текущем обработанном контексте. "
+            "Причина и наличие измерений по другим генам требуют отдельной сверки."
+        ),
+    }]
+    assert result["laboratory_genetic_triage"]["available"] is True
+    assert result["laboratory_genetic_triage"]["laboratory_human_tumor_model_ids_n"] == 2
+    assert result["laboratory_genetic_triage"]["paired_cancer_cohorts_n"] == 0
     assert result["reference_drug_context"]["queried_models_n"] == 2
     assert result["reference_drug_context"]["observations_n"] == 3
     assert result["reference_drug_context"]["query_scope"] == (
