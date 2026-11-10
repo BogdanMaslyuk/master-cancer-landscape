@@ -243,6 +243,29 @@ export type PharmacologyConcordanceResponse = Record<string, unknown>;
 
 export type PharmacologySummaryResponse = Record<string, unknown>;
 
+export type PhenotypeCompoundsResponse = Record<string, unknown>;
+
+export type PhenotypeExperimentCreateRequest = {
+  "title": string;
+  "protocol_id": string;
+  "cell_line_ids": string[];
+  "compound_ids": string[];
+  "exposure_h": number;
+  "assay_type"?: string;
+};
+
+export type PhenotypeExperimentResponse = Record<string, unknown>;
+
+export type PhenotypeImportRequest = {
+  "filename": string;
+  "csv_text"?: string | null;
+  "file_base64"?: string | null;
+};
+
+export type PhenotypeImportResponse = Record<string, unknown>;
+
+export type PhenotypeModelsResponse = Record<string, unknown>;
+
 export type PyzCatalogResponse = Record<string, unknown>;
 
 export type PyzDetailResponse = Record<string, unknown>;
