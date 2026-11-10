@@ -54,7 +54,9 @@ def validate_manifest(manifest: dict, manifest_file: Path) -> list[dict]:
     if manifest.get("contract") != "mcl-tls-v2-pinned-extracts-v1":
         raise ValueError("Unrecognized source_manifest contract")
     sources = manifest.get("sources")
-    if not isinstance(sources, list) or {s.get("source") for s in sources if isinstance(s, dict)} != set(REQUIRED):
+    if (not isinstance(sources, list) or len(sources) != len(REQUIRED)
+            or not all(isinstance(s, dict) for s in sources)
+            or sorted(s["source"] for s in sources) != sorted(REQUIRED)):
         raise ValueError("Exactly one ChEMBL and one BindingDB source are required")
     verified = []
     for entry in sources:
