@@ -108,3 +108,47 @@ def test_audit_never_turns_missing_crispr_into_negative():
     assert set(out["models"]["genetic_status"]) == {"unknown"}
     assert out["prism_measurements"].empty
     assert not out["issues"].empty
+
+
+def test_trace_role_filter_is_compound_specific_and_exposes_excluded_positive_rows():
+    candidate = pd.DataFrame([
+        {"model_id": "M1", "compound_id": "A", "model_role": "positive",
+         "priority_status": "supported_hypothesis"},
+        {"model_id": "M1", "compound_id": "B",
+         "model_role": "discordant_dependency_without_activity",
+         "priority_status": "priority_for_in_vitro"},
+        {"model_id": "M2", "compound_id": "C", "model_role": "positive",
+         "priority_status": "priority_for_in_vitro"},
+    ])
+    prism = pd.DataFrame([
+        {"model_id": "M1", "compound_id": "A", "preferred_name": "Known A",
+         "observation_id": "OA1"},
+        {"model_id": "M1", "compound_id": "A", "preferred_name": "Known A",
+         "observation_id": "OA2"},
+        {"model_id": "M1", "compound_id": "B", "preferred_name": "Known B",
+         "observation_id": "OB1"},
+        {"model_id": "M2", "compound_id": "C", "preferred_name": "Known C",
+         "observation_id": "OC1"},
+    ])
+    trace, impact = audit.trace_role_filter(candidate, prism)
+    assert len(trace) == 3
+    assert set(trace["compound_id"]) == {"A", "B", "C"}
+    assert trace.set_index("compound_id").loc["A", "normalized_prism_records_n"] == 2
+    assert not trace.set_index("compound_id").loc["A", "included_by_legacy_priority_filter"]
+    assert trace.set_index("compound_id").loc["B", "included_by_legacy_priority_filter"]
+    m1 = impact.set_index("model_id").loc["M1"]
+    assert m1["candidate_positive_rows"] == 1
+    assert m1["legacy_included_positive_rows"] == 0
+    assert m1["legacy_excluded_positive_rows"] == 1
+
+
+def test_trace_role_filter_does_not_equate_missing_prism_with_negative():
+    candidate = pd.DataFrame([{
+        "model_id": "M1", "compound_id": "A", "model_role": "positive",
+        "priority_status": "priority_for_in_vitro",
+    }])
+    prism = pd.DataFrame(columns=["model_id", "compound_id", "observation_id"])
+    trace, impact = audit.trace_role_filter(candidate, prism)
+    assert int(trace.iloc[0]["normalized_prism_records_n"]) == 0
+    assert int(impact.iloc[0]["legacy_included_positive_rows"]) == 1
+    assert "negative" not in set(trace["model_role"])
