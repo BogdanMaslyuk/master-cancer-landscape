@@ -69,7 +69,10 @@ def measurement(value: str, units: str, separate_relation: str = "") -> tuple[st
         return "", "", "invalid_numeric_value"
     if not number.is_finite() or number <= 0:
         return "", "", "nonpositive_value"
-    return relation, str(number.normalize()), ""
+    plain = format(number, "f")
+    if "." in plain:
+        plain = plain.rstrip("0").rstrip(".")
+    return relation, plain, ""
 
 
 def cutoff_state(relation: str, value_nm: str, cutoff_nm: str = "10000") -> str:
