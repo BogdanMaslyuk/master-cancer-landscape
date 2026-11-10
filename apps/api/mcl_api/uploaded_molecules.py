@@ -337,6 +337,7 @@ class UploadedMoleculeStore:
                         continue
                     seen.add((gene, model_id))
                     original_role = str(model.get("role") or "unclassified")
+                    reference_scope = str(model.get("role_scope") or "")
                     dependency = self._dependency_value(model.get("dependency_probability"))
                     lab = bool(model.get("available_in_laboratory"))
                     known = model.get("known_reference_compounds") or []
@@ -344,7 +345,12 @@ class UploadedMoleculeStore:
                     warnings: list[str] = [
                         "Структурное сходство не подтверждает связывание новой молекулы с мишенью."
                     ]
-                    if dependency is None:
+                    if reference_scope == "reference_compound_specific_candidate_v2_truncated":
+                        role = "known_drug_context_only"
+                        level, level_ru = "exploratory", "Исследовательский"
+                        reasons.append("Роли Candidate v2 относятся только к конкретным известным препаратам.")
+                        warnings.append("Неполная выборка Candidate v2: нельзя автоматически считать модель положительной или отрицательной для PYZ.")
+                    elif dependency is None:
                         role = "insufficient_data"
                         level, level_ru = "insufficient_data", "Недостаточно данных"
                         warnings.append("Нет достоверного измерения CRISPR-зависимости для этой пары модель–мишень.")
@@ -385,6 +391,11 @@ class UploadedMoleculeStore:
                         "cell_line_name": model.get("cell_line_name") or model_id,
                         "role": role,
                         "original_candidate_role": original_role,
+                        "reference_drug_observations": model.get("reference_drug_observations") or [],
+                        "genetic_dependency_status": (
+                            "unknown" if dependency is None else
+                            "dependent" if dependency > 0.5 else "nondependent_measured"
+                        ),
                         "source_layer": "legacy_candidate_v2_truncated",
                         "direct_uploaded_molecule_response": "absent_not_measured",
                         "reference_drug_context_only": True,
