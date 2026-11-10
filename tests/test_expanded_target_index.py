@@ -184,3 +184,17 @@ def test_index_integrity_validator_rejects_modified_bytes(tmp_path: Path):
         stream.write(b"not original")
     with pytest.raises(ValueError,match="tampered"):
         VALIDATOR.validate(stage)
+
+
+def test_unlinked_publication_copy_is_quarantined_even_when_one_record_has_mirror(tmp_path: Path):
+    rows = [
+        item(source_id="1", gene="CDK4", smiles="CCO", assay="A1",
+             doi="10.1111/example", nm="100"),
+        item(source="BindingDB", source_id="99", gene="CDK4", smiles="CCO",
+             endpoint="Ki", assay="", origin="1", doi="10.1111/example", nm="100"),
+        item(source_id="2", gene="CDK4", smiles="CCO", assay="A1",
+             doi="10.1111/example", nm="100"),
+    ]
+    ingest, registry, review = prepared(tmp_path, rows=rows)
+    with pytest.raises(ValueError, match="Zero verified"):
+        MODULE.build(ingest, registry, review, tmp_path/"runtime")
