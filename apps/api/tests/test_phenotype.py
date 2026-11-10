@@ -294,6 +294,7 @@ def test_http_phenotype_flow_uses_isolated_temp_store_and_rejects_bad_csv(
     assert imported.json()["sha256"] == hashlib.sha256(raw).hexdigest()
     detail = client.get("/api/phenotype/experiments/" + identifier)
     assert detail.status_code == 200
+    assert detail.headers["cache-control"] == "private, no-store"
     assert detail.json()["verified_result"] is False
     assert detail.json()["selectivity_status"] == "not_measured"
     bad = client.post("/api/phenotype/experiments/" + identifier + "/import", json={
