@@ -50,7 +50,7 @@ print("SOURCE CHECK PASS")
 
     Write-Host ""
     Write-Host "=== Run Scientific Core v2 tests ===" -ForegroundColor Cyan
-    & $Python -m pytest .\apps\api\tests\test_uploaded_molecules.py .\apps\api\tests\test_scientific_core_v2_cdk4_audit.py .\apps\api\tests\test_scientific_reference_context.py -q
+    & $Python -m pytest .\apps\api\tests\test_uploaded_molecules.py .\apps\api\tests\test_scientific_core_v2_cdk4_audit.py .\apps\api\tests\test_scientific_reference_context.py .\apps\api\tests\test_scientific_laboratory_triage.py -q
     Assert-Exit "Scientific Core v2 tests"
 
     if (-not $SkipRealData) {
@@ -99,6 +99,36 @@ if reference["observations_n"] != sum(
 ):
     raise SystemExit("PRISM observation count differs from the attached full-gene model records")
 print("PRISM and CDK4 model coverage: CONSISTENT")
+
+print("\n=== WHY SOME LAB MODELS ARE OUTSIDE CDK4 ===")
+for item in full["laboratory_registry_outside_context_details"]:
+    print("ModelID:", item["model_id"],
+          "| Lab names:", ", ".join(item["lab_names"]),
+          "| Roles:", ", ".join(item["laboratory_roles"]),
+          "| In CRISPR atlas:", item["in_full_crispr_atlas"])
+print("These exclusions are not proof of missing CRISPR for all genes.")
+
+print("\n=== LABORATORY GENETIC TRIAGE (NOT PYZ ACTIVITY) ===")
+triage = full["laboratory_genetic_triage"]
+print("Status:", triage["status"])
+print("Human tumor models with target context:",
+      triage["laboratory_human_tumor_model_ids_n"])
+print("Same-cancer provisional comparison cohorts:", triage["paired_cancer_cohorts_n"])
+if not triage["available"]:
+    raise SystemExit("Laboratory tumor role metadata unavailable; no ranking is justified")
+for group in triage["cohorts"]:
+    print("Cancer:", group["cancer_name"] or group["cancer_id"],
+          "| Dependent:", group["dependent_models_n"],
+          "| Nondependent:", group["nondependent_measured_models_n"],
+          "| Same-cancer genetic comparison:",
+          group["same_cancer_genetic_comparison_possible"])
+for item in triage["items"]:
+    print("MODEL:", item["cell_line_name"],
+          "| P(dep):", item["dependency_probability"],
+          "| Group:", item["genetic_triage_group"],
+          "| Role:", item["genetic_role"])
+assert all(item["laboratory_ready"] is False for item in triage["items"])
+assert all(item["compound_specific_activity"] == "not_measured" for item in triage["items"])
 
 models_by_id = {row["model_id"]: row for row in full["items"]}
 for model_id, name in (("ACH-000019", "MCF-7"), ("ACH-000147", "T-47D")):
