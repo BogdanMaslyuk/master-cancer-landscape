@@ -305,3 +305,58 @@ def test_full_gene_context_treats_missing_processed_source_as_unavailable(tmp_pa
     assert context["available"] is False
     assert context["status"] == "source_not_available"
     assert context["items"] == []
+
+
+def test_reference_drug_roles_stay_separate_and_do_not_promote_to_pyz(tmp_path: Path):
+    store = make_store(tmp_path)
+    own = store.own_compounds
+    own.candidate_hypotheses = lambda: pd.DataFrame([
+        {"hypothesis_id": "H-ON", "compound_id": "ON", "preferred_name": "ON123300",
+         "target_gene": "CDK4", "mcl_cancer_id": "C-BREAST",
+         "mcl_cancer_name": "Breast cancer",
+         "priority_status": "priority_for_in_vitro"},
+        {"hypothesis_id": "H-RIB", "compound_id": "RIB", "preferred_name": "RIBOCICLIB",
+         "target_gene": "CDK4", "mcl_cancer_id": "C-BREAST",
+         "mcl_cancer_name": "Breast cancer",
+         "priority_status": "supported_hypothesis"},
+    ])
+    own.candidate_models = lambda: pd.DataFrame([
+        {"hypothesis_id": "H-ON", "model_id": "ACH-MCF7",
+         "cell_line_name": "MCF-7", "model_role": "discordant_dependency_without_activity",
+         "dependency_probability": 1.0, "gene_effect": -1.92,
+         "response_value": -0.86},
+        {"hypothesis_id": "H-RIB", "model_id": "ACH-MCF7",
+         "cell_line_name": "MCF-7", "model_role": "positive",
+         "dependency_probability": 1.0, "gene_effect": -1.92,
+         "response_value": -3.42},
+    ])
+    own.lab_panel = lambda: pd.DataFrame([
+        {"model_id": "ACH-MCF7", "lab_name": "MCF-7",
+         "laboratory_role": "human_tumor"}
+    ])
+
+    context = own._contexts_for_target("CDK4")
+    assert len(context) == 1
+    model = context[0]["models"][0]
+    observations = model["reference_drug_observations"]
+    assert len(observations) == 2
+    assert {x["preferred_name"] for x in observations} == {"ON123300", "RIBOCICLIB"}
+    assert {x["reference_model_role"] for x in observations} == {
+        "positive", "discordant_dependency_without_activity"
+    }
+    assert {x["candidate_priority_status"] for x in observations} == {
+        "priority_for_in_vitro", "supported_hypothesis"
+    }
+
+    cells = store._cell_lines([{"target_gene": "CDK4", "best_tanimoto": 0.396}])
+    assert len(cells) == 1
+    assert cells[0]["role"] == "known_drug_context_only"
+    assert cells[0]["reference_drug_context_only"] is True
+    assert len(cells[0]["reference_drug_observations"]) == 2
+    assert cells[0]["direct_uploaded_molecule_response"] == "absent_not_measured"
+    panel = store._experiment_panel(
+        [{"target_gene": "CDK4", "best_tanimoto": 0.396}], cells
+    )
+    assert panel["complete"] is False
+    assert panel["status"] == "not_ready"
+    assert "positive_tumour_model" in panel["missing_components"]
