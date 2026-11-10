@@ -103,6 +103,7 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
                 compound_specific_pharmacology: "фармакологические измерения для исследуемой молекулы",
                 validated_assay_protocol: "проверенный экспериментальный протокол",
                 verified_laboratory_availability: "подтверждённая готовность культур в лаборатории",
+                full_depmapped_evidence_layer: "полный проверенный слой данных DepMap (вместо усечённого Candidate v2)",
               } as Record<string, string>)[code] || code).join("; ")}.</div>
             )}
           </div>
