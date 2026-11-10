@@ -19,5 +19,10 @@ class PhenotypeRepository:
     def detail(self, experiment_id: str):
         return self.store.detail(experiment_id)
 
-    def import_csv(self, experiment_id: str, csv_text: str, filename: str):
-        return self.store.import_csv(experiment_id, csv_text, filename)
+    def import_csv(
+        self, experiment_id: str, csv_text: str | None, filename: str,
+        *, raw_bytes: bytes | None = None,
+    ):
+        return self.store.import_csv(
+            experiment_id, csv_text, filename, raw_bytes=raw_bytes
+        )
