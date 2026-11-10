@@ -360,3 +360,74 @@ def test_reference_drug_roles_stay_separate_and_do_not_promote_to_pyz(tmp_path: 
     assert panel["complete"] is False
     assert panel["status"] == "not_ready"
     assert "positive_tumour_model" in panel["missing_components"]
+
+
+def test_full_gene_panel_never_pairs_different_tumors_as_genetic_comparators(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "target_gene": "CDK4", "dependency_probability": 0.99,
+         "gene_effect": -1.5, "mcl_cancer_id": "BREAST", "mcl_cancer_name": "Breast"},
+        {"model_id": "L-NONDEP", "target_gene": "CDK4", "dependency_probability": 0.12,
+         "gene_effect": -0.1, "mcl_cancer_id": "LEUKEMIA", "mcl_cancer_name": "Leukemia"},
+    ]).to_parquet(processed / "depmap_model_target_context.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "cell_line_name": "Breast line"},
+        {"model_id": "L-NONDEP", "cell_line_name": "Leukemia line"},
+    ]).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "lab_name": "Breast line", "laboratory_role": "human_tumor"},
+        {"model_id": "L-NONDEP", "lab_name": "Leukemia line", "laboratory_role": "human_tumor"},
+    ]).to_parquet(processed / "laboratory_panel.parquet", index=False)
+
+    store = make_store(tmp_path)
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.395}]
+    cells = store._cell_lines(targets)
+    panel = store._experiment_panel(targets, cells)
+    assert len(cells) == 2
+    assert panel["panel_type"] == "exploratory_genetic_context"
+    assert panel["same_cancer_genetic_comparison_groups_n"] == 0
+    assert panel["same_cancer_genetic_comparison_groups"] == []
+    assert panel["complete"] is False
+    assert panel["laboratory_ready"] is False
+    assert panel["negative_tumor_control"] is None
+    assert all(not row["same_cancer_genetic_comparison_possible"] for row in cells)
+
+
+def test_full_gene_panel_exposes_provisional_same_cancer_genetic_pair(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "target_gene": "CDK4", "dependency_probability": 0.99,
+         "gene_effect": -1.5, "mcl_cancer_id": "BREAST", "mcl_cancer_name": "Breast"},
+        {"model_id": "B-NONDEP", "target_gene": "CDK4", "dependency_probability": 0.10,
+         "gene_effect": -0.1, "mcl_cancer_id": "BREAST", "mcl_cancer_name": "Breast"},
+    ]).to_parquet(processed / "depmap_model_target_context.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "cell_line_name": "Breast dependent"},
+        {"model_id": "B-NONDEP", "cell_line_name": "Breast independent"},
+    ]).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "lab_name": "Breast dependent", "laboratory_role": "human_tumor"},
+        {"model_id": "B-NONDEP", "lab_name": "Breast independent", "laboratory_role": "human_tumor"},
+    ]).to_parquet(processed / "laboratory_panel.parquet", index=False)
+
+    store = make_store(tmp_path)
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.395}]
+    cells = store._cell_lines(targets)
+    panel = store._experiment_panel(targets, cells)
+    assert panel["same_cancer_genetic_comparison_groups_n"] == 1
+    group = panel["same_cancer_genetic_comparison_groups"][0]
+    assert group["cancer_id"] == "BREAST"
+    assert {x["model_id"] for x in group["genetically_dependent_models"]} == {"B-DEP"}
+    assert {x["model_id"] for x in group["genetically_nondependent_models"]} == {"B-NONDEP"}
+    assert panel["positive_models"] == []
+    assert panel["negative_tumor_control"] is None
+    assert panel["laboratory_ready"] is False
+    assert panel["complete"] is False
