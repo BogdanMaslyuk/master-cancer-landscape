@@ -351,13 +351,26 @@ class PhenotypeStore:
         qc = self._qc(rows, experiment["assay_type"])
         directory.mkdir(parents=True, exist_ok=True)
         raw_path = directory / f"{sha}.csv"
+        normalized_path = directory / f"{sha}.rows.jsonl"
         try:
             with raw_path.open("xb") as stream:
                 stream.write(raw)
         except FileExistsError:
             if hashlib.sha256(raw_path.read_bytes()).hexdigest() != sha:
                 raise ValueError("Stored raw file failed SHA-256 integrity check")
+        # The derived row ledger is separately versioned and never modifies
+        # the uploaded original. Internal line-dose calculations use this
+        # explicit normalized representation, not a second implicit parser.
+        if normalized_path.exists():
+            raise ValueError("A normalized ledger already exists without matching import manifest")
+        with normalized_path.open("x", encoding="utf-8", newline="\n") as output:
+            for row in rows:
+                output.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
+        normalized_sha = hashlib.sha256(normalized_path.read_bytes()).hexdigest()
         record = {
+            "normalization_version": "mcl-phenotype-csv-v1",
+            "normalized_rows_sha256": normalized_sha,
+            "normalized_rows_file": normalized_path.name,
             "sha256": sha,
             "filename": str(filename).replace("\\", "/").split("/")[-1],
             "created_at": _utc(),
