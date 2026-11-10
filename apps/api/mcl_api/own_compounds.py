@@ -370,11 +370,30 @@ class OwnCompoundStore:
                         role = min(roles, key=lambda x: ROLE_ORDER.get(x, 9)) if roles else "unclassified"
                         known_compounds_col = self._first_existing(["preferred_name", "compound_id"], model_group)
                         known_compounds = sorted(set(model_group[known_compounds_col].dropna().astype(str).tolist())) if known_compounds_col else []
+                        # Candidate v2 roles refer to specific known drugs, never to PYZ.
+                        # This array preserves distinctions lost by the historical
+                        # min(role) display field and identifies the truncated source.
+                        reference_observations = []
+                        for ref in model_group.to_dict("records"):
+                            reference_observations.append(self._clean({
+                                "compound_id": ref.get("compound_id"),
+                                "preferred_name": ref.get("preferred_name"),
+                                "hypothesis_id": ref.get("hypothesis_id"),
+                                "candidate_priority_status": ref.get("priority_status"),
+                                "reference_model_role": ref.get("model_role"),
+                                "prism_lfc": ref.get("response_value"),
+                                "dependency_probability": ref.get("dependency_probability"),
+                                "gene_effect": ref.get("gene_effect"),
+                                "source_scope": "candidate_v2_top_five_per_role",
+                            }))
                         lab_rows = lab_by_model.get(model_key, [])
                         item = {
                             "model_id": model_key or None,
                             "cell_line_name": self._first_value(model_group[name_col]) if name_col else None,
                             "role": role,
+                            "legacy_candidate_role": role,
+                            "role_scope": "reference_compound_specific_candidate_v2_truncated",
+                            "reference_drug_observations": reference_observations,
                             "roles": roles,
                             "dependency_probability": pd.to_numeric(model_group[dep_col], errors="coerce").max() if dep_col else None,
                             "gene_effect": pd.to_numeric(model_group[ge_col], errors="coerce").min() if ge_col else None,
