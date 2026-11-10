@@ -310,18 +310,36 @@ class PhenotypeStore:
             "interpretation_ru": "Сохранён первичный сигнал; научная готовность и клеточная селективность пока не подтверждены.",
         }
 
-    def import_csv(self, experiment_id: str, csv_text: str, filename: str) -> dict[str, Any]:
-        if not isinstance(csv_text, str) or len(csv_text.encode("utf-8")) > 8_000_000:
+    def import_csv(
+        self, experiment_id: str, csv_text: str | None, filename: str,
+        *, raw_bytes: bytes | None = None,
+    ) -> dict[str, Any]:
+        # Prefer the exact original browser bytes over a decoded/re-encoded
+        # string. This preserves the source SHA-256, CRLF and UTF-8 BOM.
+        if raw_bytes is None:
+            if not isinstance(csv_text, str):
+                raise ValueError("Missing raw CSV content")
+            raw = csv_text.encode("utf-8")
+        else:
+            if not isinstance(raw_bytes, bytes):
+                raise ValueError("Raw CSV must be bytes")
+            raw = raw_bytes
+        if not raw or len(raw) > 8_000_000:
             raise ValueError("CSV must be UTF-8 and smaller than 8 MB")
+        try:
+            parsed_text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise ValueError("CSV must be UTF-8 encoded") from exc
+        if "\x00" in parsed_text:
+            raise ValueError("CSV contains NUL bytes")
         if not str(filename).lower().endswith(".csv"):
             raise ValueError("P1 supports CSV only; XLSX ingestion is not implemented yet")
         experiment = self.detail(experiment_id)
-        rows = self._parse_csv(csv_text, experiment)
+        rows = self._parse_csv(parsed_text, experiment)
         old_plate_ids = {
             plate for entry in experiment["imports"] for plate in entry["plate_ids"]
         }
         new_plate_ids = {row["plate_id"] for row in rows}
-        raw = csv_text.encode("utf-8")
         sha = hashlib.sha256(raw).hexdigest()
         directory = self._directory(experiment_id) / "imports"
         same = next((x for x in experiment["imports"] if x["sha256"] == sha), None)
@@ -341,7 +359,7 @@ class PhenotypeStore:
                 raise ValueError("Stored raw file failed SHA-256 integrity check")
         record = {
             "sha256": sha,
-            "filename": Path(filename).name,
+            "filename": str(filename).replace("\\", "/").split("/")[-1],
             "created_at": _utc(),
             "plate_ids": sorted(new_plate_ids),
             "wells_n": len(rows),
