@@ -61,7 +61,10 @@ async def add_mcl_timing(request: Request, call_next):
     response = await call_next(request)
     elapsed_ms = (perf_counter() - start) * 1000.0
     response.headers["X-MCL-Process-Time-Ms"] = f"{elapsed_ms:.1f}"
-    if request.method == "GET" and request.url.path.startswith("/api/"):
+    if request.method == "GET" and request.url.path.startswith("/api/phenotype/"):
+        # Unpublished experiment records must never be publicly cached.
+        response.headers["Cache-Control"] = "private, no-store"
+    elif request.method == "GET" and request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "public, max-age=300")
     return response
 
