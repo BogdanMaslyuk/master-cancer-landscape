@@ -243,10 +243,88 @@ class UploadedMoleculeStore:
             return None
         return number
 
+    def _full_genetic_cell_lines(
+        self, supported_targets: list[dict[str, Any]]
+    ) -> list[dict[str, Any]] | None:
+        """Use complete independent CRISPR evidence when processed data exist.
+
+        Returns None only when the full source is unavailable; empty list
+        means the full source was queried but no relevant model was found.
+        """
+        full_targets: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        for target in supported_targets:
+            gene = str(target["target_gene"])
+            context = self.own_compounds.full_target_models(gene)
+            if not context.get("available"):
+                return None
+            full_targets.append((target, context))
+
+        out: list[dict[str, Any]] = []
+        for target, context in full_targets:
+            gene = str(target["target_gene"])
+            similarity = float(target.get("best_tanimoto") or 0)
+            for model in context.get("items", []):
+                status = str(model["genetic_dependency_status"])
+                if status == "dependent":
+                    role = "genetically_dependent_candidate"
+                    reason = "Измеренная генетическая зависимость по CRISPR; ответ на новую молекулу неизвестен."
+                elif status == "nondependent_measured":
+                    role = "genetically_nondependent_candidate"
+                    reason = "Генетическая независимость по измеренной P(dep); это не отрицательный лекарственный контроль."
+                else:
+                    role = "insufficient_data"
+                    reason = "Отсутствует измерение вероятности генетической зависимости."
+                lab = bool(model.get("registered_in_laboratory"))
+                out.append(self._clean({
+                    "target_gene": gene,
+                    "target_similarity": similarity,
+                    "support_class": target.get("support_class"),
+                    "organ": model.get("organ"),
+                    "cancer_id": model.get("cancer_id"),
+                    "cancer_name": model.get("cancer_name"),
+                    "model_id": model.get("model_id"),
+                    "cell_line_name": model.get("cell_line_name"),
+                    "role": role,
+                    "original_candidate_role": None,
+                    "genetic_dependency_status": status,
+                    "dependency_probability": model.get("dependency_probability"),
+                    "gene_effect": model.get("gene_effect"),
+                    "depmap_release": model.get("depmap_release"),
+                    "reference_drug_evidence_status": "not_assessed_in_this_genetic_layer",
+                    "direct_uploaded_molecule_response": "absent_not_measured",
+                    "known_reference_compounds": [],
+                    "available_in_laboratory": lab,
+                    "laboratory_lines": model.get("laboratory_lines") or [],
+                    "physical_stock_verified": False,
+                    "source_layer": "full_processed_depmap_target_context",
+                    "priority_level": "exploratory" if status != "not_measured" else "insufficient_data",
+                    "priority_level_ru": "Исследовательский" if status != "not_measured" else "Недостаточно данных",
+                    "reasons": [reason, "Физическое наличие культуры не проверено."]
+                    if lab else [reason],
+                    "warnings": [
+                        "Генетическая зависимость не доказывает чувствительность к PYZ.",
+                        "Структурное сходство не доказывает связывание с мишенью.",
+                        "Фармакологические ответы известных препаратов показаны в отдельном слое.",
+                    ],
+                }))
+        out.sort(key=lambda c: (
+            0 if c["available_in_laboratory"] else 1,
+            0 if c["genetic_dependency_status"] == "dependent" else 1,
+            -(c.get("dependency_probability") if c.get("dependency_probability") is not None else -1),
+            str(c.get("target_gene") or ""), str(c.get("cell_line_name") or ""),
+        ))
+        return out
+
     def _cell_lines(self, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # Weak structural neighbors remain in the target table, not in
         # evidence-backed cell-line recommendations.
         selected = [t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35]
+        if selected and hasattr(self.own_compounds, "full_target_models"):
+            full = self._full_genetic_cell_lines(selected)
+            if full is not None:
+                return full
+        # Compatibility fallback only: legacy Candidate v2 is truncated and
+        # its role refers to a known reference drug, NOT to uploaded PYZ.
         output: list[dict[str, Any]] = []
         seen: set[tuple[str, str]] = set()
         for target in selected[:5]:
@@ -344,6 +422,57 @@ class UploadedMoleculeStore:
 
     def _experiment_panel(self, targets: list[dict[str, Any]], cells: list[dict[str, Any]]) -> dict[str, Any]:
         supported = [t for t in targets if float(t.get("best_tanimoto") or 0) >= 0.35]
+        if any(c.get("source_layer") == "full_processed_depmap_target_context" for c in cells):
+            focus = next(
+                (t for t in supported if any(
+                    c["target_gene"] == t["target_gene"]
+                    and c.get("genetic_dependency_status") == "dependent"
+                    for c in cells
+                )),
+                supported[0] if supported else {},
+            )
+            gene = str(focus.get("target_gene") or "")
+            subset = [c for c in cells if c.get("target_gene") == gene]
+            dependent = [c for c in subset if c.get("genetic_dependency_status") == "dependent"]
+            nondependent = [c for c in subset if c.get("genetic_dependency_status") == "nondependent_measured"]
+            dependent.sort(key=lambda c: (
+                0 if c.get("available_in_laboratory") else 1,
+                -(c.get("dependency_probability") or 0),
+            ))
+            nondependent.sort(key=lambda c: (
+                0 if c.get("available_in_laboratory") else 1,
+                c.get("dependency_probability") if c.get("dependency_probability") is not None else 2,
+            ))
+            return {
+                "available": bool(subset),
+                "panel_type": "exploratory_genetic_context",
+                "status": "not_ready",
+                "complete": False,
+                "evidence_complete": False,
+                "laboratory_ready": False,
+                "focus_target_gene": gene or None,
+                "focus_target_tanimoto": focus.get("best_tanimoto"),
+                "positive_models": [],
+                "negative_tumor_control": None,
+                "genetically_dependent_candidates": dependent[:10],
+                "genetically_nondependent_candidates": nondependent[:10],
+                "genetic_candidate_models_n": len(dependent),
+                "genetic_comparator_models_n": len(nondependent),
+                "non_tumor_control": self._non_tumor_control(),
+                "missing_components": [
+                    "experimentally_supported_uploaded_molecule_target",
+                    "compound_specific_pharmacology",
+                    "validated_assay_protocol",
+                    "verified_laboratory_availability",
+                ],
+                "reason": "crispr_context_without_uploaded_molecule_pharmacology",
+                "interpretation_ru": (
+                    "Найдены модели с измеренной генетической зависимостью от предполагаемой мишени. "
+                    "Результат PRISM известных препаратов не переносится на PYZ. "
+                    "Это предварительный контекст для планирования исследования, а не готовая "
+                    "мишень-ориентированная экспериментальная панель."
+                ),
+            }
         if not supported:
             return {
                 "available": False,
