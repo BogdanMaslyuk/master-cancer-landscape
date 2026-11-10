@@ -39,6 +39,8 @@ def _make_scientific_fixture(root: Path) -> None:
     pd.DataFrame([
         {"model_id": "M-A", "lab_name": "MCF-7"},
         {"model_id": "M-C", "lab_name": "HCT 116"},
+        # M-X is in the laboratory register but has no measured CDK4 row.
+        {"model_id": "M-X", "lab_name": "OUTSIDE-CDK4"},
     ]).to_parquet(processed / "laboratory_panel.parquet", index=False)
 
     pd.DataFrame([
@@ -46,6 +48,7 @@ def _make_scientific_fixture(root: Path) -> None:
         {"model_id": "M-A", "compound_id": "RIB", "target_gene": "CDK4"},
         {"model_id": "M-A", "compound_id": "ON", "target_gene": "CDK4"},
         {"model_id": "M-B", "compound_id": "ON", "target_gene": "CDK4"},
+        {"model_id": "M-X", "compound_id": "ON", "target_gene": "CDK4"},
         {"model_id": "M-A", "compound_id": "NOT-CDK4", "target_gene": "CDK5"},
     ]).to_parquet(pharm / "model_compound_target_links.parquet", index=False)
     pd.DataFrame([
@@ -71,6 +74,12 @@ def _make_scientific_fixture(root: Path) -> None:
             "observation_id": "PRISM-ON-B", "model_id": "M-B", "compound_id": "ON",
             "source": "PRISM", "source_release": "24Q2", "source_assay_id": "ASSAY-X",
             "endpoint": "LFC", "value": -0.1, "dose": 2.5,
+            "dose_unit": "um", "exposure_time_h": 120.0,
+        },
+        {
+            "observation_id": "PRISM-OUTSIDE-GENE", "model_id": "M-X", "compound_id": "ON",
+            "source": "PRISM", "source_release": "24Q2", "source_assay_id": "ASSAY-X",
+            "endpoint": "LFC", "value": -5.0, "dose": 2.5,
             "dose_unit": "um", "exposure_time_h": 120.0,
         },
         {
@@ -129,7 +138,14 @@ def test_full_depmapped_context_keeps_all_models_and_only_attaches_lab_prism(tmp
     assert result["total_model_rows"] == 3
     assert result["total_measured_models"] == 3
     assert result["laboratory_registered_models_n"] == 2
+    assert result["laboratory_registry_mapped_models_n"] == 3
+    assert result["laboratory_registry_outside_context_n"] == 1
+    assert result["laboratory_registry_outside_context_model_ids"] == ["M-X"]
+    assert result["reference_drug_context"]["queried_models_n"] == 2
     assert result["reference_drug_context"]["observations_n"] == 3
+    assert result["reference_drug_context"]["query_scope"] == (
+        "laboratory_registry_intersection_with_measured_target_context"
+    )
     models = {r["model_id"]: r for r in result["items"]}
     assert models["M-A"]["reference_drug_observations_n"] == 3
     assert len(models["M-A"]["known_reference_compounds"]) == 2
@@ -153,3 +169,22 @@ def test_missing_known_drug_tables_are_not_misread_as_negative(tmp_path: Path, m
     assert models["M-A"]["reference_drug_evidence_status"] == "normalized_source_unavailable"
     assert models["M-A"]["reference_drug_observations"] == []
     assert models["M-A"]["genetic_dependency_status"] == "dependent"
+
+
+def test_lab_model_without_target_data_does_not_inflate_prism_measurement_count(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    _make_scientific_fixture(tmp_path)
+    raw = KnownDrugReferenceContext(tmp_path).load("CDK4", ["M-A", "M-C", "M-X"])
+    assert raw["queried_models_n"] == 3
+    assert raw["observations_n"] == 4
+    assert len(raw["observations_by_model"]["M-X"]) == 1
+
+    scoped = FullGeneModelContext(tmp_path).load("CDK4")
+    assert scoped["reference_drug_context"]["queried_models_n"] == 2
+    assert scoped["reference_drug_context"]["observations_n"] == 3
+    assert len(scoped["items"]) == 3
+    assert set(item["model_id"] for item in scoped["items"]) == {"M-A", "M-B", "M-C"}
+    assert sum(item["reference_drug_observations_n"] for item in scoped["items"]) == 3
+    assert scoped["laboratory_registry_outside_context_model_ids"] == ["M-X"]
