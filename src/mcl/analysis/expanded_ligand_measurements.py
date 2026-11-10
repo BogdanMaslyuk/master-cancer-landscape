@@ -158,7 +158,7 @@ def normalize_chembl(
     elif out["measurement_status"] == "censored_eligible":
         out["quality_tier"] = "C"  # never promote a bound to exact primary data
     else:
-        out["quality_tier"] = "A" if out["endpoint"].upper() in {"KI", "KD"} else "B"
+        out["quality_tier"] = "candidate_A" if out["endpoint"].upper() in {"KI", "KD"} else "candidate_B"
     out["reason_codes"] = json.dumps(sorted(set(reasons)), ensure_ascii=False)
     return out
 
