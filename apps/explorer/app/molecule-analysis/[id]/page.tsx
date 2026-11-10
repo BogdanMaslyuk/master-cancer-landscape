@@ -78,14 +78,21 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
             {Array.isArray(c.reference_drug_observations) && c.reference_drug_observations.length > 0 && (
               <div className={styles.guardrail}>
                 <b>Ответы на известные препараты (не на исследуемую PYZ):</b>
+                <div>Всего измерений: {c.reference_drug_observations_n ?? c.reference_drug_observations.length}.
+                  На карточке показаны первые восемь наблюдений.</div>
                 <ul>{c.reference_drug_observations.slice(0,8).map((o:any, i:number)=>
-                  <li key={`${o.hypothesis_id || o.compound_id}-${i}`}>
+                  <li key={`${o.observation_id || o.hypothesis_id || o.compound_id}-${i}`}>
                     {o.preferred_name || o.compound_id || "Вещество без названия"}:
-                    {" "}LFC {n(o.prism_lfc,3)}; роль Candidate v2: {o.reference_model_role || "—"};
-                    {" "}статус гипотезы: {o.candidate_priority_status || "—"}
+                    {" "}LFC {n(o.prism_lfc,3)}
+                    {o.reference_model_role ? ` · роль Candidate v2: ${o.reference_model_role}` : ""}
+                    {o.candidate_priority_status ? ` · статус гипотезы: ${o.candidate_priority_status}` : ""}
+                    {o.observation_id ? ` · наблюдение: ${o.observation_id}` : ""}
+                    {o.source_release ? ` · PRISM: ${o.source_release}` : ""}
                   </li>
                 )}</ul>
-                Эти записи получены из ограниченного набора Candidate v2, не из полного массива PRISM.
+                {c.source_layer === "full_processed_depmap_target_context"
+                  ? "Нормализованные исходные записи PRISM, связанные с известными веществами и моделями. Эффект через CDK4 и чувствительность к PYZ не доказаны."
+                  : "Исторические записи ограниченного набора Candidate v2; полный массив PRISM здесь не представлен."}
               </div>
             )}
             <ul>{(c.reasons || []).slice(0,5).map((reason:string)=><li key={reason}>{reason}</li>)}</ul>
