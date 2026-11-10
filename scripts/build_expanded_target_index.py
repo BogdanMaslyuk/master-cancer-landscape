@@ -152,6 +152,13 @@ def _duplicate_control(con: sqlite3.Connection) -> None:
                     label="confirmed_source_mirror", consistent=len(signature)==1,
                     canonical=rows[0][0])
 
+    # Assign provisional independent status BEFORE comparing publication-level
+    # duplicates. Previously unclassified A/B rows would otherwise be skipped.
+    con.execute("""
+        UPDATE measurements SET independent='primary'
+        WHERE tier IN ('A','B') AND independent='pending_review'
+    """)
+
     # DOI+same reported value is only a possible duplicate. Mark for review,
     # even if both rows were provisionally eligible for A/B.
     groups = con.execute("""
