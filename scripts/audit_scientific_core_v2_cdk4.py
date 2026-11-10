@@ -55,12 +55,13 @@ def _hash(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _read(path: Path, where: str = "", args: list[object] | None = None) -> pd.DataFrame:
+def _read(path: Path, where: str = "", args: list[object] | None = None,
+          columns: str = "*") -> pd.DataFrame:
     # DuckDB performs Parquet predicate pushdown; no mutation of the input.
     import duckdb
 
     quoted = path.resolve().as_posix().replace("'", "''")
-    sql = f"SELECT * FROM read_parquet('{quoted}')"
+    sql = f"SELECT {columns} FROM read_parquet('{quoted}')"
     if where:
         sql += " WHERE " + where
     con = duckdb.connect(database=":memory:")
@@ -256,7 +257,7 @@ def main() -> None:
             }])], ignore_index=True)
             continue
         try:
-            wide = _read(path, id_sql, id_args)
+            wide = _read(path, id_sql, id_args, columns='model_id, "CDK4"')
             if GENE not in wide.columns:
                 raise ValueError(f"{GENE} column not present")
             check = wide[["model_id", GENE]].rename(columns={GENE: f"{value_column}_wide"})
