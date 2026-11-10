@@ -263,7 +263,13 @@ class UploadedMoleculeStore:
         for target, context in full_targets:
             gene = str(target["target_gene"])
             similarity = float(target.get("best_tanimoto") or 0)
+            laboratory_triage = context.get("laboratory_genetic_triage") or {}
+            triage_by_model = {
+                str(item["model_id"]): item
+                for item in laboratory_triage.get("items", [])
+            }
             for model in context.get("items", []):
+                genetic_lab_triage = triage_by_model.get(str(model.get("model_id")), {})
                 status = str(model["genetic_dependency_status"])
                 if status == "dependent":
                     role = "genetically_dependent_candidate"
@@ -298,6 +304,11 @@ class UploadedMoleculeStore:
                     "known_reference_compounds": model.get("known_reference_compounds") or [],
                     "available_in_laboratory": lab,
                     "laboratory_lines": model.get("laboratory_lines") or [],
+                    "laboratory_genetic_role": genetic_lab_triage.get("genetic_role"),
+                    "laboratory_genetic_triage_group": genetic_lab_triage.get("genetic_triage_group"),
+                    "same_cancer_genetic_comparison_possible": bool(
+                        genetic_lab_triage.get("same_cancer_comparison_possible", False)
+                    ),
                     "physical_stock_verified": False,
                     "source_layer": "full_processed_depmap_target_context",
                     "priority_level": "exploratory" if status != "not_measured" else "insufficient_data",
@@ -460,9 +471,37 @@ class UploadedMoleculeStore:
                 0 if c.get("available_in_laboratory") else 1,
                 c.get("dependency_probability") if c.get("dependency_probability") is not None else 2,
             ))
+            # These are *genetic comparison candidates*, never negative
+            # pharmacological controls or evidence of PYZ activity.
+            paired: dict[str, dict[str, Any]] = {}
+            for cell in subset:
+                if not cell.get("same_cancer_genetic_comparison_possible"):
+                    continue
+                cancer = str(cell.get("cancer_id") or "")
+                if not cancer:
+                    continue
+                group = paired.setdefault(cancer, {
+                    "cancer_id": cancer,
+                    "cancer_name": cell.get("cancer_name"),
+                    "genetically_dependent_models": [],
+                    "genetically_nondependent_models": [],
+                    "comparison_status": "provisional_same_cancer_genetic_only",
+                })
+                if cell.get("laboratory_genetic_role") == "genetically_dependent_hypothesis_model":
+                    group["genetically_dependent_models"].append(cell)
+                elif cell.get("laboratory_genetic_role") == "same_cancer_genetic_comparator_candidate":
+                    group["genetically_nondependent_models"].append(cell)
+            # Only retain genuine same-cancer laboratory registry pairs.
+            paired_groups = [
+                g for g in paired.values()
+                if g["genetically_dependent_models"] and g["genetically_nondependent_models"]
+            ]
+            paired_groups.sort(key=lambda g: str(g["cancer_id"]))
             return {
                 "available": bool(subset),
                 "panel_type": "exploratory_genetic_context",
+                "same_cancer_genetic_comparison_groups": paired_groups,
+                "same_cancer_genetic_comparison_groups_n": len(paired_groups),
                 "status": "not_ready",
                 "complete": False,
                 "evidence_complete": False,
