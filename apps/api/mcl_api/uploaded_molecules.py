@@ -290,9 +290,12 @@ class UploadedMoleculeStore:
                     "dependency_probability": model.get("dependency_probability"),
                     "gene_effect": model.get("gene_effect"),
                     "depmap_release": model.get("depmap_release"),
-                    "reference_drug_evidence_status": "not_assessed_in_this_genetic_layer",
+                    "reference_drug_evidence_status": model.get("reference_drug_evidence_status"),
+                    "reference_drug_source_scope": model.get("reference_drug_source_scope"),
+                    "reference_drug_observations_n": model.get("reference_drug_observations_n", 0),
+                    "reference_drug_observations": model.get("reference_drug_observations") or [],
                     "direct_uploaded_molecule_response": "absent_not_measured",
-                    "known_reference_compounds": [],
+                    "known_reference_compounds": model.get("known_reference_compounds") or [],
                     "available_in_laboratory": lab,
                     "laboratory_lines": model.get("laboratory_lines") or [],
                     "physical_stock_verified": False,
@@ -304,7 +307,7 @@ class UploadedMoleculeStore:
                     "warnings": [
                         "Генетическая зависимость не доказывает чувствительность к PYZ.",
                         "Структурное сходство не доказывает связывание с мишенью.",
-                        "Фармакологические ответы известных препаратов показаны в отдельном слое.",
+                        "Фармакологические ответы известных препаратов приведены отдельно; они не подтверждают чувствительность к PYZ.",
                     ],
                 }))
         out.sort(key=lambda c: (
