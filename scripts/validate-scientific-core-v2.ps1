@@ -50,7 +50,7 @@ print("SOURCE CHECK PASS")
 
     Write-Host ""
     Write-Host "=== Run Scientific Core v2 tests ===" -ForegroundColor Cyan
-    & $Python -m pytest .\apps\api\tests\test_uploaded_molecules.py .\apps\api\tests\test_scientific_core_v2_cdk4_audit.py -q
+    & $Python -m pytest .\apps\api\tests\test_uploaded_molecules.py .\apps\api\tests\test_scientific_core_v2_cdk4_audit.py .\apps\api\tests\test_scientific_reference_context.py -q
     Assert-Exit "Scientific Core v2 tests"
 
     if (-not $SkipRealData) {
