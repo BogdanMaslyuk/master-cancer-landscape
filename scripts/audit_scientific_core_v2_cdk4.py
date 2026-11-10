@@ -252,9 +252,8 @@ def trace_role_filter(candidate: pd.DataFrame, prism: pd.DataFrame) -> tuple[pd.
         pd.to_numeric(trace["normalized_prism_records_n"], errors="coerce")
         .fillna(0).astype(int)
     )
-    grouping = ["model_id"]
     parts = []
-    for model_id, group in trace.groupby(grouping, dropna=False):
+    for model_id, group in trace.groupby("model_id", dropna=False):
         selected = group.loc[group["included_by_legacy_priority_filter"]]
         parts.append({
             "model_id": model_id,
