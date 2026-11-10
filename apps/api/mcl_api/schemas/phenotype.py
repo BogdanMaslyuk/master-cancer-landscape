@@ -32,4 +32,5 @@ class PhenotypeExperimentCreateRequest(BaseModel):
 
 class PhenotypeImportRequest(BaseModel):
     filename: str = Field(min_length=5, max_length=256)
-    csv_text: str = Field(min_length=1, max_length=8_000_000)
+    csv_text: str | None = Field(default=None, max_length=8_000_000)
+    file_base64: str | None = Field(default=None, max_length=11_000_000)
