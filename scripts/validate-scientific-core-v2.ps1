@@ -74,6 +74,24 @@ print("FULL CDK4 DATA")
 print("Total model rows:", full["total_model_rows"])
 print("Measured P(dep):", full["total_measured_models"])
 print("Registered laboratory models:", full["laboratory_registered_models_n"])
+reference = full.get("reference_drug_context", {})
+print("Known-drug PRISM context:", reference.get("status"))
+print("PRISM laboratory models queried:", reference.get("queried_models_n"))
+print("Linked normalized PRISM observations:", reference.get("observations_n"))
+if not reference.get("available"):
+    raise SystemExit("Known-drug PRISM data unavailable: " +
+                     repr(reference.get("missing_source_files")))
+
+models_by_id = {row["model_id"]: row for row in full["items"]}
+for model_id, name in (("ACH-000019", "MCF-7"), ("ACH-000147", "T-47D")):
+    entries = models_by_id[model_id]["reference_drug_observations"]
+    compound_names = {str(row.get("preferred_name") or "").upper() for row in entries}
+    print(name, "normalized PRISM observations:", len(entries),
+          "known compounds:", sorted(compound_names))
+    if not {"RIBOCICLIB", "ON123300"}.issubset(compound_names):
+        raise SystemExit("Reference PRISM observations missing ribociclib/ON123300 for " + name)
+    if not all(not row["response_is_for_uploaded_molecule"] for row in entries):
+        raise SystemExit("An observed known-drug response was wrongly assigned to PYZ")
 
 expected = {"ACH-000971", "ACH-000019", "ACH-000147", "ACH-000480", "ACH-000995", "ACH-000406"}
 found = {row["model_id"] for row in full["items"]}
@@ -118,6 +136,12 @@ assert all(c["source_layer"] == "full_processed_depmap_target_context" for c in 
     "The analysis fell back to truncated Candidate v2"
 )
 assert all(c["direct_uploaded_molecule_response"] == "absent_not_measured" for c in cells)
+for model_id in ("ACH-000019", "ACH-000147"):
+    cell = next(c for c in cells if c["target_gene"] == "CDK4" and c["model_id"] == model_id)
+    assert any(o.get("preferred_name") == "RIBOCICLIB"
+               for o in cell["reference_drug_observations"]), (
+        "Normalized PRISM known-drug observations not propagated to uploaded molecule context"
+    )
 panel = store._experiment_panel(targets, cells)
 assert panel["complete"] is False
 assert panel["laboratory_ready"] is False
