@@ -25,6 +25,7 @@ from .repositories.uploaded_molecule_repository import UploadedMoleculeRepositor
 from .repositories.pathway_repository import PathwayRepository
 from .repositories.pharmacology_repository import PharmacologyRepository
 from .repositories.qc_repository import QCRepository
+from .repositories.phenotype_repository import PhenotypeRepository
 from .services.atlas_service import AtlasService
 from .services.comparison_service import ComparisonService
 from .services.gene_service import GeneService
@@ -37,6 +38,7 @@ from .services.uploaded_molecule_service import UploadedMoleculeService
 from .services.pathway_service import PathwayService
 from .services.pharmacology_service import PharmacologyService
 from .services.qc_service import QCService
+from .services.phenotype_service import PhenotypeService
 from .settings import MCL_ROOT
 from .store import MCLDataStore
 
@@ -57,6 +59,8 @@ laboratory_store = LaboratoryPanelStore(MCL_ROOT)
 own_compound_store = OwnCompoundStore(MCL_ROOT)
 uploaded_molecule_store = UploadedMoleculeStore(MCL_ROOT, own_compound_store)
 phenotype_store = PhenotypeStore(MCL_ROOT)
+phenotype_repository = PhenotypeRepository(phenotype_store)
+phenotype_service = PhenotypeService(phenotype_repository)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)
