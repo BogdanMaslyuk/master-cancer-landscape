@@ -11,7 +11,9 @@ function n(value: unknown, digits = 2) {
 }
 
 function roleRu(role: string) {
-  if (role === "positive") return "положительная модель";
+  if (role === "genetically_dependent_candidate") return "генетическая зависимость от мишени";
+  if (role === "genetically_nondependent_candidate") return "генетическая независимость от мишени";
+  if (role === "positive") return "положительная модель по известному препарату (устаревший слой)";
   if (role?.startsWith("negative_")) return "отрицательный опухолевый контроль";
   if (role?.startsWith("discordant_")) return "противоречивый контекст";
   return role || "дополнительная модель";
@@ -64,13 +66,13 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
 
       <section className={styles.panel}>
         <div className={styles.panelHead}>
-          <div><div className="eyebrow">МИШЕНЬ → ОПУХОЛЬ → КЛЕТОЧНАЯ ЛИНИЯ</div><h2>Где рационально проверять молекулу</h2></div>
-          <div className={styles.status}>{cells.filter((x:any)=>x.available_in_laboratory).length} моделей есть у нас</div>
+          <div><div className="eyebrow">МИШЕНЬ → ОПУХОЛЬ → КЛЕТОЧНАЯ ЛИНИЯ</div><h2>Генетический контекст для проверки гипотезы</h2></div>
+          <div className={styles.status}>{cells.filter((x:any)=>x.available_in_laboratory).length} моделей в лабораторном реестре</div>
         </div>
         {cells.length === 0 ? <div className={styles.empty}>Для текущих target-гипотез нет достаточного клеточного контекста. Это не означает отсутствие активности молекулы.</div> :
           <div className={styles.cards}>{cells.slice(0,16).map((c:any)=><article className={styles.cellCard} key={`${c.target_gene}-${c.model_id}`}>
             <div className={styles.cellTop}><div><span className={styles.kicker}>{c.organ || "опухолевый контекст"}</span><h3>{c.cell_line_name}</h3><small>{c.cancer_name || c.cancer_id || "—"}</small></div><span className={`${styles.priority} ${styles[c.priority_level] || ""}`}>{c.priority_level_ru}</span></div>
-            <div className={styles.badges}><span>{c.target_gene} · Tanimoto {n(c.target_similarity,3)}</span><span>{roleRu(c.role)}</span>{c.available_in_laboratory && <span className={styles.lab}>есть в лаборатории</span>}</div>
+            <div className={styles.badges}><span>{c.target_gene} · Tanimoto {n(c.target_similarity,3)}</span><span>{roleRu(c.role)}</span>{c.available_in_laboratory && <span className={styles.lab}>зарегистрирована в лаборатории; наличие требует проверки</span>}</div>
             <div className={styles.miniStats}><div><b>{n(c.dependency_probability)}</b><span>P(dep)</span></div><div><b>{n(c.gene_effect)}</b><span>Gene Effect</span></div></div>
             <ul>{(c.reasons || []).slice(0,5).map((reason:string)=><li key={reason}>{reason}</li>)}</ul>
             {Array.isArray(c.warnings) && c.warnings.length > 0 && (
@@ -97,11 +99,23 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
                 laboratory_confirmatory_model: "вторая положительная модель в нашей лаборатории",
                 laboratory_negative_tumour_control: "отрицательный опухолевый контроль в нашей лаборатории",
                 same_cancer_negative_control: "сопоставимый отрицательный контроль того же типа опухоли",
+                experimentally_supported_uploaded_molecule_target: "подтверждение взаимодействия исследуемой молекулы с мишенью",
+                compound_specific_pharmacology: "фармакологические измерения для исследуемой молекулы",
+                validated_assay_protocol: "проверенный экспериментальный протокол",
+                verified_laboratory_availability: "подтверждённая готовность культур в лаборатории",
               } as Record<string, string>)[code] || code).join("; ")}.</div>
             )}
           </div>
         )}
         {!panel.available ? <div className={styles.empty}>Для этой структуры пока нельзя сформировать обоснованную мишень-ориентированную панель.</div> : <>
+          {panel.panel_type === "exploratory_genetic_context" && (
+            <div className={styles.guardrail}>
+              <b>Исследовательский генетический контекст (не прогноз активности PYZ).</b>
+              {" "}CRISPR-зависимые модели: {(panel.genetically_dependent_candidates || []).slice(0,6).map((x:any)=>x.cell_line_name).join(" · ") || "не найдены"}.
+              {" "}CRISPR-независимые кандидаты для сравнения: {(panel.genetically_nondependent_candidates || []).slice(0,6).map((x:any)=>x.cell_line_name).join(" · ") || "не найдены"}.
+              {" "}Эти группы не являются проверенными положительным и отрицательным лекарственными контролями.
+            </div>
+          )}
           <div className={styles.experimentGrid}>
             <div><span>Положительные модели</span><b>{(panel.positive_models || []).map((x:any)=>x.cell_line_name).join(" · ") || "не найдены"}</b></div>
             <div><span>Отрицательный опухолевый контроль</span><b>{panel.negative_tumor_control?.cell_line_name || "не найден"}</b></div>
