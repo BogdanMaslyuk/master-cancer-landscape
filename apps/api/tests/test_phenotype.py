@@ -117,6 +117,10 @@ def test_csv_import_keeps_immutable_source_and_does_not_invent_ic50(tmp_path: Pa
     assert first["sha256"] == hashlib.sha256(raw.encode()).hexdigest()
     path = tmp_path / "data" / "runtime" / "phenotype" / "experiments" / experiment_id / "imports"
     assert (path / f"{first['sha256']}.csv").read_text(encoding="utf-8") == raw
+    normalized = path / first["normalized_rows_file"]
+    assert normalized.exists()
+    assert hashlib.sha256(normalized.read_bytes()).hexdigest() == first["normalized_rows_sha256"]
+    assert first["normalization_version"] == "mcl-phenotype-csv-v1"
     assert first["wells_n"] == 6
     assert first["qc"]["status"] == "qc_pending"
     assert first["qc"]["sop_thresholds_verified"] is False
@@ -218,3 +222,37 @@ def test_api_has_explicit_response_schema_and_no_claimed_ic50():
         response = schema["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
         assert response.get("$ref", "").startswith("#/components/schemas/Phenotype")
     assert schema["paths"]["/api/phenotype/experiments"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith("PhenotypeExperimentCreateRequest")
+
+
+def test_original_csv_bytes_preserved_with_crlf_and_utf8_bom(tmp_path: Path):
+    store = sample_store(tmp_path)
+    experiment_id = create(store)["experiment_id"]
+    text = csv_file(*complete_controls())
+    raw_bytes = b"\xef\xbb\xbf" + text.replace("\n", "\r\n").encode("utf-8")
+    result = store.import_csv(
+        experiment_id, None, "plate.csv", raw_bytes=raw_bytes,
+    )
+    path = tmp_path / "data" / "runtime" / "phenotype" / "experiments" / experiment_id / "imports"
+    assert (path / (result["sha256"] + ".csv")).read_bytes() == raw_bytes
+    assert result["sha256"] == hashlib.sha256(raw_bytes).hexdigest()
+    assert result["wells_n"] == 6
+
+
+def test_base64_api_service_rejects_corruption_and_keeps_original_bytes(tmp_path: Path):
+    import base64
+    from mcl_api.repositories.phenotype_repository import PhenotypeRepository
+    from mcl_api.services.phenotype_service import PhenotypeService
+
+    store = sample_store(tmp_path)
+    service = PhenotypeService(PhenotypeRepository(store))
+    experiment_id = create(store)["experiment_id"]
+    raw = csv_file(*complete_controls()).encode("utf-8")
+    result = service.import_csv(
+        experiment_id, None, "plate.csv", base64.b64encode(raw).decode("ascii")
+    )
+    assert result["sha256"] == hashlib.sha256(raw).hexdigest()
+    with pytest.raises(ValueError, match="Invalid base64"):
+        service.import_csv(experiment_id, None, "another.csv", "?broken@")
+    with pytest.raises(ValueError, match="exactly one"):
+        service.import_csv(experiment_id, csv_file(*complete_controls()), "another.csv", "test")
+    assert store.detail(experiment_id)["imported_files_n"] == 1
