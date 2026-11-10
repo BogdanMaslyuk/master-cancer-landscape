@@ -84,6 +84,13 @@ class FullGeneModelContext:
                     laboratory[str(model_id)] = sorted(
                         set(str(name) for name in group["lab_name"].dropna())
                     )
+        # PRISM is an independent evidence layer. Read only known-drug
+        # observations for the locally registered subset (not all DepMap models).
+        from .scientific_reference_context import KnownDrugReferenceContext
+
+        reference = KnownDrugReferenceContext(self.project_root).load(
+            gene, list(laboratory)
+        )
         out = []
         for row in frame.to_dict("records"):
             probability = pd.to_numeric(
@@ -104,6 +111,16 @@ class FullGeneModelContext:
                 status = "nondependent_measured"
             model_id = row["model_id"]
             lab_names = laboratory.get(model_id, [])
+            reference_observations = (
+                reference["observations_by_model"].get(model_id, [])
+                if reference["available"] and lab_names else []
+            )
+            reference_status = (
+                "not_queried_non_laboratory_model" if not lab_names
+                else "normalized_source_unavailable" if not reference["available"]
+                else "normalized_prism_reference_observations" if reference_observations
+                else "no_linked_prism_lfc_observations"
+            )
             out.append({
                 "target_gene": gene,
                 "model_id": model_id,
@@ -121,8 +138,14 @@ class FullGeneModelContext:
                 "physical_stock_verified": False,
                 "source_layer": "full_processed_depmap_target_context",
                 "direct_uploaded_molecule_response": "absent_not_measured",
-                "known_reference_compounds": [],
-                "reference_drug_evidence_status": "not_assessed_in_this_genetic_layer",
+                "known_reference_compounds": sorted(set(
+                    str(obs.get("preferred_name") or obs["compound_id"])
+                    for obs in reference_observations
+                )),
+                "reference_drug_observations": reference_observations,
+                "reference_drug_observations_n": len(reference_observations),
+                "reference_drug_evidence_status": reference_status,
+                "reference_drug_source_scope": "laboratory_registered_models_only",
             })
         out.sort(key=lambda item: (
             0 if item["registered_in_laboratory"] else 1,
@@ -139,6 +162,17 @@ class FullGeneModelContext:
             "total_measured_models": sum(item["crispr_measured"] for item in out),
             "total_model_rows": len(out),
             "laboratory_registered_models_n": sum(item["registered_in_laboratory"] for item in out),
+            "reference_drug_context": {
+                "available": reference["available"],
+                "status": reference["status"],
+                "queried_models_n": reference["queried_models_n"],
+                "observations_n": reference["observations_n"],
+                "missing_source_files": reference["missing_source_files"],
+                "note_ru": (
+                    "Измерения PRISM приведены только для моделей, отмеченных в лабораторном "
+                    "реестре, и относятся к известным веществам, а не к новой молекуле."
+                ),
+            },
             "items": out,
             "interpretation_ru": (
                 "Показана генетическая зависимость от гена по CRISPR; "
