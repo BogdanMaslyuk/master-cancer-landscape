@@ -157,14 +157,15 @@ def _duplicate_control(con: sqlite3.Connection) -> None:
     groups = con.execute("""
         SELECT doi,target_gene,exact_id,endpoint,relation,nm
         FROM measurements
-        WHERE doi!='' AND dup='unmatched'
+        WHERE doi!='' AND tier IN ('A','B') AND independent='primary'
         GROUP BY doi,target_gene,exact_id,endpoint,relation,nm HAVING COUNT(*)>1
     """).fetchall()
     for signature in groups:
         rows = con.execute("""
             SELECT seq FROM measurements
             WHERE doi=? AND target_gene=? AND exact_id=? AND endpoint=?
-                  AND relation=? AND nm=? AND dup='unmatched'
+                  AND relation=? AND nm=? AND tier IN ('A','B')
+                  AND independent='primary'
         """, signature).fetchall()
         for (seq,) in rows:
             con.execute("""
@@ -185,6 +186,9 @@ def _rows(con: sqlite3.Connection):
     """):
         record = json.loads(payload)
         record["curated_quality_tier"] = tier
+        if status != "unmatched":
+            reasons = json.loads(record.get("curation_reason_codes") or "[]")
+            record["curation_reason_codes"] = json.dumps(sorted(set(reasons + [status])))
         record["duplicate_status"] = status
         record["independence_status"] = independent
         yield record
