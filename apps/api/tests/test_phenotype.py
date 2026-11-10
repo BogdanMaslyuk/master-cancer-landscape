@@ -256,3 +256,71 @@ def test_base64_api_service_rejects_corruption_and_keeps_original_bytes(tmp_path
     with pytest.raises(ValueError, match="exactly one"):
         service.import_csv(experiment_id, csv_file(*complete_controls()), "another.csv", "test")
     assert store.detail(experiment_id)["imported_files_n"] == 1
+
+
+def test_http_phenotype_flow_uses_isolated_temp_store_and_rejects_bad_csv(
+    tmp_path: Path, monkeypatch
+):
+    import base64
+    from fastapi.testclient import TestClient
+    from mcl_api.main import app
+    from mcl_api.repositories.phenotype_repository import PhenotypeRepository
+    from mcl_api.services.phenotype_service import PhenotypeService
+    import mcl_api.routers.phenotype as route
+
+    temp_store = sample_store(tmp_path)
+    monkeypatch.setattr(route, "phenotype_service", PhenotypeService(PhenotypeRepository(temp_store)))
+    client = TestClient(app)
+
+    assert client.get("/api/phenotype/models").json()["total"] == 4
+    assert client.get("/api/phenotype/compounds").json()["total"] == 2
+
+    created = client.post("/api/phenotype/experiments", json={
+        "title": "Test project", "protocol_id": "DRAFT",
+        "cell_line_ids": ["HEK293T", "MRC-5"],
+        "compound_ids": ["PYZ-035"],
+        "exposure_h": 72,
+        "assay_type": "MTT",
+    })
+    assert created.status_code == 200
+    identifier = created.json()["experiment_id"]
+    raw = csv_file(*complete_controls()).encode("utf-8")
+    imported = client.post("/api/phenotype/experiments/" + identifier + "/import", json={
+        "filename": "plate.csv", "file_base64": base64.b64encode(raw).decode("ascii"),
+    })
+    assert imported.status_code == 200, imported.text
+    assert imported.json()["wells_n"] == 6
+    assert imported.json()["qc"]["status"] == "qc_pending"
+    assert imported.json()["sha256"] == hashlib.sha256(raw).hexdigest()
+    detail = client.get("/api/phenotype/experiments/" + identifier)
+    assert detail.status_code == 200
+    assert detail.json()["verified_result"] is False
+    assert detail.json()["selectivity_status"] == "not_measured"
+    bad = client.post("/api/phenotype/experiments/" + identifier + "/import", json={
+        "filename": "plate2.csv",
+        "file_base64": base64.b64encode(csv_file(record(unit="XYZ")).encode()).decode("ascii"),
+    })
+    assert bad.status_code == 400
+    assert "unknown concentration unit" in bad.json()["detail"]
+    assert client.get("/api/phenotype/experiments/" + identifier).json()["imported_files_n"] == 1
+
+
+def test_normalized_dose_ledger_preserves_raw_unit_and_parent_source(tmp_path: Path):
+    import json
+    store = sample_store(tmp_path)
+    experiment_id = create(store)["experiment_id"]
+    text = csv_file(
+        record(well="A01", ctrl="vehicle", compound="", batch="", dose="0"),
+        record(well="A02", ctrl="treated", dose="1500", unit="nM"),
+    )
+    result = store.import_csv(experiment_id, text, "dose.csv")
+    derived_path = (
+        tmp_path / "data" / "runtime" / "phenotype" / "experiments" /
+        experiment_id / "imports" / result["normalized_rows_file"]
+    )
+    entries = [json.loads(line) for line in derived_path.read_text(encoding="utf-8").splitlines()]
+    assert entries[1]["concentration_value"] == "1500"
+    assert entries[1]["concentration_unit"] == "nM"
+    assert entries[1]["concentration_um"] == 1.5
+    assert entries[1]["source_csv_row"] == 3
+    assert result["sha256"] == hashlib.sha256(text.encode()).hexdigest()
