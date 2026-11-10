@@ -234,3 +234,74 @@ def test_mismatched_negative_cancer_is_reported(tmp_path: Path):
     assert panel["complete"] is False
     assert panel["status"] == "partial"
     assert "same_cancer_negative_control" in panel["missing_components"]
+
+
+def test_full_gene_context_uses_all_depmapped_models_and_never_infers_pyz_response(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    rows = []
+    atlas = []
+    for i in range(45):
+        mid = f"ACH-TEST-{i:03d}"
+        rows.append({
+            "model_id": mid, "target_gene": "CDK4",
+            "dependency_probability": 0.91 if i % 2 == 0 else 0.12,
+            "gene_effect": -1.3 if i % 2 == 0 else -0.2,
+            "mcl_cancer_id": "C-BREAST",
+            "mcl_cancer_name": "Breast carcinoma",
+            "mcl_organ_ru": "Молочная железа",
+            "depmap_release": "26Q1",
+        })
+        atlas.append({"model_id": mid, "cell_line_name": f"Line-{i:03d}"})
+    rows.append({
+        "model_id": "ACH-UNKNOWN", "target_gene": "CDK4",
+        "dependency_probability": None, "gene_effect": None,
+        "mcl_cancer_id": "C-BREAST",
+        "mcl_cancer_name": "Breast carcinoma",
+        "mcl_organ_ru": "Молочная железа",
+        "depmap_release": "26Q1",
+    })
+    atlas.append({"model_id": "ACH-UNKNOWN", "cell_line_name": "Unknown dependency"})
+    pd.DataFrame(rows).to_parquet(processed / "depmap_model_target_context.parquet", index=False)
+    pd.DataFrame(atlas).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
+    pd.DataFrame([{
+        "model_id": "ACH-TEST-044", "lab_name": "Available but formerly outside Top-30"
+    }]).to_parquet(processed / "laboratory_panel.parquet", index=False)
+
+    store = make_store(tmp_path)
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.396}]
+    cells = store._cell_lines(targets)
+
+    assert len(cells) == 46
+    assert all(c["source_layer"] == "full_processed_depmap_target_context" for c in cells)
+    selected = next(c for c in cells if c["model_id"] == "ACH-TEST-044")
+    assert selected["available_in_laboratory"] is True
+    assert selected["physical_stock_verified"] is False
+    assert selected["role"] == "genetically_dependent_candidate"
+    assert selected["direct_uploaded_molecule_response"] == "absent_not_measured"
+    assert set(c["role"] for c in cells) == {
+        "genetically_dependent_candidate",
+        "genetically_nondependent_candidate",
+        "insufficient_data",
+    }
+    unknown = next(c for c in cells if c["model_id"] == "ACH-UNKNOWN")
+    assert unknown["genetic_dependency_status"] == "not_measured"
+
+    panel = store._experiment_panel(targets, cells)
+    assert panel["panel_type"] == "exploratory_genetic_context"
+    assert panel["complete"] is False
+    assert panel["laboratory_ready"] is False
+    assert panel["positive_models"] == []
+    assert panel["negative_tumor_control"] is None
+    assert panel["genetic_candidate_models_n"] == 23
+    assert panel["genetic_comparator_models_n"] == 22
+
+
+def test_full_gene_context_treats_missing_processed_source_as_unavailable(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    store = make_store(tmp_path)
+    context = store.own_compounds.full_target_models("CDK4")
+    assert context["available"] is False
+    assert context["status"] == "source_not_available"
+    assert context["items"] == []
