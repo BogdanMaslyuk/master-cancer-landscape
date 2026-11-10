@@ -86,3 +86,8 @@ secrets/
 # Large reproducible genome-wide matrices
 data/processed/depmap_genomewide/*_dependency_matrix.parquet
 data/processed/depmap_genomewide/*_gene_effect_matrix.parquet
+
+# Generated P0.2/P0.3 expanded-target registry and assay staging
+data/processed/target_ligand_space_v2/
+outputs/qc/target_ligand_space_v2/
+outputs/reports/target_ligand_space_v2/
