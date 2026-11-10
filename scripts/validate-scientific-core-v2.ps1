@@ -25,7 +25,8 @@ try {
     # The interpreter is from another checkout and may contain an older editable
     # installation. Override PYTHONPATH BEFORE running any test.
     $env:PYTHONPATH = $ApiRoot
-    $env:MCL_SCIENTIFIC_DATA_ROOT = $Source
+    # Tests use temporary isolated fixtures. Never point them at the real data.
+    Remove-Item Env:\MCL_SCIENTIFIC_DATA_ROOT -ErrorAction SilentlyContinue
 
     Write-Host ""
     Write-Host "=== Verify active mcl_api source ===" -ForegroundColor Cyan
@@ -53,6 +54,8 @@ print("SOURCE CHECK PASS")
     Assert-Exit "Scientific Core v2 tests"
 
     if (-not $SkipRealData) {
+        # Only the real-data diagnostic gets the external source location.
+        $env:MCL_SCIENTIFIC_DATA_ROOT = $Source
         Write-Host ""
         Write-Host "=== Validate full CDK4 source and PYZ-035 without changing cached results ===" -ForegroundColor Cyan
         @'
