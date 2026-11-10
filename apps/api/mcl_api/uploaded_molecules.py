@@ -385,6 +385,9 @@ class UploadedMoleculeStore:
                         "cell_line_name": model.get("cell_line_name") or model_id,
                         "role": role,
                         "original_candidate_role": original_role,
+                        "source_layer": "legacy_candidate_v2_truncated",
+                        "direct_uploaded_molecule_response": "absent_not_measured",
+                        "reference_drug_context_only": True,
                         "dependency_probability": dependency,
                         "gene_effect": model.get("gene_effect"),
                         "known_reference_compounds": known,
@@ -552,6 +555,13 @@ class UploadedMoleculeStore:
             )
             if not same_cancer:
                 missing.append("same_cancer_negative_control")
+        # The legacy Candidate v2 list is Top-N truncated and retains known
+        # reference-drug roles. Never certify it as a complete PYZ panel.
+        if cells and not any(
+            c.get("source_layer") == "full_processed_depmap_target_context"
+            for c in cells
+        ):
+            missing.append("full_depmapped_evidence_layer")
         complete = not missing
         evidence_complete = bool(
             len(selected) >= 2 and negative is not None and normal is not None
