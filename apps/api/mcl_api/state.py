@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from .atlas import MCLAtlas
 from .candidate_hypotheses import CandidateHypothesisStore
 from .cohort import MCLModelCohortStore
@@ -58,7 +60,11 @@ hypothesis_store = CandidateHypothesisStore(MCL_ROOT)
 laboratory_store = LaboratoryPanelStore(MCL_ROOT)
 own_compound_store = OwnCompoundStore(MCL_ROOT)
 uploaded_molecule_store = UploadedMoleculeStore(MCL_ROOT, own_compound_store)
-phenotype_store = PhenotypeStore(MCL_ROOT)
+# Phenotypic experiments always belong to the active code checkout. MCL_ROOT
+# may point at the read-only original scientific-data checkout during review,
+# but raw phenotype uploads must NEVER be written there implicitly.
+PHENOTYPE_CODE_ROOT = Path(__file__).resolve().parents[3]
+phenotype_store = PhenotypeStore(PHENOTYPE_CODE_ROOT)
 phenotype_repository = PhenotypeRepository(phenotype_store)
 phenotype_service = PhenotypeService(phenotype_repository)
 
