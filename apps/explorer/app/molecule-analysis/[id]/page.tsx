@@ -132,6 +132,24 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
         {!panel.available ? <div className={styles.empty}>Для этой структуры пока нельзя сформировать обоснованную мишень-ориентированную панель.</div> : <>
           {panel.panel_type === "exploratory_genetic_context" && (
             <div className={styles.guardrail}>
+              <b>Предварительный отбор по типу опухоли.</b>
+              {" "}Группы с зависимыми и независимыми от гена моделями в лабораторном реестре:
+              {" "}{panel.same_cancer_genetic_comparison_groups_n ?? 0}.
+              {Array.isArray(panel.same_cancer_genetic_comparison_groups) && (
+                <ul>{panel.same_cancer_genetic_comparison_groups.map((group:any) => (
+                  <li key={group.cancer_id}>
+                    {group.cancer_name || group.cancer_id}:
+                    {" "}зависимые — {(group.genetically_dependent_models || []).map((x:any)=>x.cell_line_name).join(", ")};
+                    {" "}сравнительные по CRISPR — {(group.genetically_nondependent_models || []).map((x:any)=>x.cell_line_name).join(", ")}
+                  </li>
+                ))}</ul>
+              )}
+              {" "}Такая пара не является подтверждённой парой лекарственных контролей:
+              различия по росту, мутациям и состоянию культуры ещё не проверены.
+            </div>
+          )}
+          {panel.panel_type === "exploratory_genetic_context" && (
+            <div className={styles.guardrail}>
               <b>Исследовательский генетический контекст (не прогноз активности PYZ).</b>
               {" "}CRISPR-зависимые модели: {(panel.genetically_dependent_candidates || []).slice(0,6).map((x:any)=>x.cell_line_name).join(" · ") || "не найдены"}.
               {" "}CRISPR-независимые кандидаты для сравнения: {(panel.genetically_nondependent_candidates || []).slice(0,6).map((x:any)=>x.cell_line_name).join(" · ") || "не найдены"}.
