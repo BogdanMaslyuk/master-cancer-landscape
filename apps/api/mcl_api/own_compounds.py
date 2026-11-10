@@ -326,7 +326,12 @@ class OwnCompoundStore:
         gene = target_gene.strip().upper()
         target = hypotheses[hypotheses["target_gene"].astype(str).str.upper().eq(gene)].copy()
         if "priority_status" in target.columns:
-            target = target[target["priority_status"].astype(str).eq("priority_for_in_vitro")]
+            # Preserve all Candidate v2 supported/exploratory reference-drug contexts.
+            # Filtering to priority_for_in_vitro hid ribociclib and other recorded
+            # responses for MCF-7/T-47D; the status remains per-drug metadata.
+            target = target[target["priority_status"].astype(str).isin([
+                "priority_for_in_vitro", "supported_hypothesis", "exploratory_hypothesis",
+            ])]
         if target.empty:
             return []
 
@@ -349,7 +354,7 @@ class OwnCompoundStore:
             context_models = pd.DataFrame()
             if ids and not models.empty and "hypothesis_id" in models.columns:
                 context_models = models[models["hypothesis_id"].astype(str).isin(ids)].copy()
-                join_cols = [c for c in ["hypothesis_id", "compound_id", "preferred_name"] if c in group.columns]
+                join_cols = [c for c in ["hypothesis_id", "compound_id", "preferred_name", "priority_status"] if c in group.columns]
                 if join_cols and "hypothesis_id" in join_cols:
                     mapping = group[join_cols].drop_duplicates("hypothesis_id")
                     extra = [c for c in join_cols if c != "hypothesis_id" and c not in context_models.columns]
