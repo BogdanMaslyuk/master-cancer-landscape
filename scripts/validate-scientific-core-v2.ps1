@@ -1,0 +1,224 @@
+# Scientific Core v2: safe validation using this Git worktree's mcl_api sources.
+# Reads the original data checkout. Does not modify Git, Parquet files or cached molecules.
+param(
+    [string]$SourceRoot = (Join-Path $env:USERPROFILE "Desktop\master-cancer-landscape"),
+    [switch]$SkipRealData
+)
+
+$ErrorActionPreference = "Stop"
+$Review = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$Source = (Resolve-Path $SourceRoot).Path
+$ApiRoot = (Resolve-Path (Join-Path $Review "apps\api")).Path
+$Python = Join-Path $Source ".venv\Scripts\python.exe"
+if (-not (Test-Path $Python)) { throw "Python environment not found: $Python" }
+
+$PreviousPath = (Get-Location).Path
+$PreviousPythonPath = [Environment]::GetEnvironmentVariable("PYTHONPATH", "Process")
+$PreviousDataRoot = [Environment]::GetEnvironmentVariable("MCL_SCIENTIFIC_DATA_ROOT", "Process")
+
+function Assert-Exit([string]$Label) {
+    if ($LASTEXITCODE -ne 0) { throw "$Label failed with exit code $LASTEXITCODE" }
+}
+
+try {
+    Set-Location $Review
+    # The interpreter is from another checkout and may contain an older editable
+    # installation. Override PYTHONPATH BEFORE running any test.
+    $env:PYTHONPATH = $ApiRoot
+    # Tests use temporary isolated fixtures. Never point them at the real data.
+    Remove-Item Env:\MCL_SCIENTIFIC_DATA_ROOT -ErrorAction SilentlyContinue
+
+    Write-Host ""
+    Write-Host "=== Verify active mcl_api source ===" -ForegroundColor Cyan
+    @'
+import pathlib
+import sys
+import mcl_api
+from mcl_api.own_compounds import OwnCompoundStore
+
+expected = (pathlib.Path(sys.argv[1]) / "apps" / "api" / "mcl_api").resolve()
+actual = pathlib.Path(mcl_api.__file__).resolve().parent
+print("Actual:", actual)
+print("Expected:", expected)
+if actual != expected:
+    raise SystemExit("WRONG SOURCE: Python imported an older mcl_api.")
+if not hasattr(OwnCompoundStore, "full_target_models"):
+    raise SystemExit("WRONG SOURCE: missing full_target_models.")
+print("SOURCE CHECK PASS")
+'@ | & $Python - $Review
+    Assert-Exit "Python source check"
+
+    Write-Host ""
+    Write-Host "=== Run Scientific Core v2 tests ===" -ForegroundColor Cyan
+    & $Python -m pytest .\apps\api\tests\test_uploaded_molecules.py .\apps\api\tests\test_scientific_core_v2_cdk4_audit.py .\apps\api\tests\test_scientific_reference_context.py .\apps\api\tests\test_scientific_laboratory_triage.py -q
+    Assert-Exit "Scientific Core v2 tests"
+
+    if (-not $SkipRealData) {
+        # Only the real-data diagnostic gets the external source location.
+        $env:MCL_SCIENTIFIC_DATA_ROOT = $Source
+        Write-Host ""
+        Write-Host "=== Validate full CDK4 source and PYZ-035 without changing cached results ===" -ForegroundColor Cyan
+        @'
+from pathlib import Path
+from mcl_api.own_compounds import OwnCompoundStore
+from mcl_api.uploaded_molecules import UploadedMoleculeStore
+
+root = Path.cwd()
+own = OwnCompoundStore(root)
+store = UploadedMoleculeStore(root, own)
+full = own.full_target_models("CDK4")
+if not full["available"]:
+    raise SystemExit("Full processed CDK4 source unavailable. Check data root.")
+
+print("FULL CDK4 DATA")
+print("Total model rows:", full["total_model_rows"])
+print("Measured P(dep):", full["total_measured_models"])
+print("Registered laboratory models in CDK4 matrix:", full["laboratory_registered_models_n"])
+print("All mapped laboratory IDs:", full["laboratory_registry_mapped_models_n"])
+print("Mapped laboratory IDs outside CDK4 matrix:",
+      full["laboratory_registry_outside_context_n"])
+print("Outside-context ModelIDs:",
+      full["laboratory_registry_outside_context_model_ids"])
+reference = full.get("reference_drug_context", {})
+print("Known-drug PRISM context:", reference.get("status"))
+print("PRISM laboratory models queried:", reference.get("queried_models_n"))
+print("Linked normalized PRISM observations:", reference.get("observations_n"))
+if not reference.get("available"):
+    raise SystemExit("Known-drug PRISM data unavailable: " +
+                     repr(reference.get("missing_source_files")))
+if reference["queried_models_n"] != full["laboratory_registered_models_n"]:
+    raise SystemExit("PRISM model denominator disagrees with measured CDK4 laboratory overlap")
+if full["laboratory_registry_mapped_models_n"] != (
+    full["laboratory_registered_models_n"] +
+    full["laboratory_registry_outside_context_n"]
+):
+    raise SystemExit("Laboratory register coverage counts do not reconcile")
+if reference["observations_n"] != sum(
+    len(row.get("reference_drug_observations") or [])
+    for row in full["items"]
+):
+    raise SystemExit("PRISM observation count differs from the attached full-gene model records")
+print("PRISM and CDK4 model coverage: CONSISTENT")
+
+print("\n=== WHY SOME LAB MODELS ARE OUTSIDE CDK4 ===")
+for item in full["laboratory_registry_outside_context_details"]:
+    print("ModelID:", item["model_id"],
+          "| Lab names:", ", ".join(item["lab_names"]),
+          "| Roles:", ", ".join(item["laboratory_roles"]),
+          "| In CRISPR atlas:", item["in_full_crispr_atlas"])
+print("These exclusions are not proof of missing CRISPR for all genes.")
+
+print("\n=== LABORATORY GENETIC TRIAGE (NOT PYZ ACTIVITY) ===")
+triage = full["laboratory_genetic_triage"]
+print("Status:", triage["status"])
+print("Human tumor models with target context:",
+      triage["laboratory_human_tumor_model_ids_n"])
+print("Same-cancer provisional comparison cohorts:", triage["paired_cancer_cohorts_n"])
+if not triage["available"]:
+    raise SystemExit("Laboratory tumor role metadata unavailable; no ranking is justified")
+for group in triage["cohorts"]:
+    print("Cancer:", group["cancer_name"] or group["cancer_id"],
+          "| Dependent:", group["dependent_models_n"],
+          "| Nondependent:", group["nondependent_measured_models_n"],
+          "| Same-cancer genetic comparison:",
+          group["same_cancer_genetic_comparison_possible"])
+for item in triage["items"]:
+    print("MODEL:", item["cell_line_name"],
+          "| P(dep):", item["dependency_probability"],
+          "| Group:", item["genetic_triage_group"],
+          "| Role:", item["genetic_role"])
+assert all(item["laboratory_ready"] is False for item in triage["items"])
+assert all(item["compound_specific_activity"] == "not_measured" for item in triage["items"])
+
+models_by_id = {row["model_id"]: row for row in full["items"]}
+for model_id, name in (("ACH-000019", "MCF-7"), ("ACH-000147", "T-47D")):
+    entries = models_by_id[model_id]["reference_drug_observations"]
+    compound_names = {str(row.get("preferred_name") or "").upper() for row in entries}
+    print(name, "normalized PRISM observations:", len(entries),
+          "known compounds:", sorted(compound_names))
+    if not {"RIBOCICLIB", "ON123300"}.issubset(compound_names):
+        raise SystemExit("Reference PRISM observations missing ribociclib/ON123300 for " + name)
+    if not all(not row["response_is_for_uploaded_molecule"] for row in entries):
+        raise SystemExit("An observed known-drug response was wrongly assigned to PYZ")
+
+expected = {"ACH-000971", "ACH-000019", "ACH-000147", "ACH-000480", "ACH-000995", "ACH-000406"}
+found = {row["model_id"] for row in full["items"]}
+missing = sorted(expected - found)
+if missing:
+    raise SystemExit("Missing CDK4 reference models: " + ", ".join(missing))
+for row in full["items"]:
+    if row["model_id"] in expected:
+        print(row["cell_line_name"], row["model_id"],
+              "P(dep)=", row["dependency_probability"],
+              "status=", row["genetic_dependency_status"])
+
+print("\nCANDIDATE V2 (KNOWN DRUGS ONLY)")
+contexts = own._contexts_for_target("CDK4")
+for name in ("MCF-7", "T-47D"):
+    seen = []
+    for context in contexts:
+        for model in context.get("models", []):
+            if str(model.get("cell_line_name") or "").casefold() == name.casefold():
+                for obs in model.get("reference_drug_observations", []):
+                    seen.append((
+                        str(obs.get("preferred_name") or obs.get("compound_id")),
+                        str(obs.get("reference_model_role")),
+                    ))
+    print(name, ":", sorted(set(seen)))
+    if not seen:
+        raise SystemExit("Missing per-compound reference trace for " + name)
+
+registry = own.registry()
+hit = registry.loc[registry["own_compound_id"].astype(str).eq("PYZ-035")]
+if hit.empty:
+    raise SystemExit("PYZ-035 not found in worktree registry")
+mol, canonical, inchikey = store._standardize(str(hit.iloc[0]["standardized_smiles"]))
+targets = store._target_search(mol)
+match = next((t for t in targets if t["target_gene"] == "CDK4"), None)
+if match is None:
+    raise SystemExit("CDK4 not in current target-ligand space; check runtime source")
+cells = store._cell_lines(targets)
+if not cells:
+    raise SystemExit("No relevant cells returned; review structural gate and source files")
+assert all(c["source_layer"] == "full_processed_depmap_target_context" for c in cells), (
+    "The analysis fell back to truncated Candidate v2"
+)
+assert all(c["direct_uploaded_molecule_response"] == "absent_not_measured" for c in cells)
+for model_id in ("ACH-000019", "ACH-000147"):
+    cell = next(c for c in cells if c["target_gene"] == "CDK4" and c["model_id"] == model_id)
+    assert any(o.get("preferred_name") == "RIBOCICLIB"
+               for o in cell["reference_drug_observations"]), (
+        "Normalized PRISM known-drug observations not propagated to uploaded molecule context"
+    )
+panel = store._experiment_panel(targets, cells)
+assert panel["complete"] is False
+assert panel["laboratory_ready"] is False
+
+print("\nPYZ-035: READ-ONLY ANALYSIS")
+print("CDK4 best Tanimoto:", match["best_tanimoto"])
+print("Cell models:", len(cells))
+print("Panel type:", panel.get("panel_type"))
+print("Status:", panel.get("status"))
+print("Genetically dependent candidate models:", panel.get("genetic_candidate_models_n"))
+print("Genetically nondependent comparator models:", panel.get("genetic_comparator_models_n"))
+print("Laboratory ready:", panel.get("laboratory_ready"))
+print("Missing:", panel.get("missing_components"))
+print("\nVALIDATION COMPLETE")
+'@ | & $Python -
+        Assert-Exit "Full data validation"
+    }
+    Write-Host ""
+    Write-Host "Scientific Core v2 validation: PASS" -ForegroundColor Green
+} finally {
+    if ($null -eq $PreviousPythonPath) {
+        Remove-Item Env:\PYTHONPATH -ErrorAction SilentlyContinue
+    } else {
+        $env:PYTHONPATH = $PreviousPythonPath
+    }
+    if ($null -eq $PreviousDataRoot) {
+        Remove-Item Env:\MCL_SCIENTIFIC_DATA_ROOT -ErrorAction SilentlyContinue
+    } else {
+        $env:MCL_SCIENTIFIC_DATA_ROOT = $PreviousDataRoot
+    }
+    Set-Location $PreviousPath
+}

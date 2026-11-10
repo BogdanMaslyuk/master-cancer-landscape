@@ -91,3 +91,343 @@ def test_force_recompute_replaces_cached_analysis(tmp_path: Path):
     assert refreshed["analysis_id"] == first["analysis_id"]
     assert refreshed["name"] == "refreshed"
     assert refreshed["reused_existing_analysis"] is False
+
+
+def _model(model_id: str, role: str, probability, *, lab=False, cancer="CANCER-001"):
+    return {
+        "model_id": model_id,
+        "cell_line_name": model_id,
+        "role": role,
+        "dependency_probability": probability,
+        "gene_effect": -0.8 if probability is not None else None,
+        "available_in_laboratory": lab,
+        "laboratory_lines": [model_id] if lab else [],
+        "known_reference_compounds": [],
+    }
+
+
+def test_missing_crispr_never_becomes_negative_control(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "mcl_cancer_id": "CANCER-001", "mcl_cancer_name": "Test cancer",
+        "models": [
+            _model("P1", "positive", 0.91, lab=True),
+            _model("N_UNMEASURED", "negative_same_cancer", None, lab=True),
+            _model("N_MEASURED", "negative_same_cancer", 0.12, lab=False),
+        ],
+    }]
+    store._non_tumor_control = lambda: {"lab_name": "BJ5ta"}
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.75}]
+    cells = store._cell_lines(targets)
+    unmeasured = next(c for c in cells if c["model_id"] == "N_UNMEASURED")
+    assert unmeasured["role"] == "insufficient_data"
+    assert unmeasured["priority_level"] == "insufficient_data"
+    panel = store._experiment_panel(targets, cells)
+    assert panel["negative_tumor_control"]["model_id"] == "N_MEASURED"
+    assert panel["status"] == "partial"
+    assert panel["complete"] is False
+    assert "independent_confirmatory_model" in panel["missing_components"]
+
+
+def test_missing_positive_blocks_ready_panel(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "mcl_cancer_id": "CANCER-001",
+        "models": [_model("N1", "negative_same_cancer", 0.1)],
+    }]
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.6}]
+    cells = store._cell_lines(targets)
+    panel = store._experiment_panel(targets, cells)
+    assert panel["available"] is False
+    assert panel["status"] == "not_ready"
+    assert "positive_tumour_model" in panel["missing_components"]
+
+
+def test_weak_similarity_does_not_generate_cell_recommendations(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "models": [_model("P1", "positive", 0.9, lab=True)],
+    }]
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.34}]
+    assert store._cell_lines(targets) == []
+    panel = store._experiment_panel(targets, [])
+    assert panel["available"] is False
+    assert panel["complete"] is False
+    assert panel["status"] == "not_ready"
+    assert "supported_target_hypothesis" in panel["missing_components"]
+
+
+def test_discordant_candidate_role_is_not_promoted(tmp_path: Path):
+    store = make_store(tmp_path)
+    store.own_compounds._contexts_for_target = lambda gene: [{
+        "models": [
+            _model("P_CONFLICT", "positive", 0.1, lab=True),
+            _model("N_CONFLICT", "negative_same_cancer", 0.95, lab=True),
+        ],
+    }]
+    cells = store._cell_lines([{"target_gene": "CDK4", "best_tanimoto": 0.7}])
+    assert {c["role"] for c in cells} == {"discordant_or_unclassified"}
+    assert all(c["priority_level"] == "exploratory" for c in cells)
+
+
+def test_experiment_focus_skips_target_without_positive_model(tmp_path: Path):
+    store = make_store(tmp_path)
+    def contexts(gene):
+        if gene == "CDK4":
+            return [{"mcl_cancer_id": "CANCER-001", "models": [
+                _model("N1", "negative_same_cancer", 0.1)
+            ]}]
+        return [{"mcl_cancer_id": "CANCER-002", "models": [
+            _model("P1", "positive", 0.92, lab=True)
+        ]}]
+    store.own_compounds._contexts_for_target = contexts
+    targets = [
+        {"target_gene": "CDK4", "best_tanimoto": 0.8},
+        {"target_gene": "BCL2L1", "best_tanimoto": 0.6},
+    ]
+    panel = store._experiment_panel(targets, store._cell_lines(targets))
+    assert panel["focus_target_gene"] == "BCL2L1"
+    assert panel["available"] is True
+    assert panel["complete"] is False
+
+
+def test_in_silico_panel_without_lab_cultures_is_not_complete(tmp_path: Path):
+    store = make_store(tmp_path)
+    store._non_tumor_control = lambda: {"lab_name": "BJ5ta"}
+    target = [{"target_gene": "CDK4", "best_tanimoto": 0.7}]
+    cells = [
+        {"target_gene": "CDK4", "model_id": "P1", "role": "positive",
+         "dependency_probability": 0.9, "available_in_laboratory": False,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "P2", "role": "positive",
+         "dependency_probability": 0.8, "available_in_laboratory": False,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "N1", "role": "negative_same_cancer",
+         "dependency_probability": 0.1, "available_in_laboratory": False,
+         "cancer_id": "CANCER-001"},
+    ]
+    panel = store._experiment_panel(target, cells)
+    assert panel["evidence_complete"] is True
+    assert panel["laboratory_ready"] is False
+    assert panel["complete"] is False
+    assert panel["status"] == "partial"
+    assert "laboratory_positive_tumour_model" in panel["missing_components"]
+
+
+def test_mismatched_negative_cancer_is_reported(tmp_path: Path):
+    store = make_store(tmp_path)
+    store._non_tumor_control = lambda: {"lab_name": "BJ5ta"}
+    target = [{"target_gene": "CDK4", "best_tanimoto": 0.7}]
+    cells = [
+        {"target_gene": "CDK4", "model_id": "P1", "role": "positive",
+         "dependency_probability": 0.9, "available_in_laboratory": True,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "P2", "role": "positive",
+         "dependency_probability": 0.8, "available_in_laboratory": True,
+         "cancer_id": "CANCER-001"},
+        {"target_gene": "CDK4", "model_id": "N1", "role": "negative_same_cancer",
+         "dependency_probability": 0.1, "available_in_laboratory": True,
+         "cancer_id": "CANCER-002"},
+    ]
+    panel = store._experiment_panel(target, cells)
+    assert panel["laboratory_ready"] is True
+    assert panel["complete"] is False
+    assert panel["status"] == "partial"
+    assert "same_cancer_negative_control" in panel["missing_components"]
+
+
+def test_full_gene_context_uses_all_depmapped_models_and_never_infers_pyz_response(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    rows = []
+    atlas = []
+    for i in range(45):
+        mid = f"ACH-TEST-{i:03d}"
+        rows.append({
+            "model_id": mid, "target_gene": "CDK4",
+            "dependency_probability": 0.91 if i % 2 == 0 else 0.12,
+            "gene_effect": -1.3 if i % 2 == 0 else -0.2,
+            "mcl_cancer_id": "C-BREAST",
+            "mcl_cancer_name": "Breast carcinoma",
+            "mcl_organ_ru": "Молочная железа",
+            "depmap_release": "26Q1",
+        })
+        atlas.append({"model_id": mid, "cell_line_name": f"Line-{i:03d}"})
+    rows.append({
+        "model_id": "ACH-UNKNOWN", "target_gene": "CDK4",
+        "dependency_probability": None, "gene_effect": None,
+        "mcl_cancer_id": "C-BREAST",
+        "mcl_cancer_name": "Breast carcinoma",
+        "mcl_organ_ru": "Молочная железа",
+        "depmap_release": "26Q1",
+    })
+    atlas.append({"model_id": "ACH-UNKNOWN", "cell_line_name": "Unknown dependency"})
+    pd.DataFrame(rows).to_parquet(processed / "depmap_model_target_context.parquet", index=False)
+    pd.DataFrame(atlas).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
+    pd.DataFrame([{
+        "model_id": "ACH-TEST-044", "lab_name": "Available but formerly outside Top-30"
+    }]).to_parquet(processed / "laboratory_panel.parquet", index=False)
+
+    store = make_store(tmp_path)
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.396}]
+    cells = store._cell_lines(targets)
+
+    assert len(cells) == 46
+    assert all(c["source_layer"] == "full_processed_depmap_target_context" for c in cells)
+    selected = next(c for c in cells if c["model_id"] == "ACH-TEST-044")
+    assert selected["available_in_laboratory"] is True
+    assert selected["physical_stock_verified"] is False
+    assert selected["role"] == "genetically_dependent_candidate"
+    assert selected["direct_uploaded_molecule_response"] == "absent_not_measured"
+    assert set(c["role"] for c in cells) == {
+        "genetically_dependent_candidate",
+        "genetically_nondependent_candidate",
+        "insufficient_data",
+    }
+    unknown = next(c for c in cells if c["model_id"] == "ACH-UNKNOWN")
+    assert unknown["genetic_dependency_status"] == "not_measured"
+
+    panel = store._experiment_panel(targets, cells)
+    assert panel["panel_type"] == "exploratory_genetic_context"
+    assert panel["complete"] is False
+    assert panel["laboratory_ready"] is False
+    assert panel["positive_models"] == []
+    assert panel["negative_tumor_control"] is None
+    assert panel["genetic_candidate_models_n"] == 23
+    assert panel["genetic_comparator_models_n"] == 22
+
+
+def test_full_gene_context_treats_missing_processed_source_as_unavailable(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    store = make_store(tmp_path)
+    context = store.own_compounds.full_target_models("CDK4")
+    assert context["available"] is False
+    assert context["status"] == "source_not_available"
+    assert context["items"] == []
+
+
+def test_reference_drug_roles_stay_separate_and_do_not_promote_to_pyz(tmp_path: Path):
+    store = make_store(tmp_path)
+    own = store.own_compounds
+    own.candidate_hypotheses = lambda: pd.DataFrame([
+        {"hypothesis_id": "H-ON", "compound_id": "ON", "preferred_name": "ON123300",
+         "target_gene": "CDK4", "mcl_cancer_id": "C-BREAST",
+         "mcl_cancer_name": "Breast cancer",
+         "priority_status": "priority_for_in_vitro"},
+        {"hypothesis_id": "H-RIB", "compound_id": "RIB", "preferred_name": "RIBOCICLIB",
+         "target_gene": "CDK4", "mcl_cancer_id": "C-BREAST",
+         "mcl_cancer_name": "Breast cancer",
+         "priority_status": "supported_hypothesis"},
+    ])
+    own.candidate_models = lambda: pd.DataFrame([
+        {"hypothesis_id": "H-ON", "model_id": "ACH-MCF7",
+         "cell_line_name": "MCF-7", "model_role": "discordant_dependency_without_activity",
+         "dependency_probability": 1.0, "gene_effect": -1.92,
+         "response_value": -0.86},
+        {"hypothesis_id": "H-RIB", "model_id": "ACH-MCF7",
+         "cell_line_name": "MCF-7", "model_role": "positive",
+         "dependency_probability": 1.0, "gene_effect": -1.92,
+         "response_value": -3.42},
+    ])
+    own.lab_panel = lambda: pd.DataFrame([
+        {"model_id": "ACH-MCF7", "lab_name": "MCF-7",
+         "laboratory_role": "human_tumor"}
+    ])
+
+    context = own._contexts_for_target("CDK4")
+    assert len(context) == 1
+    model = context[0]["models"][0]
+    observations = model["reference_drug_observations"]
+    assert len(observations) == 2
+    assert {x["preferred_name"] for x in observations} == {"ON123300", "RIBOCICLIB"}
+    assert {x["reference_model_role"] for x in observations} == {
+        "positive", "discordant_dependency_without_activity"
+    }
+    assert {x["candidate_priority_status"] for x in observations} == {
+        "priority_for_in_vitro", "supported_hypothesis"
+    }
+
+    cells = store._cell_lines([{"target_gene": "CDK4", "best_tanimoto": 0.396}])
+    assert len(cells) == 1
+    assert cells[0]["role"] == "known_drug_context_only"
+    assert cells[0]["reference_drug_context_only"] is True
+    assert len(cells[0]["reference_drug_observations"]) == 2
+    assert cells[0]["direct_uploaded_molecule_response"] == "absent_not_measured"
+    panel = store._experiment_panel(
+        [{"target_gene": "CDK4", "best_tanimoto": 0.396}], cells
+    )
+    assert panel["complete"] is False
+    assert panel["status"] == "not_ready"
+    assert "positive_tumour_model" in panel["missing_components"]
+
+
+def test_full_gene_panel_never_pairs_different_tumors_as_genetic_comparators(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "target_gene": "CDK4", "dependency_probability": 0.99,
+         "gene_effect": -1.5, "mcl_cancer_id": "BREAST", "mcl_cancer_name": "Breast"},
+        {"model_id": "L-NONDEP", "target_gene": "CDK4", "dependency_probability": 0.12,
+         "gene_effect": -0.1, "mcl_cancer_id": "LEUKEMIA", "mcl_cancer_name": "Leukemia"},
+    ]).to_parquet(processed / "depmap_model_target_context.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "cell_line_name": "Breast line"},
+        {"model_id": "L-NONDEP", "cell_line_name": "Leukemia line"},
+    ]).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "lab_name": "Breast line", "laboratory_role": "human_tumor"},
+        {"model_id": "L-NONDEP", "lab_name": "Leukemia line", "laboratory_role": "human_tumor"},
+    ]).to_parquet(processed / "laboratory_panel.parquet", index=False)
+
+    store = make_store(tmp_path)
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.395}]
+    cells = store._cell_lines(targets)
+    panel = store._experiment_panel(targets, cells)
+    assert len(cells) == 2
+    assert panel["panel_type"] == "exploratory_genetic_context"
+    assert panel["same_cancer_genetic_comparison_groups_n"] == 0
+    assert panel["same_cancer_genetic_comparison_groups"] == []
+    assert panel["complete"] is False
+    assert panel["laboratory_ready"] is False
+    assert panel["negative_tumor_control"] is None
+    assert all(not row["same_cancer_genetic_comparison_possible"] for row in cells)
+
+
+def test_full_gene_panel_exposes_provisional_same_cancer_genetic_pair(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("MCL_SCIENTIFIC_DATA_ROOT", raising=False)
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "target_gene": "CDK4", "dependency_probability": 0.99,
+         "gene_effect": -1.5, "mcl_cancer_id": "BREAST", "mcl_cancer_name": "Breast"},
+        {"model_id": "B-NONDEP", "target_gene": "CDK4", "dependency_probability": 0.10,
+         "gene_effect": -0.1, "mcl_cancer_id": "BREAST", "mcl_cancer_name": "Breast"},
+    ]).to_parquet(processed / "depmap_model_target_context.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "cell_line_name": "Breast dependent"},
+        {"model_id": "B-NONDEP", "cell_line_name": "Breast independent"},
+    ]).to_parquet(processed / "depmap_crispr_model_atlas.parquet", index=False)
+    pd.DataFrame([
+        {"model_id": "B-DEP", "lab_name": "Breast dependent", "laboratory_role": "human_tumor"},
+        {"model_id": "B-NONDEP", "lab_name": "Breast independent", "laboratory_role": "human_tumor"},
+    ]).to_parquet(processed / "laboratory_panel.parquet", index=False)
+
+    store = make_store(tmp_path)
+    targets = [{"target_gene": "CDK4", "best_tanimoto": 0.395}]
+    cells = store._cell_lines(targets)
+    panel = store._experiment_panel(targets, cells)
+    assert panel["same_cancer_genetic_comparison_groups_n"] == 1
+    group = panel["same_cancer_genetic_comparison_groups"][0]
+    assert group["cancer_id"] == "BREAST"
+    assert {x["model_id"] for x in group["genetically_dependent_models"]} == {"B-DEP"}
+    assert {x["model_id"] for x in group["genetically_nondependent_models"]} == {"B-NONDEP"}
+    assert panel["positive_models"] == []
+    assert panel["negative_tumor_control"] is None
+    assert panel["laboratory_ready"] is False
+    assert panel["complete"] is False

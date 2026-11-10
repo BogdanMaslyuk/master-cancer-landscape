@@ -1,0 +1,1 @@
+plate_id,well_id,biological_run_id,cell_line_id,compound_id,batch_id,concentration_value,concentration_unit,exposure_h,assay_type,control_type,raw_signal,reader_wavelength_nm,instrument_id,operator_id,acquired_at

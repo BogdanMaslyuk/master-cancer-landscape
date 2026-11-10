@@ -17,6 +17,7 @@ from .routers.own_compounds import router as own_compounds_router
 from .routers.uploaded_molecules import router as uploaded_molecules_router
 from .routers.pathways import router as pathways_router
 from .routers.pharmacology import router as pharmacology_router
+from .routers.phenotype import router as phenotype_router
 from .routers.qc import router as qc_router
 from .schemas.overview import OverviewResponse
 from .settings import MCL_ROOT
@@ -45,6 +46,7 @@ for router in (
     uploaded_molecules_router,
     hypotheses_router,
     laboratory_router,
+    phenotype_router,
     comparisons_router,
     genes_router,
     pathways_router,
@@ -59,7 +61,10 @@ async def add_mcl_timing(request: Request, call_next):
     response = await call_next(request)
     elapsed_ms = (perf_counter() - start) * 1000.0
     response.headers["X-MCL-Process-Time-Ms"] = f"{elapsed_ms:.1f}"
-    if request.method == "GET" and request.url.path.startswith("/api/"):
+    if request.method == "GET" and request.url.path.startswith("/api/phenotype/"):
+        # Unpublished experiment records must never be publicly cached.
+        response.headers["Cache-Control"] = "private, no-store"
+    elif request.method == "GET" and request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "public, max-age=300")
     return response
 

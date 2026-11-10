@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from .atlas import MCLAtlas
 from .candidate_hypotheses import CandidateHypothesisStore
 from .cohort import MCLModelCohortStore
@@ -9,6 +11,7 @@ from .laboratory import LaboratoryPanelStore
 from .model_dependencies import ModelDependencyStore
 from .multiomics import MCLMultiOmicsStore
 from .own_compounds import OwnCompoundStore
+from .phenotype import PhenotypeStore
 from .uploaded_molecules import UploadedMoleculeStore
 from .pharmacology import MCLPharmacologyStore
 from .pharmacology_catalog import MCLPharmacologyCatalogStore
@@ -24,6 +27,7 @@ from .repositories.uploaded_molecule_repository import UploadedMoleculeRepositor
 from .repositories.pathway_repository import PathwayRepository
 from .repositories.pharmacology_repository import PharmacologyRepository
 from .repositories.qc_repository import QCRepository
+from .repositories.phenotype_repository import PhenotypeRepository
 from .services.atlas_service import AtlasService
 from .services.comparison_service import ComparisonService
 from .services.gene_service import GeneService
@@ -36,6 +40,7 @@ from .services.uploaded_molecule_service import UploadedMoleculeService
 from .services.pathway_service import PathwayService
 from .services.pharmacology_service import PharmacologyService
 from .services.qc_service import QCService
+from .services.phenotype_service import PhenotypeService
 from .settings import MCL_ROOT
 from .store import MCLDataStore
 
@@ -55,6 +60,13 @@ hypothesis_store = CandidateHypothesisStore(MCL_ROOT)
 laboratory_store = LaboratoryPanelStore(MCL_ROOT)
 own_compound_store = OwnCompoundStore(MCL_ROOT)
 uploaded_molecule_store = UploadedMoleculeStore(MCL_ROOT, own_compound_store)
+# Phenotypic experiments always belong to the active code checkout. MCL_ROOT
+# may point at the read-only original scientific-data checkout during review,
+# but raw phenotype uploads must NEVER be written there implicitly.
+PHENOTYPE_CODE_ROOT = Path(__file__).resolve().parents[3]
+phenotype_store = PhenotypeStore(PHENOTYPE_CODE_ROOT)
+phenotype_repository = PhenotypeRepository(phenotype_store)
+phenotype_service = PhenotypeService(phenotype_repository)
 
 # Repository -> service application boundaries.
 gene_repository = GeneRepository(gene_explorer_store, store)

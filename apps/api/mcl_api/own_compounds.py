@@ -310,6 +310,15 @@ class OwnCompoundStore:
         values = series.dropna()
         return values.iloc[0] if not values.empty else None
 
+    def full_target_models(self, target_gene: str) -> dict[str, Any]:
+        """Read all DepMap CRISPR model rows without Candidate v2/PRISM filtering.
+
+        This is an independent, measurement-specific evidence layer.
+        """
+        from .scientific_cell_context import FullGeneModelContext
+
+        return FullGeneModelContext(self.root).load(target_gene)
+
     def _contexts_for_target(self, target_gene: str) -> list[dict[str, Any]]:
         hypotheses = self.candidate_hypotheses()
         if hypotheses.empty or "target_gene" not in hypotheses.columns:
@@ -317,7 +326,12 @@ class OwnCompoundStore:
         gene = target_gene.strip().upper()
         target = hypotheses[hypotheses["target_gene"].astype(str).str.upper().eq(gene)].copy()
         if "priority_status" in target.columns:
-            target = target[target["priority_status"].astype(str).eq("priority_for_in_vitro")]
+            # Preserve all Candidate v2 supported/exploratory reference-drug contexts.
+            # Filtering to priority_for_in_vitro hid ribociclib and other recorded
+            # responses for MCF-7/T-47D; the status remains per-drug metadata.
+            target = target[target["priority_status"].astype(str).isin([
+                "priority_for_in_vitro", "supported_hypothesis", "exploratory_hypothesis",
+            ])]
         if target.empty:
             return []
 
@@ -340,7 +354,7 @@ class OwnCompoundStore:
             context_models = pd.DataFrame()
             if ids and not models.empty and "hypothesis_id" in models.columns:
                 context_models = models[models["hypothesis_id"].astype(str).isin(ids)].copy()
-                join_cols = [c for c in ["hypothesis_id", "compound_id", "preferred_name"] if c in group.columns]
+                join_cols = [c for c in ["hypothesis_id", "compound_id", "preferred_name", "priority_status"] if c in group.columns]
                 if join_cols and "hypothesis_id" in join_cols:
                     mapping = group[join_cols].drop_duplicates("hypothesis_id")
                     extra = [c for c in join_cols if c != "hypothesis_id" and c not in context_models.columns]
@@ -361,11 +375,30 @@ class OwnCompoundStore:
                         role = min(roles, key=lambda x: ROLE_ORDER.get(x, 9)) if roles else "unclassified"
                         known_compounds_col = self._first_existing(["preferred_name", "compound_id"], model_group)
                         known_compounds = sorted(set(model_group[known_compounds_col].dropna().astype(str).tolist())) if known_compounds_col else []
+                        # Candidate v2 roles refer to specific known drugs, never to PYZ.
+                        # This array preserves distinctions lost by the historical
+                        # min(role) display field and identifies the truncated source.
+                        reference_observations = []
+                        for ref in model_group.to_dict("records"):
+                            reference_observations.append(self._clean({
+                                "compound_id": ref.get("compound_id"),
+                                "preferred_name": ref.get("preferred_name"),
+                                "hypothesis_id": ref.get("hypothesis_id"),
+                                "candidate_priority_status": ref.get("priority_status"),
+                                "reference_model_role": ref.get("model_role"),
+                                "prism_lfc": ref.get("response_value"),
+                                "dependency_probability": ref.get("dependency_probability"),
+                                "gene_effect": ref.get("gene_effect"),
+                                "source_scope": "candidate_v2_top_five_per_role",
+                            }))
                         lab_rows = lab_by_model.get(model_key, [])
                         item = {
                             "model_id": model_key or None,
                             "cell_line_name": self._first_value(model_group[name_col]) if name_col else None,
                             "role": role,
+                            "legacy_candidate_role": role,
+                            "role_scope": "reference_compound_specific_candidate_v2_truncated",
+                            "reference_drug_observations": reference_observations,
                             "roles": roles,
                             "dependency_probability": pd.to_numeric(model_group[dep_col], errors="coerce").max() if dep_col else None,
                             "gene_effect": pd.to_numeric(model_group[ge_col], errors="coerce").min() if ge_col else None,

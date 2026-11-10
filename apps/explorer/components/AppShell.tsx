@@ -15,6 +15,7 @@ const researchLinks = [
   { href: "/pyz", label: "Молекулы PYZ", index: "08", note: "Наша библиотека → мишень → культура" },
   { href: "/hypotheses", label: "Исследовательские гипотезы", index: "09", note: "Кандидат → модели → эксперимент" },
   { href: "/laboratory", label: "Лаборатория", index: "10", note: "Что реально можно проверить" },
+  { href: "/phenotype", label: "Клеточная активность", index: "P1", note: "PYZ → планшет → контроль качества" },
   { href: "/genes/matrix", label: "Ген × опухоль", index: "11", note: "Сравнение зависимостей" },
   { href: "/pathways", label: "Функциональные модули", index: "12", note: "Пути и комплексы" },
   { href: "/network", label: "Карта связей", index: "13", note: "Гены ↔ модули" },
@@ -60,10 +61,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const inGenes = pathname.startsWith("/genes");
   const inHypotheses = pathname.startsWith("/hypotheses");
   const inLaboratory = pathname.startsWith("/laboratory");
+  const inPhenotype = pathname.startsWith("/phenotype");
   const inPyz = pathname.startsWith("/pyz");
   const inMoleculeAnalysis = pathname.startsWith("/molecule-analysis");
   const inPharmacology = pathname.startsWith("/compounds") || pathname.startsWith("/targets");
-  const context = inMoleculeAnalysis
+  const context = inPhenotype
+    ? "Клеточный эксперимент: первичные данные, контроль качества и доказательства"
+    : inMoleculeAnalysis
     ? "От новой структуры к мишени, опухоли, клеточной культуре и следующему эксперименту"
     : inPyz
       ? "От собственной молекулы к мишени, опухоли, клеточной культуре и эксперименту"

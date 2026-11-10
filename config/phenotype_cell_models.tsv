@@ -1,0 +1,6 @@
+cell_line_id	display_name	aliases	species	model_role	origin	lineage_parent_id	laboratory_registry_id	inventory_status	authentication_status	mycoplasma_status	assay_ready	note_ru
+HEK293	HEK293	HEK 293	human	human_technical	adenovirus_transformed_human_embryonic_kidney_derived			unverified	unknown	unknown	false	Исходная трансформированная модель; не является линией рака почки и не смешивается с HEK293T/FT.
+HEK293T	HEK293T	293T|HEK 293T	human	human_technical	HEK293_derived_SV40_large_T	HEK293	LAB-014	registered_only	unknown	unknown	false	Имеется запись в лабораторном реестре; наличие флакона, идентичность и микоплазма не подтверждены.
+HEK293FT	HEK293FT	293FT|HEK 293FT	human	human_technical	HEK293_derived_SV40_large_T	HEK293	LAB-013	registered_only	unknown	unknown	false	Отдельный производный вариант HEK293; биологически не объединять с HEK293T.
+MRC-5	MRC-5	MRC5|MRC 5	human	human_normal_diploid	fetal_lung_fibroblast			planned_unverified	unknown	unknown	false	Сравнительная нормальная диплоидная линия; не указана в подтверждённом кафедральном реестре, физическая доступность неизвестна.
+BJ5ta	BJ5ta	BJ-5ta|BJ5TA	human	human_non_tumor_immortalized	hTERT_immortalized_fibroblast		LAB-007	registered_only	unknown	unknown	false	Вторичный неопухолевый контроль; не эквивалент MRC-5 и не доказательство безопасности.
