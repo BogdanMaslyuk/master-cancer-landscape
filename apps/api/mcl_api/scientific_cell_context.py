@@ -77,6 +77,7 @@ class FullGeneModelContext:
         elif "cell_line_name" not in frame.columns:
             frame["cell_line_name"] = None
         laboratory: dict[str, list[str]] = {}
+        lab = pd.DataFrame()
         if self.laboratory_path.is_file():
             lab = pd.read_parquet(self.laboratory_path)
             if {"model_id", "lab_name"}.issubset(lab.columns):
@@ -91,6 +92,35 @@ class FullGeneModelContext:
         laboratory_registry_ids = set(laboratory)
         eligible_lab_ids = sorted(laboratory_registry_ids & context_model_ids)
         lab_outside_context_ids = sorted(laboratory_registry_ids - context_model_ids)
+        # Audit the four (or other) mapped registry IDs outside this gene context.
+        # They may be normal, technical or tumor lines; absence here is NOT
+        # a statement that the individual lacks CRISPR data for all genes.
+        atlas_ids = (
+            set(atlas["model_id"].astype(str)) if self.atlas_path.is_file() else set()
+        )
+        outside_details: list[dict[str, Any]] = []
+        for model_id in lab_outside_context_ids:
+            lab_rows = (
+                lab.loc[lab["model_id"].astype(str).eq(model_id)]
+                if not lab.empty and "model_id" in lab.columns else pd.DataFrame()
+            )
+            roles = sorted(set(
+                str(x) for x in lab_rows.get(
+                    "laboratory_role", pd.Series(dtype=object)
+                ).dropna()
+            ))
+            outside_details.append({
+                "model_id": model_id,
+                "lab_names": laboratory[model_id],
+                "laboratory_roles": roles,
+                "in_full_crispr_atlas": model_id in atlas_ids,
+                "in_requested_gene_context": False,
+                "diagnostic_status": "outside_requested_gene_processed_context",
+                "interpretation_ru": (
+                    "Нет строки для данного гена в текущем обработанном контексте. "
+                    "Причина и наличие измерений по другим генам требуют отдельной сверки."
+                ),
+            })
 
         # PRISM is a separate evidence layer, linked by a *measured* ModelID.
         # Preserve every normalized observation for each known compound.
@@ -162,6 +192,35 @@ class FullGeneModelContext:
             -(item["dependency_probability"] if item["dependency_probability"] is not None else -1),
             str(item["cell_line_name"]),
         ))
+        # Clinical/laboratory model selection is a separate, abstaining layer.
+        # Rank only explicitly classified human tumor lines and never use PRISM
+        # reference-drug responses as a proxy for PYZ activity.
+        from .scientific_laboratory_triage import lab_genetic_triage
+
+        if "laboratory_role" in lab.columns and "model_id" in lab.columns:
+            eligible_tumor_model_ids = set(
+                lab.loc[
+                    lab["laboratory_role"].astype(str).eq("human_tumor")
+                    & lab["model_id"].notna(),
+                    "model_id",
+                ].astype(str)
+            )
+            tumor_role_available = True
+        else:
+            eligible_tumor_model_ids = set()
+            tumor_role_available = False
+        triage = lab_genetic_triage(
+            {"available": True, "target_gene": gene, "items": out},
+            eligible_tumor_model_ids=eligible_tumor_model_ids,
+        )
+        if not tumor_role_available:
+            triage["status"] = "laboratory_tumor_role_unavailable"
+            triage["available"] = False
+            triage["limitations_ru"] = (
+                "В лабораторном реестре нет признака human_tumor; "
+                "нельзя определять кандидатов для опухолевых опытов по названию культуры."
+            )
+
         return {
             "available": True,
             "status": "full_genetic_context",
@@ -173,6 +232,8 @@ class FullGeneModelContext:
             "laboratory_registry_mapped_models_n": len(laboratory_registry_ids),
             "laboratory_registry_outside_context_n": len(lab_outside_context_ids),
             "laboratory_registry_outside_context_model_ids": lab_outside_context_ids,
+            "laboratory_registry_outside_context_details": outside_details,
+            "laboratory_genetic_triage": triage,
             "reference_drug_context": {
                 "available": reference["available"],
                 "status": reference["status"],
