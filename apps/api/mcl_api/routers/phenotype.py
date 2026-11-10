@@ -39,4 +39,4 @@ def phenotype_experiment(experiment_id: str):
 
 @router.post("/experiments/{experiment_id}/import", response_model=PhenotypeImportResponse)
 def import_phenotype_csv(experiment_id: str, request: PhenotypeImportRequest):
-    return guard(lambda: phenotype_service.import_csv(experiment_id, request.csv_text, request.filename))
+    return guard(lambda: phenotype_service.import_csv(experiment_id, request.csv_text, request.filename, request.file_base64))
