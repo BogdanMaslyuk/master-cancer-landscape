@@ -182,12 +182,15 @@ def main() -> None:
     parser.add_argument("--bindingdb-tsv", type=Path, required=True)
     parser.add_argument("--bindingdb-release", required=True)
     parser.add_argument("--bindingdb-url", required=True)
+    parser.add_argument("--bindingdb-license", required=True, help="Verified terms for this exact source release")
     parser.add_argument("--registry", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
     if not args.bindingdb_tsv.is_file():
         raise FileNotFoundError(args.bindingdb_tsv)
+    if not args.bindingdb_license.strip() or args.bindingdb_license.lower().startswith(("verify", "unknown", "todo")):
+        raise ValueError("BindingDB license/attribution must be verified for the selected source")
     if not args.chembl_url.startswith("https://") or not args.bindingdb_url.startswith("https://"):
         raise ValueError("Use official pinned HTTPS source URLs")
     output = args.output_dir/"chembl_joined.tsv"
@@ -211,7 +214,7 @@ def main() -> None:
                 "source":"BindingDB", "release":args.bindingdb_release,
                 "path":str(args.bindingdb_tsv.resolve()),
                 "sha256":bdb_sha,"url":args.bindingdb_url,
-                "license":"verify chosen BindingDB terms",
+                "license":args.bindingdb_license.strip(),
                 "format":"bindingdb_bulk_tsv",
             },
         ],
