@@ -73,7 +73,12 @@ if not full["available"]:
 print("FULL CDK4 DATA")
 print("Total model rows:", full["total_model_rows"])
 print("Measured P(dep):", full["total_measured_models"])
-print("Registered laboratory models:", full["laboratory_registered_models_n"])
+print("Registered laboratory models in CDK4 matrix:", full["laboratory_registered_models_n"])
+print("All mapped laboratory IDs:", full["laboratory_registry_mapped_models_n"])
+print("Mapped laboratory IDs outside CDK4 matrix:",
+      full["laboratory_registry_outside_context_n"])
+print("Outside-context ModelIDs:",
+      full["laboratory_registry_outside_context_model_ids"])
 reference = full.get("reference_drug_context", {})
 print("Known-drug PRISM context:", reference.get("status"))
 print("PRISM laboratory models queried:", reference.get("queried_models_n"))
@@ -81,6 +86,19 @@ print("Linked normalized PRISM observations:", reference.get("observations_n"))
 if not reference.get("available"):
     raise SystemExit("Known-drug PRISM data unavailable: " +
                      repr(reference.get("missing_source_files")))
+if reference["queried_models_n"] != full["laboratory_registered_models_n"]:
+    raise SystemExit("PRISM model denominator disagrees with measured CDK4 laboratory overlap")
+if full["laboratory_registry_mapped_models_n"] != (
+    full["laboratory_registered_models_n"] +
+    full["laboratory_registry_outside_context_n"]
+):
+    raise SystemExit("Laboratory register coverage counts do not reconcile")
+if reference["observations_n"] != sum(
+    len(row.get("reference_drug_observations") or [])
+    for row in full["items"]
+):
+    raise SystemExit("PRISM observation count differs from the attached full-gene model records")
+print("PRISM and CDK4 model coverage: CONSISTENT")
 
 models_by_id = {row["model_id"]: row for row in full["items"]}
 for model_id, name in (("ACH-000019", "MCF-7"), ("ACH-000147", "T-47D")):
