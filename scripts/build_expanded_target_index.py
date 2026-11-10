@@ -320,69 +320,7 @@ def build(stage_dir: Path, registry: Path, review_file: Path, output_dir: Path) 
             ["source","source_record_id","endpoint","duplicate_status","independence_status"]
         )
 
-        catalog = []
-        entries = []
-        link_writer = pq.ParquetWriter(
-            stage / "ligand_measurement_links.parquet",
-            pa.schema([(key, pa.string()) for key in
-                       ("ligand_id","source","source_record_id","endpoint","tier")]),
-            compression="zstd",
-        )
-        fp_dir = stage / "fp_index"
-        fp_dir.mkdir()
-        with (fp_dir / "fingerprints.bin").open("wb") as data, \
-             (fp_dir / "entries.tsv").open("w", encoding="utf-8", newline="") as listing:
-            table = csv.writer(listing, delimiter="\t")
-            table.writerow(["ligand_id","target_gene","exact_structure_id","byte_offset",
-                            "fingerprint_bytes"])
-            groups = con.execute("""
-                SELECT target_gene,exact_id,COUNT(*)
-                FROM measurements
-                WHERE tier IN ('A','B') AND independent='primary'
-                GROUP BY target_gene,exact_id ORDER BY target_gene,exact_id
-            """).fetchall()
-            for gene, exact, n in groups:
-                all_rows = con.execute("""
-                    SELECT source,source_id,endpoint,tier,fingerprint,payload
-                    FROM measurements
-                    WHERE target_gene=? AND exact_id=? AND tier IN ('A','B')
-                          AND independent='primary'
-                    ORDER BY source,source_id,endpoint
-                """, (gene, exact)).fetchall()
-                first = json.loads(all_rows[0][5])
-                fp = all_rows[0][4]
-                if fp is None or len(fp) != FP_BYTES:
-                    raise ValueError(f"No reproducible fingerprint for {gene}/{exact}")
-                ligand_id = "TLS2-" + hashlib.sha256(
-                    (gene+"|"+exact).encode("utf-8")
-                ).hexdigest()[:18]
-                offset = data.tell()
-                data.write(fp)
-                table.writerow([ligand_id,gene,exact,offset,FP_BYTES])
-                entries.append((gene,ligand_id))
-                catalog.append({
-                    "ligand_id": ligand_id, "target_gene": gene,
-                    "uniprot_accession": first.get("uniprot_accession") or "",
-                    "exact_structure_id": exact,
-                    "parent_connectivity_id": first["parent_connectivity_id"],
-                    "canonical_smiles": first["canonical_smiles"],
-                    "parent_smiles": first["parent_smiles"],
-                    "full_inchikey": first["full_inchikey"],
-                    "independent_measurements_n": str(n),
-                    "independent_sources_n": str(len({r[0] for r in all_rows})),
-                    "endpoint_types_json": json.dumps(sorted({r[2] for r in all_rows})),
-                    "binding_A_n": str(sum(r[3]=="A" for r in all_rows)),
-                    "biochemical_B_n": str(sum(r[3]=="B" for r in all_rows)),
-                })
-                links = [
-                    {"ligand_id": ligand_id, "source": row[0],
-                     "source_record_id": row[1], "endpoint": row[2],
-                     "tier": row[3]}
-                    for row in all_rows
-                ]
-                link_writer.write_table(pa.Table.from_pylist(links,
-                    schema=link_writer.schema))
-        link_writer.close()
+        # Stream catalogue rows; never materialize a million ligand records in RAM.
         catalog_fields = [
             "ligand_id", "target_gene", "uniprot_accession", "exact_structure_id",
             "parent_connectivity_id", "canonical_smiles", "parent_smiles",
@@ -390,21 +328,101 @@ def build(stage_dir: Path, registry: Path, review_file: Path, output_dir: Path) 
             "independent_sources_n", "endpoint_types_json", "binding_A_n",
             "biochemical_B_n",
         ]
-        _write_parquet_records(
-            stage / "ligand_catalog.parquet", catalog, catalog_fields
+        catalogue_schema = pa.schema([(k, pa.string()) for k in catalog_fields])
+        links_schema = pa.schema([(k, pa.string()) for k in (
+            "ligand_id","source","source_record_id","endpoint","tier"
+        )])
+        catalog_writer = pq.ParquetWriter(
+            stage/"ligand_catalog.parquet", catalogue_schema, compression="zstd"
         )
-
-        target_counts = Counter(gene for gene, _ in entries)
-        with (stage/"target_coverage.tsv").open("w", encoding="utf-8", newline="") as stream:
-            writer = csv.writer(stream, delimiter="\t")
+        link_writer = pq.ParquetWriter(
+            stage/"ligand_measurement_links.parquet", links_schema, compression="zstd"
+        )
+        fp_dir = stage/"fp_index"
+        fp_dir.mkdir()
+        catalog_buffer = []
+        catalog_count = 0
+        target_counts = Counter()
+        con.execute("CREATE TABLE ligand_ids (ligand_id TEXT PRIMARY KEY)")
+        try:
+            with (fp_dir/"fingerprints.bin").open("wb") as data, \
+                 (fp_dir/"entries.tsv").open("w",encoding="utf-8",newline="") as listing:
+                table = csv.writer(listing,delimiter="\t")
+                table.writerow(["ligand_id","target_gene","exact_structure_id",
+                                "byte_offset","fingerprint_bytes"])
+                groups = con.execute("""
+                    SELECT target_gene,exact_id,COUNT(*)
+                    FROM measurements
+                    WHERE tier IN ('A','B') AND independent='primary'
+                    GROUP BY target_gene,exact_id ORDER BY target_gene,exact_id
+                """)
+                for gene,exact,n in groups:
+                    all_rows = con.execute("""
+                        SELECT source,source_id,endpoint,tier,fingerprint,payload
+                        FROM measurements
+                        WHERE target_gene=? AND exact_id=? AND tier IN ('A','B')
+                              AND independent='primary'
+                        ORDER BY source,source_id,endpoint
+                    """,(gene,exact)).fetchall()
+                    first=json.loads(all_rows[0][5])
+                    fp=all_rows[0][4]
+                    if fp is None or len(fp)!=FP_BYTES:
+                        raise ValueError(f"Missing fingerprint {gene}/{exact}")
+                    if any(r[4]!=fp for r in all_rows):
+                        raise ValueError(f"Inconsistent fingerprints {gene}/{exact}")
+                    ligand_id="TLS2-"+hashlib.sha256(
+                        (gene+"|"+exact).encode("utf-8")
+                    ).hexdigest()[:18]
+                    con.execute("INSERT INTO ligand_ids VALUES (?)",(ligand_id,))
+                    offset=data.tell()
+                    data.write(fp)
+                    table.writerow([ligand_id,gene,exact,offset,FP_BYTES])
+                    catalog_count+=1
+                    target_counts[gene]+=1
+                    catalog_buffer.append({
+                        "ligand_id":ligand_id,"target_gene":gene,
+                        "uniprot_accession":first.get("uniprot_accession") or "",
+                        "exact_structure_id":exact,
+                        "parent_connectivity_id":first["parent_connectivity_id"],
+                        "canonical_smiles":first["canonical_smiles"],
+                        "parent_smiles":first["parent_smiles"],
+                        "full_inchikey":first["full_inchikey"],
+                        "independent_measurements_n":str(n),
+                        "independent_sources_n":str(len({r[0] for r in all_rows})),
+                        "endpoint_types_json":json.dumps(sorted({r[2] for r in all_rows})),
+                        "binding_A_n":str(sum(r[3]=="A" for r in all_rows)),
+                        "biochemical_B_n":str(sum(r[3]=="B" for r in all_rows)),
+                    })
+                    if len(catalog_buffer)>=4096:
+                        catalog_writer.write_table(pa.Table.from_pylist(
+                            catalog_buffer,schema=catalogue_schema
+                        ))
+                        catalog_buffer.clear()
+                    # Link table preserves every independently curated measurement.
+                    for pos in range(0,len(all_rows),4096):
+                        block=all_rows[pos:pos+4096]
+                        links=[
+                            {"ligand_id":ligand_id,"source":r[0],
+                             "source_record_id":r[1],"endpoint":r[2],"tier":r[3]}
+                            for r in block
+                        ]
+                        link_writer.write_table(pa.Table.from_pylist(
+                            links,schema=links_schema
+                        ))
+                if catalog_buffer:
+                    catalog_writer.write_table(pa.Table.from_pylist(
+                        catalog_buffer,schema=catalogue_schema
+                    ))
+        finally:
+            link_writer.close()
+            catalog_writer.close()
+        with (stage/"target_coverage.tsv").open("w",encoding="utf-8",newline="") as stream:
+            writer=csv.writer(stream,delimiter="\t")
             writer.writerow(["target_gene","verified_ligands_n"])
             writer.writerows(sorted(target_counts.items()))
-        if (fp_dir/"fingerprints.bin").stat().st_size != len(catalog)*FP_BYTES:
+        if (fp_dir/"fingerprints.bin").stat().st_size!=catalog_count*FP_BYTES:
             raise AssertionError("Fingerprint index size/count mismatch")
-        if len({ligand_id for _, ligand_id in entries}) != len(entries):
-            raise AssertionError("Duplicated ligand IDs")
-        # Cross-validate every catalogue row and fixed-length fingerprint index.
-        if len(catalog) != pq.read_metadata(stage/"ligand_catalog.parquet").num_rows:
+        if catalog_count!=pq.read_metadata(stage/"ligand_catalog.parquet").num_rows:
             raise AssertionError("Catalogue row count mismatch")
 
         counts = dict(con.execute(
@@ -433,7 +451,7 @@ def build(stage_dir: Path, registry: Path, review_file: Path, output_dir: Path) 
             "approved_assays_n": len(reviews),
             "measurement_rows_n": count_curated,
             "verified_measurements_n": eligible,
-            "unique_target_structure_pairs_n": len(catalog),
+            "unique_target_structure_pairs_n": catalog_count,
             "proteins_with_verified_ligands_n": len(target_counts),
             "duplicate_records_flagged_n": duplicate_n,
             "quality_tier_counts": counts,
