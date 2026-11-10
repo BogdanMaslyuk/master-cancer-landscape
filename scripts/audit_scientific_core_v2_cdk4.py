@@ -207,6 +207,78 @@ def analyze_rows(
     }
 
 
+
+def trace_role_filter(candidate: pd.DataFrame, prism: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Report exactly what the legacy priority filter excludes.
+
+    Candidate v2 is still a truncated source. This reports only observed
+    candidate rows and never substitutes them for all PRISM observations.
+    """
+    required = {"model_id", "compound_id", "model_role", "priority_status"}
+    missing = required - set(candidate.columns)
+    if missing:
+        raise ValueError(f"Candidate v2 role trace requires columns: {sorted(missing)}")
+
+    trace = candidate.copy()
+    for key in ("model_id", "compound_id"):
+        trace[key] = trace[key].astype(str)
+    trace["included_by_legacy_priority_filter"] = trace["priority_status"].astype(str).eq(
+        "priority_for_in_vitro"
+    )
+    trace["excluded_by_legacy_priority_filter"] = ~trace["included_by_legacy_priority_filter"]
+    trace["role_is_compound_specific"] = True
+
+    if not prism.empty and {"model_id", "compound_id"}.issubset(prism.columns):
+        measured = prism.copy()
+        measured["model_id"] = measured["model_id"].astype(str)
+        measured["compound_id"] = measured["compound_id"].astype(str)
+        grp = measured.groupby(["model_id", "compound_id"], dropna=False)
+        counts = grp.size().reset_index(name="normalized_prism_records_n")
+        trace = trace.merge(
+            counts, on=["model_id", "compound_id"], how="left", validate="many_to_one"
+        )
+        if "preferred_name" in measured.columns:
+            names = (
+                measured.groupby(["model_id", "compound_id"], dropna=False)["preferred_name"]
+                .first().reset_index(name="reference_compound_name")
+            )
+            trace = trace.merge(
+                names, on=["model_id", "compound_id"], how="left", validate="many_to_one"
+            )
+    else:
+        trace["normalized_prism_records_n"] = 0
+
+    trace["normalized_prism_records_n"] = (
+        pd.to_numeric(trace["normalized_prism_records_n"], errors="coerce")
+        .fillna(0).astype(int)
+    )
+    grouping = ["model_id"]
+    parts = []
+    for model_id, group in trace.groupby(grouping, dropna=False):
+        selected = group.loc[group["included_by_legacy_priority_filter"]]
+        parts.append({
+            "model_id": model_id,
+            "candidate_v2_rows": len(group),
+            "candidate_v2_distinct_compounds": group["compound_id"].nunique(),
+            "candidate_positive_rows": int(group["model_role"].eq("positive").sum()),
+            "candidate_discordant_rows": int(group["model_role"].astype(str).str.startswith("discordant").sum()),
+            "legacy_included_rows": len(selected),
+            "legacy_included_positive_rows": int(selected["model_role"].eq("positive").sum()),
+            "legacy_excluded_rows": len(group) - len(selected),
+            "legacy_excluded_positive_rows": int(
+                group["excluded_by_legacy_priority_filter"].mul(
+                    group["model_role"].eq("positive")
+                ).sum()
+            ),
+        })
+    impact = pd.DataFrame(parts, columns=[
+        "model_id", "candidate_v2_rows", "candidate_v2_distinct_compounds",
+        "candidate_positive_rows", "candidate_discordant_rows", "legacy_included_rows",
+        "legacy_included_positive_rows", "legacy_excluded_rows",
+        "legacy_excluded_positive_rows",
+    ])
+    return trace, impact
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", type=Path, default=ROOT,
@@ -243,6 +315,9 @@ def main() -> None:
     hyp_sql, hyp_args = _where_ids("hypothesis_id", hyp["hypothesis_id"].dropna().astype(str).tolist())
     candidates = _read(paths["candidate_models"], hyp_sql, hyp_args)
     result = analyze_rows(lines, context, responses, links, compounds, evidence, hyp, candidates)
+    result["candidate_role_trace"], result["legacy_priority_filter_impact"] = trace_role_filter(
+        result["candidate_v2_rows"], result["prism_measurements"]
+    )
     if initial_issues:
         result["issues"] = pd.concat(
             [result["issues"], pd.DataFrame(initial_issues)], ignore_index=True
@@ -307,6 +382,8 @@ def main() -> None:
     print(f"Report: {directory}")
     print(f"Models: {len(result['models'])}; linked PRISM observations: {len(result['prism_measurements'])}")
     print(f"Candidate v2 records: {len(result['candidate_v2_rows'])}; issues: {len(result['issues'])}")
+    print("Legacy priority filter impact:")
+    print(result["legacy_priority_filter_impact"].to_string(index=False))
     print(result["models"][["lab_name", "model_id", "cancer_id",
                              "dependency_probability", "gene_effect",
                              "genetic_status"]].to_string(index=False))
