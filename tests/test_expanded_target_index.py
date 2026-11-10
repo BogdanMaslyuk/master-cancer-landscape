@@ -18,6 +18,12 @@ MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
 
+VALIDATOR_PATH = Path(__file__).resolve().parents[1] / "scripts" / "validate_expanded_target_index.py"
+VALIDATOR_SPEC = importlib.util.spec_from_file_location("validate_expanded_target_index", VALIDATOR_PATH)
+VALIDATOR = importlib.util.module_from_spec(VALIDATOR_SPEC)
+assert VALIDATOR_SPEC and VALIDATOR_SPEC.loader
+VALIDATOR_SPEC.loader.exec_module(VALIDATOR)
+
 
 def digest(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
@@ -109,6 +115,9 @@ def test_verified_catalog_and_index_end_to_end(tmp_path: Path):
     assert (release/"fp_index"/"fingerprints.bin").stat().st_size == 2*FP_BYTES
     assert len(pd.read_csv(release/"fp_index"/"entries.tsv",sep="\t")) == 2
     assert len(pd.read_parquet(release/"ligand_measurement_links.parquet")) == 2
+    check = VALIDATOR.validate(release)
+    assert check["status"] == "verified_internal_consistency"
+    assert check["ligand_entries_recalculated"] == 2
     curated = pd.read_parquet(release/"measurements_curated.parquet")
     assert set(curated.curated_quality_tier) == {"A", "B", "C"}
     assert "confirmed_source_mirror" in set(curated.duplicate_status)
@@ -165,3 +174,13 @@ def test_tampered_normalized_file_blocks_staging(tmp_path: Path):
     with pytest.raises(ValueError, match="Normalized Parquet changed"):
         MODULE.build(ingest,registry,review,tmp_path/"runtime")
     assert not (tmp_path/"runtime"/"staging").exists()
+
+
+def test_index_integrity_validator_rejects_modified_bytes(tmp_path: Path):
+    ingest, registry, reviews = prepared(tmp_path)
+    report = MODULE.build(ingest,registry,reviews,tmp_path/"runtime")
+    stage = tmp_path/"runtime"/"staging"/report["build_id"]
+    with (stage/"fp_index"/"fingerprints.bin").open("r+b") as stream:
+        stream.write(b"not original")
+    with pytest.raises(ValueError,match="tampered"):
+        VALIDATOR.validate(stage)
