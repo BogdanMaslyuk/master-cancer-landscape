@@ -84,12 +84,20 @@ class FullGeneModelContext:
                     laboratory[str(model_id)] = sorted(
                         set(str(name) for name in group["lab_name"].dropna())
                     )
-        # PRISM is an independent evidence layer. Read only known-drug
-        # observations for the locally registered subset (not all DepMap models).
+        # Keep the denominator identical to this gene's DepMap model set.
+        # Laboratory registry entries outside this particular gene context
+        # cannot contribute PRISM observations to its model-level report.
+        context_model_ids = set(frame["model_id"].astype(str))
+        laboratory_registry_ids = set(laboratory)
+        eligible_lab_ids = sorted(laboratory_registry_ids & context_model_ids)
+        lab_outside_context_ids = sorted(laboratory_registry_ids - context_model_ids)
+
+        # PRISM is a separate evidence layer, linked by a *measured* ModelID.
+        # Preserve every normalized observation for each known compound.
         from .scientific_reference_context import KnownDrugReferenceContext
 
         reference = KnownDrugReferenceContext(self.project_root).load(
-            gene, list(laboratory)
+            gene, eligible_lab_ids
         )
         out = []
         for row in frame.to_dict("records"):
@@ -161,16 +169,21 @@ class FullGeneModelContext:
             "source": "processed_depmap_target_context",
             "total_measured_models": sum(item["crispr_measured"] for item in out),
             "total_model_rows": len(out),
-            "laboratory_registered_models_n": sum(item["registered_in_laboratory"] for item in out),
+            "laboratory_registered_models_n": len(eligible_lab_ids),
+            "laboratory_registry_mapped_models_n": len(laboratory_registry_ids),
+            "laboratory_registry_outside_context_n": len(lab_outside_context_ids),
+            "laboratory_registry_outside_context_model_ids": lab_outside_context_ids,
             "reference_drug_context": {
                 "available": reference["available"],
                 "status": reference["status"],
                 "queried_models_n": reference["queried_models_n"],
+                "query_scope": "laboratory_registry_intersection_with_measured_target_context",
                 "observations_n": reference["observations_n"],
                 "missing_source_files": reference["missing_source_files"],
                 "note_ru": (
-                    "Измерения PRISM приведены только для моделей, отмеченных в лабораторном "
-                    "реестре, и относятся к известным веществам, а не к новой молекуле."
+                    "Измерения PRISM приведены только для моделей, которые одновременно "
+                    "присутствуют в лабораторном реестре и в матрице этого гена DepMap. "
+                    "Они относятся к известным веществам, а не к новой молекуле."
                 ),
             },
             "items": out,
