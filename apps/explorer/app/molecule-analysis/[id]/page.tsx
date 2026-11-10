@@ -13,6 +13,7 @@ function n(value: unknown, digits = 2) {
 function roleRu(role: string) {
   if (role === "genetically_dependent_candidate") return "генетическая зависимость от мишени";
   if (role === "genetically_nondependent_candidate") return "генетическая независимость от мишени";
+  if (role === "known_drug_context_only") return "данные по известным препаратам, не по PYZ";
   if (role === "positive") return "положительная модель по известному препарату (устаревший слой)";
   if (role?.startsWith("negative_")) return "отрицательный опухолевый контроль";
   if (role?.startsWith("discordant_")) return "противоречивый контекст";
@@ -74,6 +75,19 @@ export default async function MoleculeAnalysisDetail({ params }: { params: Promi
             <div className={styles.cellTop}><div><span className={styles.kicker}>{c.organ || "опухолевый контекст"}</span><h3>{c.cell_line_name}</h3><small>{c.cancer_name || c.cancer_id || "—"}</small></div><span className={`${styles.priority} ${styles[c.priority_level] || ""}`}>{c.priority_level_ru}</span></div>
             <div className={styles.badges}><span>{c.target_gene} · Tanimoto {n(c.target_similarity,3)}</span><span>{roleRu(c.role)}</span>{c.available_in_laboratory && <span className={styles.lab}>зарегистрирована в лаборатории; наличие требует проверки</span>}</div>
             <div className={styles.miniStats}><div><b>{n(c.dependency_probability)}</b><span>P(dep)</span></div><div><b>{n(c.gene_effect)}</b><span>Gene Effect</span></div></div>
+            {Array.isArray(c.reference_drug_observations) && c.reference_drug_observations.length > 0 && (
+              <div className={styles.guardrail}>
+                <b>Ответы на известные препараты (не на исследуемую PYZ):</b>
+                <ul>{c.reference_drug_observations.slice(0,8).map((o:any, i:number)=>
+                  <li key={`${o.hypothesis_id || o.compound_id}-${i}`}>
+                    {o.preferred_name || o.compound_id || "Вещество без названия"}:
+                    {" "}LFC {n(o.prism_lfc,3)}; роль Candidate v2: {o.reference_model_role || "—"};
+                    {" "}статус гипотезы: {o.candidate_priority_status || "—"}
+                  </li>
+                )}</ul>
+                Эти записи получены из ограниченного набора Candidate v2, не из полного массива PRISM.
+              </div>
+            )}
             <ul>{(c.reasons || []).slice(0,5).map((reason:string)=><li key={reason}>{reason}</li>)}</ul>
             {Array.isArray(c.warnings) && c.warnings.length > 0 && (
               <div className={styles.guardrail}>{c.warnings.join(" ")}</div>
