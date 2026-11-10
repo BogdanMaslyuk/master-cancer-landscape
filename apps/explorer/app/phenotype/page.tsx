@@ -78,9 +78,13 @@ export default function PhenotypePage() {
     setBusy(true);setError("");setNotice("");
     try {
       if(!file.name.toLowerCase().endsWith(".csv"))throw new Error("Пока поддерживается только CSV UTF-8");
+      if(file.size > 8_000_000) throw new Error("CSV не должен превышать 8 МБ");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for(let i=0;i<bytes.length;i+=16384) binary += String.fromCharCode(...bytes.subarray(i,i+16384));
       const imported=await getJson<Imported>("/api/phenotype/experiments/"+experiment.experiment_id+"/import",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({filename:file.name,csv_text:await file.text()}),
+        body:JSON.stringify({filename:file.name,file_base64:btoa(binary)}),
       });
       setLastImport(imported);
       setExperiment(await getJson<Experiment>("/api/phenotype/experiments/"+experiment.experiment_id));
