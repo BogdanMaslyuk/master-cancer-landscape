@@ -310,6 +310,15 @@ class OwnCompoundStore:
         values = series.dropna()
         return values.iloc[0] if not values.empty else None
 
+    def full_target_models(self, target_gene: str) -> dict[str, Any]:
+        """Read all DepMap CRISPR model rows without Candidate v2/PRISM filtering.
+
+        This is an independent, measurement-specific evidence layer.
+        """
+        from .scientific_cell_context import FullGeneModelContext
+
+        return FullGeneModelContext(self.root).load(target_gene)
+
     def _contexts_for_target(self, target_gene: str) -> list[dict[str, Any]]:
         hypotheses = self.candidate_hypotheses()
         if hypotheses.empty or "target_gene" not in hypotheses.columns:
