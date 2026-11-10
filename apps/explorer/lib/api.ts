@@ -8,7 +8,7 @@ export const apiBase = API_BASE;
 const API_REVALIDATE_SECONDS = Number(process.env.MCL_API_REVALIDATE_SECONDS || 300);
 
 function shouldBypassCache(path: string): boolean {
-  if (path.startsWith("/api/molecules/")) return true;
+  if (path.startsWith("/api/molecules/") || path.startsWith("/api/phenotype/")) return true;
   if (!path.startsWith("/api/pathways/stability")) return false;
   return !path.includes("stable_only=true") && !path.includes("min_significant_thresholds=");
 }
