@@ -112,16 +112,35 @@ def stream_rows(source: dict):
             yield row_number, row
 
 
-def build(manifest_path: Path, registry_path: Path, out_dir: Path, *, cutoff: str = "10000") -> dict:
+def build(manifest_path: Path, registry_path: Path, out_dir: Path, *,
+          cutoff: str = "10000", pilot_panel: Path | None = None) -> dict:
     if float(cutoff) <= 0:
         raise ValueError("cutoff must be positive")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     verified = validate_manifest(manifest, manifest_path.resolve())
     registry, registry_sha = load_registry(registry_path)
+    panel_accessions = None
+    panel_sha = None
+    if pilot_panel is not None:
+        panel = pd.read_csv(pilot_panel, sep="\t", dtype=str, keep_default_na=False)
+        if not {"target_gene", "uniprot_accession", "scope"}.issubset(panel.columns):
+            raise ValueError("Pilot panel missing required gene/UniProt/scope columns")
+        if panel["uniprot_accession"].duplicated().any():
+            raise ValueError("Pilot panel has duplicate UniProt accession")
+        if any(registry.get(row["uniprot_accession"]) != row["target_gene"]
+               for row in panel.to_dict("records")):
+            raise ValueError("Pilot panel conflicts with reviewed P0.2 mapping")
+        panel_accessions = set(panel["uniprot_accession"])
+        if not panel_accessions:
+            raise ValueError("Pilot panel is empty")
+        panel_sha = sha256(pilot_panel)
+        original_panel_hash = (manifest.get("source_extract_provenance") or {}).get("pilot_panel_sha256")
+        if original_panel_hash and original_panel_hash != panel_sha:
+            raise ValueError("Pilot panel does not match pinned ChEMBL extract")
     source_key = "|".join(
         f"{r['source']}:{r['release']}:{r['sha256']}" for r in sorted(verified, key=lambda a: a["source"])
     )
-    build_id = hashlib.sha256(f"{source_key}|{registry_sha}|cutoff={cutoff}".encode()).hexdigest()[:20]
+    build_id = hashlib.sha256(f"{source_key}|{registry_sha}|cutoff={cutoff}|panel={panel_sha or 'full'}".encode()).hexdigest()[:20]
     staging = out_dir / "staging" / build_id
     if staging.exists():
         raise FileExistsError(f"Immutable staging run already exists: {staging}")
@@ -140,6 +159,11 @@ def build(manifest_path: Path, registry_path: Path, out_dir: Path, *, cutoff: st
             provider = source["source"]
             by_source[provider] = 0
             for line, row in stream_rows(source):
+                if panel_accessions is not None:
+                    acc = (row.get("uniprot_accession", "") if provider == "ChEMBL"
+                           else row.get("UniProt (SwissProt) Primary ID of Target Chain", ""))
+                    if acc not in panel_accessions:
+                        continue
                 items = []
                 if provider == "ChEMBL":
                     items.append(normalize_chembl(
@@ -180,6 +204,8 @@ def build(manifest_path: Path, registry_path: Path, out_dir: Path, *, cutoff: st
             "raw_sources": [{k: str(v) if isinstance(v, Path) else v for k, v in s.items()}
                             for s in verified],
             "registry_sha256": registry_sha,
+            "pilot_panel_sha256": panel_sha,
+            "selection_mode": "reviewed_pilot_panel" if panel_accessions is not None else "full_registry",
             "cutoff_nm": cutoff,
             "measurement_rows": total,
             "source_rows_emitted": by_source,
@@ -208,8 +234,10 @@ def main() -> None:
     parser.add_argument("--registry", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, default=ROOT / "data/processed/target_ligand_space_v2")
     parser.add_argument("--cutoff-nm", default="10000")
+    parser.add_argument("--pilot-panel", type=Path)
     args = parser.parse_args()
-    result = build(args.source_manifest, args.registry, args.out_dir, cutoff=args.cutoff_nm)
+    result = build(args.source_manifest, args.registry, args.out_dir,
+                   cutoff=args.cutoff_nm, pilot_panel=args.pilot_panel)
     print(f"P0.3 staged {result['measurement_rows']} rows (NOT PUBLISHED): {result['build_id']}")
 
 
