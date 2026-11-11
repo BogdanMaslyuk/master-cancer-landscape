@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pandas as pd
 
+csv.field_size_limit(1 << 28)
+
 EXPECTED_ARCHIVES = {
     "articles": "BindingDB_BindingDB_Articles.tsv",
     "assays": "BindingDB_Assays.tsv",
