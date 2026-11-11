@@ -177,3 +177,18 @@ def test_unofficial_source_urls_fail_preflight(tmp_path):
     result=PREFLIGHT.inspect(root,baseline,registry,manifest)
     assert not result["checks"]["p02_official_source_declared"]
     assert not result["ready_for_full_real_data_pilot"]
+
+
+def test_65_compound_count_cannot_hide_replaced_pyz_identifier(tmp_path):
+    root,baseline_file,registry,manifest,_=fixture(tmp_path)
+    compounds=root/BASE.INPUTS["own_compounds"]
+    frame=pd.read_csv(compounds,sep="\t",dtype=str)
+    frame.loc[0,"own_compound_id"]="PYZ-999"
+    frame.to_csv(compounds,sep="\t",index=False)
+    # Recalculate the baseline to show count=65 by itself does not prove
+    # preservation of the 65 canonical PYZ identities.
+    baseline_file.write_text(json.dumps(BASE.audit(root)))
+    result=PREFLIGHT.inspect(root,baseline_file,registry,manifest)
+    assert result["checks"]["p01_pyz65"]
+    assert not result["checks"]["p01_exact_pyz001_065_ids"]
+    assert not result["ready_for_full_real_data_pilot"]
