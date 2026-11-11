@@ -131,8 +131,12 @@ def main() -> None:
     parser.add_argument("--preliminary-measurements", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
-    if args.output_dir.resolve().is_relative_to(args.baseline.resolve().parent):
-        raise SystemExit("Pilot outputs must not overwrite the source audit directory.")
+    baseline_metadata = json.loads(args.baseline.read_text(encoding="utf-8"))
+    source_root = baseline_metadata.get("science_root")
+    if not source_root:
+        raise SystemExit("Baseline audit does not declare the original scientific data root.")
+    if args.output_dir.resolve().is_relative_to(Path(source_root).resolve()):
+        raise SystemExit("Pilot outputs must be outside the original scientific data directory.")
     rows, report = create_panel(
         args.baseline, args.registry, additional_n=args.additional_n,
         extra_genes=tuple(args.extra_genes), measured_rows=args.preliminary_measurements
