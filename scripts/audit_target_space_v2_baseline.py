@@ -81,7 +81,10 @@ def audit(source: Path) -> dict:
         "core_count_check": core.get("matches_expected_reference_count") is True,
         "pyz_count_check": own.get("matches_expected_reference_count") is True,
         "ligand_v1_present": files["ligand_v1"]["present"],
+    }
+    deferred = {
         "full_depmap_context_present": files["full_depmap_context"]["present"],
+        "ligand_manifest_v1_present": files["ligand_manifest_v1"]["present"],
     }
     return {
         "contract": "mcl-expanded-target-space-baseline-audit-v1",
@@ -92,11 +95,16 @@ def audit(source: Path) -> dict:
         "own_compounds": own,
         "regression_smiles": list(SMILES_REGRESSION),
         "checks": readiness,
+        "deferred_capabilities": deferred,
         "ready_for_extended_build": all(readiness.values()),
+        "ready_for_depmap_cell_integration": (
+            all(readiness.values()) and deferred["full_depmap_context_present"]
+        ),
         "limitations": [
             "File hashes and counts are not a scientific validation of source measurements.",
             "SMILES entries are fixed regression inputs; this audit does not execute molecule analysis.",
             "Missing local files are reported as missing, never interpreted as empty scientific datasets.",
+            "Full DepMap cell-context coverage is needed for P1.2, not for P0.3 ligand assembly.",
         ],
     }
 
