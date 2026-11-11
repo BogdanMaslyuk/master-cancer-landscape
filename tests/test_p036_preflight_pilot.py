@@ -71,6 +71,7 @@ def fixture(tmp_path: Path):
         "target_genes_n":len(all_genes),
         "uniprot_snapshot_included":True,
         "uniprot_release":"synthetic-fixture-do-not-publish",
+        "uniprot_source_url":"https://rest.uniprot.org/uniprotkb/stream",
         "source_files":[{"path":str(original),"sha256":sha(original)}],
     })
     return root,baseline_path,registry,manifest,genes
@@ -107,9 +108,9 @@ def test_strict_source_manifest_and_approval_checks(tmp_path):
         "contract":"mcl-tls-v2-pinned-extracts-v1",
         "sources":[
             {"source":"ChEMBL","release":"test","path":str(chembl),"sha256":sha(chembl),
-             "url":"https://example.org/fixture","license":"fixture terms"},
+             "url":"https://ftp.ebi.ac.uk/pub/databases/chembl/fixture","license":"fixture terms"},
             {"source":"BindingDB","release":"test","path":str(binding),"sha256":sha(binding),
-             "url":"https://example.org/fixture","license":"fixture terms"},
+             "url":"https://bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp","license":"fixture terms"},
         ],
     })
     review=tmp_path/"assays.tsv"
@@ -166,3 +167,13 @@ def test_pilot_ranks_only_observed_source_rows_not_verified_ligands(tmp_path):
     assert extra[0]["source_observed_measurement_rows"]=="6"
     assert all(x["verified_ligand_count"]=="" for x in extra)
     assert report["expanded_selection_basis"]=="observed_source_rows_only_not_curated"
+
+
+def test_unofficial_source_urls_fail_preflight(tmp_path):
+    root,baseline,registry,manifest,_=fixture(tmp_path)
+    document=json.loads(manifest.read_text(encoding="utf-8"))
+    document["uniprot_source_url"]="https://example.com/not-official"
+    manifest.write_text(json.dumps(document),encoding="utf-8")
+    result=PREFLIGHT.inspect(root,baseline,registry,manifest)
+    assert not result["checks"]["p02_official_source_declared"]
+    assert not result["ready_for_full_real_data_pilot"]
