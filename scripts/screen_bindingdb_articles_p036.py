@@ -12,6 +12,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import zipfile
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -30,12 +31,15 @@ NEEDED = (
     "BindingDB Reactant_set_id",
     "BindingDB MonomerID",
     "Ligand SMILES",
-    "UniProt (SwissProt) Primary ID of Target Chain",
     "Ki (nM)",
     "Kd (nM)",
     "IC50 (nM)",
 )
 ENDPOINTS = ("Ki", "Kd", "IC50")
+SWISSPROT_CHAIN_RE = re.compile(
+    r"^UniProt \(SwissProt\) Primary ID of Target Chain(?: ([1-9][0-9]*))?$"
+)
+
 
 
 def sha256(path: Path) -> str:
@@ -120,31 +124,65 @@ def screen_articles(zip_path: Path, panel: dict[str, dict]) -> dict:
             with io.TextIOWrapper(stream, encoding="utf-8-sig", newline="") as text:
                 reader = csv.reader(text, delimiter="\t", quoting=csv.QUOTE_NONE)
                 columns = next(reader)
-                positions = {name: columns.index(name) for name in NEEDED if name in columns}
+                normalized_columns = [name.strip() for name in columns]
+                positions = {name: normalized_columns.index(name) for name in NEEDED
+                             if name in normalized_columns}
                 absent = set(NEEDED) - set(positions)
                 if absent:
                     raise ValueError(f"BindingDB articles missing columns: {sorted(absent)}")
-                chain_column = next((columns.index(name) for name in columns
+                # BindingDB TSV formats can carry numbered chains 1..50.
+                # Never substitute target names for the approved UniProt accession.
+                swissprot_columns = [
+                    (index, name) for index, name in enumerate(normalized_columns)
+                    if SWISSPROT_CHAIN_RE.fullmatch(name)
+                ]
+                if not swissprot_columns:
+                    candidates = [name for name in normalized_columns if "UniProt" in name]
+                    raise ValueError(
+                        "BindingDB articles missing SwissProt Primary ID of Target Chain "
+                        "(numbered and unnumbered variants checked); "
+                        f"available UniProt fields: {candidates[:30]}"
+                    )
+                chain_column = next((index for index, name in enumerate(normalized_columns)
                                      if name.startswith("Number of Protein Chains in Target")), None)
-                doi_column = columns.index("Article DOI") if "Article DOI" in columns else None
-                header_labels = set(columns)
+                doi_column = (normalized_columns.index("Article DOI")
+                              if "Article DOI" in normalized_columns else None)
+                header_labels = set(normalized_columns)
                 max_index = max(positions.values())
                 for cells in reader:
                     total_rows += 1
                     if len(cells) <= max_index:
                         malformed += 1
                         continue
-                    accession = cells[positions["UniProt (SwissProt) Primary ID of Target Chain"]].strip()
-                    if accession not in panel:
+                    # A complex with several different chains or an explicit chain
+                    # count >1 is NOT a verified assay for a single chain target.
+                    accessions = {
+                        cells[index].strip()
+                        for index, _ in swissprot_columns
+                        if index < len(cells) and cells[index].strip()
+                    }
+                    targets_in_panel = sorted(accessions & set(panel))
+                    if not targets_in_panel:
                         continue
                     pilot_rows += 1
+                    chain_value = (cells[chain_column].strip()
+                                   if chain_column is not None and chain_column < len(cells)
+                                   else "")
+                    is_multichain = (
+                        len(accessions) != 1
+                        or chain_value not in ("", "1", "1.0")
+                        or sum(bool(cells[index].strip())
+                               for index, _ in swissprot_columns
+                               if index < len(cells)) > 1
+                    )
+                    if is_multichain:
+                        found_multichain += 1
+                        for target in targets_in_panel:
+                            counts[target]["multichain_rows"] += 1
+                        continue
+                    accession = targets_in_panel[0]
                     counter = counts[accession]
                     counter["source_rows"] += 1
-                    if chain_column is not None and len(cells) > chain_column:
-                        chain = cells[chain_column].strip()
-                        if chain and chain not in {"1", "1.0"}:
-                            found_multichain += 1
-                            counter["multichain_rows"] += 1
                     rsid = cells[positions["BindingDB Reactant_set_id"]].strip()
                     monomer = cells[positions["BindingDB MonomerID"]].strip()
                     if not rsid or not monomer:
@@ -173,6 +211,8 @@ def screen_articles(zip_path: Path, panel: dict[str, dict]) -> dict:
         "unparseable_short_rows": malformed,
         "pilot_rows_missing_reactant_or_monomer_id": missing_ids,
         "pilot_rows_with_multichain_annotation": found_multichain,
+        "multichain_rows_excluded_from_target_endpoint_counts": found_multichain,
+        "swissprot_chain_fields_observed": len(swissprot_columns),
         "coverage": {
             accession: {
                 "source_rows": counts[accession]["source_rows"],
@@ -191,7 +231,7 @@ def screen_articles(zip_path: Path, panel: dict[str, dict]) -> dict:
             for accession in panel
         },
         "source_has_doi_column": "Article DOI" in header_labels,
-        "note": "These are raw rows from an ARTICLES-ONLY subset; no experiment has been approved.",
+        "note": "These are raw rows from an ARTICLES-ONLY subset; no experiment has been approved; multi-chain target rows are excluded from single-protein endpoint counts.",
     }
 
 
@@ -227,6 +267,7 @@ def audit(articles: Path, assays: Path, mapping: Path, panel_file: Path,
         "limitations": [
             "Only BindingDB-curated articles subset, not the full BindingDB database.",
             "Raw source records do not establish independent evidence, assay identity or valid single-protein binding.",
+            "Multi-chain entries are inventoried separately, not attributed to a single protein.",
             "Missing a ligand in this subset never means no ligand exists in ChEMBL or elsewhere.",
             "The ZIP filenames and their checksums prove local file identity, not official authenticity.",
             "The assay and entry-assay mapping archives are inventoried, not joined at this step.",
