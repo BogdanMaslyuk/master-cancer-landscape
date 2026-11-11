@@ -494,7 +494,7 @@ class OwnCompoundStore:
                 )
                 contexts.append(context)
 
-        return self._clean({
+        payload = self._clean({
             "available": True,
             "compound": compound,
             "admet_summary": self._admet_summary(),
@@ -508,6 +508,12 @@ class OwnCompoundStore:
             "direct_pyz_target_evidence": "absent_not_measured",
             "docking_status": "pending_external_results",
         })
+        # Additive, deterministic presentation profile. Existing consumers retain
+        # every historical response field; raw science inputs are never modified.
+        from .pyz_profile_v2 import make_profile
+
+        payload["profile_v2"] = make_profile(payload)
+        return payload
 
     def smiles(self, compound_id: str) -> str:
         registry = self.registry()
