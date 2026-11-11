@@ -1,82 +1,217 @@
 import Link from "next/link";
-import { apiBase, apiGet, formatNumber } from "../../../lib/api";
-import styles from "../pyz.module.css";
+import { notFound } from "next/navigation";
+import { apiBase, apiGet } from "../../../lib/api";
+import type { EvidenceClaim, PyzDetailV2Response, PyzTarget, PyzContext } from "../../../lib/pyz-profile";
+import { CopySmiles, StructurePreview } from "../../../components/pyz/PyzInteractions";
+import styles from "./profile-v2.module.css";
 
 export const dynamic = "force-dynamic";
 
-type Params=Record<string,string|string[]|undefined>;
-function one(v:string|string[]|undefined){return Array.isArray(v)?v[0]:v;}
-function f(v:any,d=3){const x=Number(v);return Number.isFinite(x)?x.toFixed(d):"—";}
-function roleRu(value:any){return ({positive:"приоритетная для проверки",negative_same_cancer:"отрицательный контроль той же опухоли",negative_panel_comparator:"отрицательный контроль",discordant_sensitive_without_dependency:"чувствительная без CRISPR-зависимости",discordant_dependency_without_activity:"CRISPR-зависима без фармакологического ответа",unclassified:"дополнительная модель"} as Record<string,string>)[String(value)]||String(value||"дополнительная модель");}
-function transferRu(value:any){return ({exploratory_low_structural_similarity:"низкое, но заметное сходство",mechanism_not_transferable_by_2d_similarity:"механизм не переносим по 2D",moderate_structural_transferability:"умеренное сходство",high_structural_transferability:"высокое сходство"} as Record<string,string>)[String(value)]||String(value||"—");}
-function riskRu(value:any){return value==="high_predicted_risk"?"высокий предиктивный риск":"требует экспериментальной проверки";}
+function num(value: number | null | undefined, digits = 3): string {
+  return value === null || value === undefined || !Number.isFinite(value)
+    ? "нет данных"
+    : new Intl.NumberFormat("ru-RU", { maximumFractionDigits: digits }).format(value);
+}
 
-export default async function PyzDetailPage({params,searchParams}:{params:Promise<{id:string}>,searchParams:Promise<Params>}){
-  const {id}=await params;
-  const sp=await searchParams;
-  const focusTarget=one(sp.target_gene)||"";
-  const suffix=focusTarget?`?target_gene=${encodeURIComponent(focusTarget)}`:"";
-  const data=await apiGet<Record<string,any>>(`/api/pyz/${encodeURIComponent(id)}${suffix}`);
-  const c=data.compound||{};
-  const evidence=(data.target_evidence||[]) as any[];
-  const contexts=(data.relevant_contexts||[]) as any[];
-  const priorityTargets=(data.priority_target_genes||[]) as string[];
-  const admet=data.admet_summary||{};
+function Claim({ value }: { value: EvidenceClaim }) {
+  return <li className={styles.claim}><strong>{value.title}</strong>
+    <span>{value.meaning}</span><small>Основание: {value.source} · {value.rule_id}</small></li>;
+}
 
-  return <>
-    <Link href="/pyz" className={styles.backLink}>← Все молекулы PYZ</Link>
-    <section className={styles.detailHero}>
-      <div className={styles.structureCard}><img src={`${apiBase}/media/pyz/${encodeURIComponent(c.own_compound_id)}/structure.svg`} alt={`2D-структура ${c.own_compound_id}`}/></div>
-      <div className={styles.detailCard}>
-        <div className={styles.detailTitle}><div><div className="eyebrow">СОБСТВЕННАЯ МОЛЕКУЛА</div><h1>{c.own_compound_id}</h1><div className={styles.sectionCopy}>{c.chemotype_ru} · {c.ring_variant} · тир {c.tier}</div></div><span className={c.integrated_risk==="high_predicted_risk"?styles.badgeRisk:styles.badgeSoft}>{riskRu(c.integrated_risk)}</span></div>
-        <div className={styles.badges}>{priorityTargets.length?priorityTargets.map(g=><span key={g} className={styles.badgePriority}>{g} · проверять</span>):<span className={styles.badge}>нет пар ≥0,35</span>}<span className={styles.badge}>докинг: ожидается</span></div>
-        <div className={styles.smiles}>{c.standardized_smiles}</div>
-        <div className={styles.facts}>
-          <div className={styles.fact}><b>{c.qed!==null&&c.qed!==undefined?Number(c.qed).toFixed(2):"—"}</b><span>QED · характеристика drug-likeness, не безопасность</span></div>
-          <div className={styles.fact}><b>{priorityTargets.length}</b><span>мишеней выше исследовательского порога 0,35</span></div>
-          <div className={styles.fact}><b>{c.series_range||"—"}</b><span>структурная серия</span></div>
-          <div className={styles.fact}><b>не измерено</b><span>прямое связывание PYZ–мишень</span></div>
+function TargetCard({ item, id, focus }: { item: PyzTarget; id: string; focus: boolean }) {
+  return <article className={focus ? styles.targetFocus : styles.targetCard} id={"target-" + item.target_gene}>
+    <div className={styles.targetHeader}>
+      <div><Link className={styles.targetLink} href={"/targets/" + encodeURIComponent(item.target_gene)}>{item.target_gene}</Link>
+        <small>{item.uniprot_accession ? "UniProt " + item.uniprot_accession : "UniProt не указан"}</small></div>
+      <div className={styles.similarity}><b>{num(item.tanimoto)}</b><span>Танимото</span></div>
+      <div className={item.passes_navigation_cutoff ? styles.pillBlue : styles.pillNeutral}>
+        {item.passes_navigation_cutoff ? "Структурная гипотеза" : "Недостаточно сходства"}
+      </div>
+    </div>
+    <details open={focus || undefined} className={styles.details}>
+      <summary>Сведения об аналогах и проверка мишени</summary>
+      <div className={styles.detailsBody}>
+        <p className={styles.subtle}>Сравнивалось лигандов: {num(item.ligands_compared_n, 0)}.
+          Сходство не доказывает взаимодействия PYZ с этим белком.</p>
+        <div className={styles.referenceGrid}>
+          <div><span>Известный лиганд</span><b>{item.best_ligand_id || "не указан"}</b></div>
+          <div><span>Тип измерения лиганда</span><b>{item.reference_endpoint || "не указан"}</b></div>
+          <div><span>Справочное значение лиганда</span><b>{item.reference_value_nm !== null ? num(item.reference_value_nm, 2) + " нМ" : "нет данных"}</b></div>
         </div>
-        <div className={styles.warning} style={{marginTop:14}}><b>ADMET:</b> {c.admet_note_ru||admet.interpretation_ru} Ни один предиктивный отрицательный класс не заменяет экспериментальный контроль.</div>
+        <p className={styles.caution}>Это значение относится к известному веществу, а не PYZ.
+          Оно получено из прежнего агрегата измерений; Ki, Kd и IC50 нельзя считать взаимозаменяемыми
+          или использовать для сравнения активности разных мишеней.</p>
+        {item.neighbors.length > 0 && <details className={styles.innerDetails}>
+          <summary>Показать ближайшие структуры ({item.neighbors.length})</summary>
+          <ul className={styles.neighbors}>{item.neighbors.map((x, i) =>
+            <li key={String(x.ligand_id || i)}><span>{x.ligand_id || "без ID"}</span><span>Танимото {num(x.tanimoto)}</span></li>
+          )}</ul>
+        </details>}
+        <div className={styles.actions}>
+          <Link className={styles.primaryAction} href={"/pyz/" + encodeURIComponent(id) + "?target_gene=" + encodeURIComponent(item.target_gene) + "#models"}>Опухоли и культуры</Link>
+          <Link className={styles.secondaryAction} href={"/targets/" + encodeURIComponent(item.target_gene)}>Карточка белка</Link>
+        </div>
+      </div>
+    </details>
+  </article>;
+}
+
+const roleNames: Record<string, string> = {
+  positive: "Модель для проверки гипотезы о мишени",
+  negative_same_cancer: "Отрицательный опухолевый контроль",
+  negative_panel_comparator: "Сравнительная модель",
+  discordant_sensitive_without_dependency: "Известный препарат активен без CRISPR-зависимости",
+  discordant_dependency_without_activity: "CRISPR-зависимость без эффекта известного препарата",
+};
+
+function ContextCard({ item }: { item: PyzContext }) {
+  return <article className={styles.contextCard}>
+    <header className={styles.contextHeader}><div><span className={styles.eyebrow}>{item.mcl_organ_ru || "Орган не указан"}</span>
+      <h3>{item.mcl_cancer_name || item.mcl_cancer_id || "Контекст мишени"}</h3>
+      <p>{item.target_gene || "Белок не указан"} · Танимото {num(item.tanimoto)}</p></div>
+      <span className={styles.pillNeutral}>Не измерение PYZ</span></header>
+    {item.models.length ? <div className={styles.tableScroll}><table className={styles.table}>
+      <thead><tr><th>Клеточная линия</th><th>Роль при проверке</th><th>CRISPR P(dep)</th><th>Gene Effect</th><th>Наличие</th></tr></thead>
+      <tbody>{item.models.map((model, i) => <tr key={String(model.model_id || i)}>
+        <td>{model.model_id ? <Link className={styles.tableLink} href={"/models/" + encodeURIComponent(model.model_id)}>{model.cell_line_name || model.model_id}</Link> : model.cell_line_name || "нет названия"}</td>
+        <td>{roleNames[model.role || ""] || model.role || "не определена"}</td>
+        <td>{num(model.dependency_probability, 2)}</td>
+        <td>{num(model.gene_effect, 2)}</td>
+        <td>{model.available_in_laboratory_registry ? "В реестре; проверить наличие" : "Не отмечена в реестре"}</td>
+      </tr>)}</tbody>
+    </table></div> : <p className={styles.empty}>Сопоставленных клеточных моделей нет.</p>}
+  </article>;
+}
+
+export default async function PyzDetailPage({ params, searchParams }: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { id } = await params;
+  const query = await searchParams;
+  const input = query.target_gene;
+  const focus = (Array.isArray(input) ? input[0] : input) || "";
+  let data: PyzDetailV2Response;
+  try {
+    data = await apiGet<PyzDetailV2Response>(
+      "/api/pyz/" + encodeURIComponent(id) + (focus ? "?target_gene=" + encodeURIComponent(focus) : "")
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("404:")) notFound();
+    throw error;
+  }
+  const profile = data.profile_v2;
+  if (!profile || profile.schema_version !== "mcl-pyz-profile-v2-p0") {
+    throw new Error("Для карточки PYZ 2.0 требуется обновить локальный сервер API.");
+  }
+  const summary = profile.scientific_summary;
+  const targets = profile.target_hypotheses.items;
+  const contexts = profile.cell_context.items;
+  const smiles = profile.identity.standardized_smiles;
+  const cutoffHits = targets.filter(x => x.passes_navigation_cutoff).length;
+
+  return <main className={styles.page}>
+    <div className={styles.breadcrumbs}>
+      <Link href="/pyz">Молекулы PYZ</Link><span>/</span><strong>{profile.compound_id}</strong>
+      <Link className={styles.matrixLink} href={"/pyz/matrix?q=" + encodeURIComponent(profile.compound_id)}>Открыть матрицу</Link>
+    </div>
+    <div className={styles.pageHeader}><div>
+      <span className={styles.eyebrow}>MCL · НАУЧНАЯ КАРТОЧКА 2.0</span>
+      <h1>{profile.compound_id}</h1>
+      <p>{profile.identity.chemotype_ru || "Не указан химический тип"} · {profile.identity.ring_variant || "вариант не указан"} · {profile.identity.series_range || "серия не указана"}</p>
+    </div><span className={styles.pillBlue}>Исследовательская стадия</span></div>
+
+    <nav className={styles.jumpNav} aria-label="Разделы карточки">
+      <a href="#conclusion">Заключение</a><a href="#structure">Структура</a>
+      <a href="#admet">ADMET</a><a href="#targets">Мишени</a>
+      <a href="#models">Клеточные линии</a><a href="#sources">Источники</a>
+    </nav>
+
+    <section className={styles.heroGrid} id="structure" aria-label="Идентичность молекулы">
+      <div className={styles.structure}><StructurePreview compoundId={profile.compound_id}
+        src={apiBase + "/media/pyz/" + encodeURIComponent(profile.compound_id) + "/structure.svg"} />
+        <p>2D-структура из реестра PYZ</p></div>
+      <div className={styles.identity}>
+        <span className={styles.eyebrow}>ХИМИЧЕСКАЯ ИДЕНТИЧНОСТЬ</span>
+        <div className={styles.facts}>
+          <div><span>QED <abbr title="Описательная оценка drug-likeness, не доказательство эффективности или безопасности">ⓘ</abbr></span><strong>{num(profile.properties.qed, 2)}</strong></div>
+          <div><span>Серия</span><strong>{profile.identity.series_range || "нет данных"}</strong></div>
+          <div><span>Мишеней с Танимото ≥ 0,35</span><strong>{cutoffHits}</strong></div>
+          <div><span>Прямые опыты PYZ–белок</span><strong>Не измерено</strong></div>
+        </div>
+        <h2>Стандартизованный SMILES</h2>
+        <code className={styles.smiles}>{smiles || "нет данных"}</code>
+        <CopySmiles compoundId={profile.compound_id} smiles={smiles} />
       </div>
     </section>
 
-    <section className={styles.section}>
-      <div className={styles.sectionHead}><div><div className="eyebrow">TARGET LIGAND SPACE · 13 CORE-МИШЕНЕЙ</div><h2>Какие мишени сейчас поддерживает химическое пространство</h2><div className={styles.sectionCopy}>Для каждой мишени показан лучший экспериментально измеренный лиганд. Ki, Kd и IC50 не считаются взаимозаменяемыми; значение относится к известному лиганду, а не к {c.own_compound_id}.</div></div><Link href={`/pyz/matrix?q=${encodeURIComponent(c.own_compound_id)}`} className={styles.secondaryButton}>Показать в матрице →</Link></div>
-      <div className={styles.targetGrid}>{evidence.map((row:any)=>{
-        const priority=Number(row.best_tanimoto_morgan_r2_2048)>=0.35;
-        const focused=focusTarget&&String(row.target_gene).toUpperCase()===focusTarget.toUpperCase();
-        return <article className={`${styles.targetCard} ${focused?styles.focus:""}`} key={row.target_gene}>
-          <div className={styles.targetHead}><div><h3>{row.target_gene}</h3><div className={styles.sectionCopy}>{transferRu(row.structural_transfer_class)}</div></div><div className={styles.sim}>{f(row.best_tanimoto_morgan_r2_2048)}</div></div>
-          <div className={styles.badges}>{priority?<span className={styles.badgePriority}>ортогональная проверка оправдана</span>:<span className={styles.badgeSoft}>не переносить механизм</span>}{row.best_structural_ligand_cellular_label&&<span className={styles.badge}>{row.best_structural_ligand_cellular_label}</span>}</div>
-          <div className={styles.targetMeta}>
-            <div><b>{formatNumber(row.ligands_compared_n,0)}</b><span>экспериментальных лигандов</span></div>
-            <div><b>{row.best_ligand_id||"—"}</b><span>лучший структурный сосед</span></div>
-            <div><b>{row.best_lowest_reported_value_nm_across_endpoints!==null&&row.best_lowest_reported_value_nm_across_endpoints!==undefined?`${formatNumber(row.best_lowest_reported_value_nm_across_endpoints,2)} нМ`:"—"}</b><span>{row.best_lowest_value_endpoint_type||"прямой endpoint неизвестен"}</span></div>
-          </div>
-          <div className={styles.targetMeta}>
-            <div><b>{formatNumber(row.hits_ge_0_35_n,0)}</b><span>соседей ≥0,35</span></div>
-            <div><b>{row.strict_oncology_best_reference_name||"—"}</b><span>лучший строгий онкоэталон</span></div>
-            <div><b>{row.best_cellular_ligand_id||"—"}</b><span>лучший сосед с PRISM/CRISPR</span></div>
-          </div>
-          {(row.top_neighbors||[]).length>0&&<div className={styles.neighborList}>{(row.top_neighbors||[]).map((n:any)=><div className={styles.neighbor} key={`${row.target_gene}-${n.rank_in_target}-${n.ligand_id}`}><span>#{n.rank_in_target} · {f(n.tanimoto_morgan_r2_2048)}</span><code>{n.ligand_id}</code><span>{n.lowest_reported_value_nm_across_endpoints!==null&&n.lowest_reported_value_nm_across_endpoints!==undefined?`${formatNumber(n.lowest_reported_value_nm_across_endpoints,2)} нМ ${n.lowest_value_endpoint_type||""}`:"—"}</span></div>)}</div>}
-          <div className={styles.splitActions} style={{marginTop:12}}><Link href={`/pyz/${encodeURIComponent(c.own_compound_id)}?target_gene=${encodeURIComponent(row.target_gene)}`} className={styles.secondaryButton}>Органы и культуры →</Link><Link href={`/targets/${encodeURIComponent(row.target_gene)}`} className={styles.reset}>Карточка белка</Link></div>
-        </article>;
-      })}</div>
+    <section className={styles.section} id="conclusion">
+      <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>ГЛАВНОЕ ДЛЯ ИССЛЕДОВАТЕЛЯ</span>
+        <h2>Научное заключение</h2></div>
+        <span className={styles.pillNeutral}>Проверяемые правила, не прогноз эффективности</span></div>
+      <div className={styles.summaryGrid}>
+        <article className={styles.summaryCard}><span className={styles.eyebrow}>01 · ФАКТЫ</span><h3>Что установлено</h3>
+          <ul>{summary.established.map(x => <Claim key={x.rule_id} value={x} />)}</ul></article>
+        <article className={styles.summaryCard}><span className={styles.eyebrow}>02 · ГИПОТЕЗЫ</span><h3>Что предполагается</h3>
+          {summary.hypotheses.length ? <ul>{summary.hypotheses.map(x => <Claim key={x.rule_id} value={x} />)}</ul> :
+            <p className={styles.empty}>Нет структурной опоры выше порога. Это не означает отсутствия активности.</p>}</article>
+        <article className={styles.summaryCard}><span className={styles.eyebrow}>03 · НЕИЗВЕСТНО</span><h3>Что требует проверки</h3>
+          <ul>{summary.gaps.map(x => <Claim key={x.rule_id} value={x} />)}</ul></article>
+      </div>
+      <div className={styles.nextStep}><div><span className={styles.eyebrow}>04 · СЛЕДУЮЩИЙ ШАГ</span>
+        <h3>{summary.next_step.title}</h3><p>{summary.next_step.meaning}</p>
+        <small>Правило {summary.next_step.rule_id} · {summary.next_step.source}</small></div>
+        <Link className={styles.primaryAction} href="/laboratory">Лабораторные модели</Link></div>
     </section>
 
-    <section className={styles.section}>
-      <div className={styles.sectionHead}><div><div className="eyebrow">PYZ → МИШЕНЬ → ОПУХОЛЬ → КЛЕТОЧНАЯ ЛИНИЯ</div><h2>Где рационально проверять {c.own_compound_id}</h2><div className={styles.sectionCopy}>{data.context_guardrail_ru}</div></div></div>
-      {contexts.length===0?<div className={styles.empty}>Для этой молекулы пока нет target-based маршрута с достаточной опорой. Это не означает отсутствие активности: нужен независимый поиск мишени или результаты докинга.</div>:
-      <div className={styles.contextGrid}>{contexts.map((ctx:any,index:number)=><article className={styles.contextCard} key={`${ctx.target_gene}-${ctx.mcl_cancer_id||ctx.mcl_cancer_name}-${index}`}>
-        <div className={styles.contextHeader}><div><div className={styles.organ}>{ctx.mcl_organ_ru||ctx.mcl_system_ru||"опухолевый контекст"}</div><h3>{ctx.mcl_cancer_name||ctx.mcl_cancer_id||"контекст Candidate v2"}</h3><div className={styles.sectionCopy}>мишень {ctx.target_gene} · Tanimoto {f(ctx.pyz_target_similarity)} · {ctx.interpretation_ru}</div></div><span className={ctx.molecule_relevance_status==="priority_target_based_test_context"?styles.badgePriority:styles.badgeSoft}>{ctx.molecule_relevance_status==="priority_target_based_test_context"?"приоритет проверки":"контекст мишени"}</span></div>
-        <div className={styles.contextStats}><span className={styles.badge}>{formatNumber(ctx.positive_models_n,0)} положительных моделей</span><span className={styles.badge}>{formatNumber(ctx.negative_models_n,0)} отрицательных контролей</span><span className={ctx.laboratory_models_n?styles.badgePriority:styles.badgeSoft}>{formatNumber(ctx.laboratory_models_n,0)} есть у нас</span><span className={styles.badge}>{formatNumber(ctx.priority_hypotheses_n,0)} Candidate v2 гипотез</span></div>
-        {(ctx.models||[]).length>0&&<div className={styles.cellTableWrap}><table className={styles.cellTable}><thead><tr><th>Клеточная модель</th><th>Роль</th><th>CRISPR P(dep)</th><th>Chronos Gene Effect</th><th>Известные вещества</th><th>Наша лаборатория</th></tr></thead><tbody>{(ctx.models||[]).map((m:any)=><tr key={`${ctx.target_gene}-${m.model_id}`}><td><div className={styles.cellName}>{m.cell_line_name||m.model_id}</div>{m.model_id&&<Link href={`/models/${encodeURIComponent(m.model_id)}`} className={styles.muted}>{m.model_id}</Link>}</td><td>{roleRu(m.role)}</td><td>{f(m.dependency_probability,2)}</td><td>{f(m.gene_effect,2)}</td><td>{(m.known_reference_compounds||[]).slice(0,4).join(" · ")||"—"}</td><td>{m.available_in_laboratory?<span className={styles.labYes}>есть · {(m.laboratory_lines||[]).join(" / ")}</span>:<span className={styles.labNo}>нет в текущем реестре</span>}</td></tr>)}</tbody></table></div>}
-      </article>)}</div>}
+    <div className={styles.metrics}>
+      <div><b>{targets.length}</b><span>мишеней текущей библиотеки</span></div>
+      <div><b>{cutoffHits}</b><span>исследовательских пар ≥0,35</span></div>
+      <div><b>{contexts.length}</b><span>опухолевых контекстов</span></div>
+      <div><b>{contexts.reduce((sum, item) => sum + item.models.length, 0)}</b><span>связей с клеточными линиями</span></div>
+    </div>
+
+    <section className={styles.section} id="admet">
+      <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>ПРОГНОЗНЫЙ СЛОЙ</span><h2>ADMET и ограничения</h2></div><span className={styles.pillNeutral}>Не измеренная безопасность</span></div>
+      <div className={styles.admetGrid}>
+        <div><span>QED</span><b>{num(profile.properties.qed, 2)}</b><small>Описательное свойство структуры</small></div>
+        <div><span>Интегральный прогноз</span><b>{profile.admet.integrated_risk === "high_predicted_risk" ? "Повышенный риск по модели" : profile.admet.integrated_risk ? "Требует проверки" : "Нет данных"}</b><small>Прогноз, не эксперимент</small></div>
+        <div><span>Ames для данной PYZ</span><b>{profile.admet.individual_ames || "Нет индивидуального значения"}</b><small>Сводка по серии — не личный показатель PYZ</small></div>
+        <div><span>DILI для данной PYZ</span><b>{profile.admet.individual_dili || "Нет индивидуального значения"}</b><small>Прогноз по серии нельзя переносить</small></div>
+      </div>
+      <p className={styles.caution}>{profile.admet.note_ru || "Индивидуальные прогнозные данные отсутствуют."} Никакой прогноз не заменяет проверку в опыте. Источник: {profile.admet.source_report || "не указан"}.</p>
     </section>
 
-    <section className={styles.section}>
-      <div className={styles.notice}><b>Следующая ось доказательств — докинг.</b> Сейчас статус намеренно указан как «ожидается». После получения результатов сюда должны добавиться PDB, redocking-QC, положение в кармане, контакты и ранжирование внутри одной структуры рецептора. Docking score не будет трактоваться как Ki/Kd/IC50.</div>
+    <section className={styles.section} id="targets">
+      <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>СТРУКТУРНОЕ СРАВНЕНИЕ · ДЕЙСТВУЮЩИЕ 13 МИШЕНЕЙ</span><h2>Предполагаемые белковые мишени</h2></div>
+        <Link className={styles.secondaryAction} href={"/pyz/matrix?q=" + encodeURIComponent(profile.compound_id)}>Показать в матрице</Link></div>
+      <p className={styles.description}>Танимото (Morgan r2 / 2048) — мера химического сходства, а не вероятность связывания.
+        Порог 0,35 предназначен только для отбора гипотез.</p>
+      {targets.length ? <div className={styles.targetList}>{targets.map(item =>
+        <TargetCard key={item.target_gene} item={item} id={profile.compound_id} focus={item.target_gene.toUpperCase() === focus.toUpperCase() && !!focus} />
+      )}</div> : <div className={styles.empty}>Локальный реестр структурных аналогов не доступен. Это не означает, что соединение неактивно.</div>}
     </section>
-  </>;
+
+    <section className={styles.section} id="models">
+      <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>КОНТЕКСТ МИШЕНИ · НЕ ДЕЙСТВИЕ НАШЕЙ МОЛЕКУЛЫ</span><h2>Опухоли и клеточные модели</h2></div></div>
+      <p className={styles.description}>Клеточные модели предложены на основании генетической зависимости от предполагаемых мишеней и результатов с известными препаратами. Они не являются доказательством чувствительности к PYZ.</p>
+      {contexts.length ? <div className={styles.contextList}>{contexts.map((item, i) =>
+        <ContextCard key={String(item.target_gene) + "-" + String(item.mcl_cancer_id || i)} item={item} />
+      )}</div> : <div className={styles.empty}>Для этого соединения нет обоснованного модельного маршрута в текущих данных.</div>}
+      <p className={styles.caution}>HEK293/HEK293T/HEK293FT — трансформированные исследовательские линии, не опухоль почки; MRC-5 — неопухолевые фибробласты лёгкого, не универсальное доказательство безопасности.</p>
+    </section>
+
+    <section className={styles.section} id="sources">
+      <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>ПРОИСХОЖДЕНИЕ И ГРАНИЦЫ ДАННЫХ</span><h2>Источники</h2></div></div>
+      <dl className={styles.sources}>
+        <div><dt>Реестр структуры</dt><dd>{profile.provenance.own_compounds_registry}</dd></div>
+        <div><dt>ADMET</dt><dd>{profile.provenance.admet_report || "нет данных"}</dd></div>
+        <div><dt>Лиганды и сходство</dt><dd>{profile.provenance.target_library}</dd></div>
+        <div><dt>Опухолевый контекст</dt><dd>{profile.provenance.candidate_context}</dd></div>
+        <div><dt>BindingDB P0.3.6</dt><dd>Не подключён: научная приёмка не завершена</dd></div>
+        <div><dt>Докинг PYZ</dt><dd>Внешние результаты ожидаются</dd></div>
+      </dl>
+    </section>
+    <footer className={styles.footer}>MCL Explorer · PYZ 2.0 · <Link href="/methodology">Методика и термины</Link></footer>
+  </main>;
 }
