@@ -101,3 +101,13 @@ def test_official_snapshot_requires_release(tmp_path: Path):
     with pytest.raises(ValueError, match="uniprot-release"):
         module.build(v1, raw, tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+def test_uniprot_real_export_gene_column_lowercase_accepted():
+    """UniProt live TSV may label its column 'Gene names (primary)'."""
+    uniprot = _uniprot().rename(
+        columns={"Gene Names (primary)": "Gene names (primary)"}
+    )
+    targets, qc = module.collect(_v1(), uniprot)
+    assert {"EGFR", "CDK4"} == set(targets.target_gene)
+    assert "ambiguous_primary_gene" not in set(qc.reason_code)
