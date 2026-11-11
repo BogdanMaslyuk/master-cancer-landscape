@@ -177,3 +177,64 @@ def test_manifest_hash_validation_and_streamed_staging(tmp_path: Path):
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         MODULE.build(manifest, registry, tmp_path / "changed")
     assert not (tmp_path / "changed").exists()
+
+
+def test_pilot_hash_scope_filters_both_chembl_and_bindingdb(tmp_path: Path):
+    """A 13+extra pilot selector cannot silently ingest unrelated proteins."""
+    chembl = tmp_path / "chembl.tsv"
+    binding = tmp_path / "binding.tsv"
+    write_tsv(chembl, [
+        chembl_row(activity_id="111", uniprot_accession="P11802"),
+        chembl_row(activity_id="222", uniprot_accession="P00533",
+                   target_chembl_id="CHEMBL-T2"),
+    ])
+    bdb_base = {
+        "BindingDB Reactant_set_id": "501",
+        "BindingDB MonomerID": "509",
+        "Ligand SMILES": "CCO",
+        "UniProt (SwissProt) Primary ID of Target Chain": "P11802",
+        "Target Source Organism According to Curator or DataSource": "Homo sapiens",
+        "Ki (nM)": "100", "Kd (nM)": "", "IC50 (nM)": "",
+    }
+    write_tsv(binding, [
+        bdb_base,
+        {**bdb_base, "BindingDB Reactant_set_id": "502",
+         "UniProt (SwissProt) Primary ID of Target Chain": "P00533"},
+    ])
+    registry=tmp_path/"protein_target_universe.tsv"
+    pd.DataFrame([
+        {"target_gene":"CDK4","uniprot_accession":"P11802",
+         "mapping_status":"unique_reviewed_human","organism_id":"9606"},
+        {"target_gene":"EGFR","uniprot_accession":"P00533",
+         "mapping_status":"unique_reviewed_human","organism_id":"9606"},
+    ]).to_csv(registry,sep="\t",index=False)
+    pilot=tmp_path/"pilot_panel.tsv"
+    pd.DataFrame([
+        {"target_gene":"CDK4","uniprot_accession":"P11802","scope":"core"}
+    ]).to_csv(pilot,sep="\t",index=False)
+    digest=lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+    manifest=tmp_path/"source_manifest.json"
+    sources=[
+        {"source":name, "path":file.name,"release":"fixture",
+         "sha256":digest(file),"format":format_,"url":"https://example.org",
+         "license":"synthetic-only"}
+        for name,file,format_ in [
+            ("ChEMBL",chembl,"joined_activity_tsv"),
+            ("BindingDB",binding,"bindingdb_bulk_tsv"),
+        ]
+    ]
+    manifest.write_text(json.dumps({
+        "contract":"mcl-tls-v2-pinned-extracts-v1",
+        "source_extract_provenance":{"pilot_panel_sha256":digest(pilot)},
+        "sources":sources,
+    }))
+    result=MODULE.build(manifest,registry,tmp_path/"out",pilot_panel=pilot)
+    assert result["measurement_rows"]==2
+    assert result["selection_mode"]=="reviewed_pilot_panel"
+    assert result["pilot_panel_sha256"]==digest(pilot)
+    rows=pd.read_parquet(tmp_path/"out"/"staging"/result["build_id"]/
+                         "measurements_normalized.parquet")
+    assert set(rows.target_gene)=={"CDK4"}
+    pilot.write_text("target_gene\tuniprot_accession\tscope\nEGFR\tP00533\texpanded\n")
+    with pytest.raises(ValueError,match="does not match pinned ChEMBL extract"):
+        MODULE.build(manifest,registry,tmp_path/"mismatch",pilot_panel=pilot)
