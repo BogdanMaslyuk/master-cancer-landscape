@@ -192,3 +192,24 @@ def test_65_compound_count_cannot_hide_replaced_pyz_identifier(tmp_path):
     assert result["checks"]["p01_pyz65"]
     assert not result["checks"]["p01_exact_pyz001_065_ids"]
     assert not result["ready_for_full_real_data_pilot"]
+
+
+def test_ligand_baseline_does_not_require_full_depmap_context(tmp_path):
+    """A missing P1.2 cell-context artifact must not stop P0.3 ligand assembly."""
+    root, baseline_path, registry, manifest, _ = fixture(tmp_path)
+    (root / BASE.INPUTS["full_depmap_context"]).unlink()
+    (root / BASE.INPUTS["ligand_manifest_v1"]).unlink()
+    updated = BASE.audit(root)
+    assert updated["ready_for_extended_build"] is True
+    assert updated["ready_for_depmap_cell_integration"] is False
+    assert updated["deferred_capabilities"]["full_depmap_context_present"] is False
+    baseline_path.write_text(json.dumps(updated), encoding="utf-8")
+    result = PREFLIGHT.inspect(root, baseline_path, registry, manifest)
+    assert result["checks"]["p01_input_files_unchanged"] is True
+    assert any("p01_deferred_optional_source:full_depmap_context" == entry
+               for entry in result["blocking_or_informational_issues"])
+    assert result["checks"]["p01_core13"] is True
+    assert result["checks"]["p01_pyz65"] is True
+    # Real-data preflight is still blocked by missing ChEMBL/BindingDB
+    # and missing documented assay approvals.
+    assert result["ready_for_full_real_data_pilot"] is False
