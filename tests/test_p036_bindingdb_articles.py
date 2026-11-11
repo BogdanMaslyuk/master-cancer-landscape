@@ -42,7 +42,7 @@ def inputs(tmp_path: Path) -> dict:
     ]).to_csv(panel,sep="\t",index=False)
     cols=[
         "BindingDB Reactant_set_id","BindingDB MonomerID","Ligand SMILES",
-        "UniProt (SwissProt) Primary ID of Target Chain",
+        "UniProt (SwissProt) Primary ID of Target Chain 1",
         "Ki (nM)","Kd (nM)","IC50 (nM)","Article DOI",
         "Number of Protein Chains in Target (>1 implies a multichain complex)",
     ]
@@ -70,7 +70,7 @@ def test_articles_only_20_target_observation_not_a_b_approval(tmp_path):
     assert len(rows)==20
     assert report["counts"]["total_article_rows_scanned"]==5
     assert report["counts"]["pilot_articles_rows"]==4
-    assert report["proteins_with_any_articles_endpoint_rows"]==2
+    assert report["proteins_with_any_articles_endpoint_rows"]==1
     assert report["scientific_status"]=="EXPLORATORY_NOT_A_B_APPROVED"
     first=rows[0]
     assert first["target_gene"]=="GENE00"
@@ -78,9 +78,11 @@ def test_articles_only_20_target_observation_not_a_b_approval(tmp_path):
     assert first["raw_IC50_rows"]==1
     assert first["distinct_BindingDB_monomer_ids"]==1
     second=next(row for row in rows if row["target_gene"]=="AKT1")
-    assert second["raw_Kd_rows"]==1
+    assert second["raw_Kd_rows"]==0
     assert second["multichain_rows"]==1
-    assert second["rows_with_endpoint"]==1
+    assert report["counts"]["multichain_rows_excluded_from_target_endpoint_counts"]==1
+    assert report["counts"]["swissprot_chain_fields_observed"]==1
+    assert second["rows_with_endpoint"]==0
     assert not any(row["experimental_quality_status"] != "UNREVIEWED_SUBSET" for row in rows)
 
 
@@ -110,3 +112,41 @@ def test_report_writes_outside_sources_and_cannot_overwrite(tmp_path,monkeypatch
     with pytest.raises(FileExistsError,match="Immutable exploratory"):
         MODULE.main()
     assert inp["articles"].is_file()
+
+
+def test_two_numbered_chain_columns_cannot_assign_complex_to_single_protein(tmp_path):
+    inp=inputs(tmp_path)
+    columns=[
+        "BindingDB Reactant_set_id", "BindingDB MonomerID", "Ligand SMILES",
+        "UniProt (SwissProt) Primary ID of Target Chain 1",
+        "Ki (nM)", "Kd (nM)", "IC50 (nM)",
+        "Number of Protein Chains in Target (>1 implies a multichain complex)",
+        "UniProt (SwissProt) Primary ID of Target Chain 2",
+    ]
+    make_zip(inp["articles"],"BindingDB_BindingDB_Articles.tsv",columns,[
+        ["201","M1","CCO","Q00001","30","","","2","Q00014"],
+        ["202","M2","CCO","Q00001","50","","","1",""],
+    ])
+    report,rows=MODULE.audit(inp["articles"],inp["assays"],inp["mapping"],inp["panel"])
+    core=next(x for x in rows if x["uniprot_accession"]=="Q00001")
+    expanded=next(x for x in rows if x["uniprot_accession"]=="Q00014")
+    assert report["counts"]["swissprot_chain_fields_observed"]==2
+    assert report["counts"]["pilot_rows_with_multichain_annotation"]==1
+    assert core["multichain_rows"]==1
+    assert expanded["multichain_rows"]==1
+    assert core["raw_Ki_rows"]==1
+    assert expanded["raw_Ki_rows"]==0
+    assert report["proteins_with_any_articles_endpoint_rows"]==1
+
+
+def test_missing_all_swissprot_chain_columns_fail_closed_with_schema_hints(tmp_path):
+    inp=inputs(tmp_path)
+    columns=[
+        "BindingDB Reactant_set_id","BindingDB MonomerID","Ligand SMILES",
+        "Ki (nM)","Kd (nM)","IC50 (nM)","UniProt (TrEMBL) Primary ID of Target Chain 1",
+    ]
+    make_zip(inp["articles"],"BindingDB_BindingDB_Articles.tsv",columns,[
+        ["301","M1","CCO","100","","","Q00001"],
+    ])
+    with pytest.raises(ValueError,match="available UniProt fields"):
+        MODULE.audit(inp["articles"],inp["assays"],inp["mapping"],inp["panel"])
