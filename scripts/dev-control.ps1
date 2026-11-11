@@ -103,7 +103,7 @@ function Stop-Managed([string]$Name) {
     $ProcessId = [int]$Proc.ProcessId
     Write-Host "$($Info.Label): stopping verified window PID $ProcessId and its own process tree..." -ForegroundColor Cyan
     & taskkill.exe /PID $ProcessId /T /F | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "Could not stop $Name: taskkill returned $LASTEXITCODE" }
+    if ($LASTEXITCODE -ne 0) { throw "Could not stop ${Name}: taskkill returned $LASTEXITCODE" }
     Remove-Item -LiteralPath (Get-RecordPath $Name) -Force -ErrorAction SilentlyContinue
 }
 
