@@ -69,6 +69,14 @@ def inspect(science_root: Path, baseline_file: Path, registry: Path,
             checks["p01_source_root"] = (
                 Path(baseline.get("science_root", "")).resolve() == science_root
             )
+            pyz_registry = science_root/"config"/"own_compounds.tsv"
+            if pyz_registry.is_file():
+                original = pd.read_csv(pyz_registry, sep="\t", dtype=str)
+                observed = set(original["own_compound_id"].dropna().astype(str).str.strip()) if "own_compound_id" in original else set()
+                expected = {"PYZ-" + str(i).zfill(3) for i in range(1,66)}
+                checks["p01_exact_pyz001_065_ids"] = observed == expected
+            else:
+                checks["p01_exact_pyz001_065_ids"] = False
             checks["p01_input_files_unchanged"] = True
             for logical_name, item in baseline.get("files", {}).items():
                 path = science_root / str(item.get("relative_path", ""))
