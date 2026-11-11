@@ -1,5 +1,5 @@
-param(
-    [ValidateSet('menu', 'start', 'restart', 'stop', 'status', 'open')]
+﻿param(
+    [ValidateSet('menu', 'start', 'restart', 'stop', 'status', 'open', 'diagnose')]
     [string]$Action = 'menu',
     [ValidateSet('all', 'api', 'web')]
     [string]$Service = 'all'
@@ -8,10 +8,12 @@ param(
 $ErrorActionPreference = 'Stop'
 $Root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $Worker = Join-Path $PSScriptRoot 'dev-service.ps1'
+$Diagnostics = Join-Path $PSScriptRoot 'dev-diagnostics.ps1'
+$Host.UI.RawUI.WindowTitle = 'PS0 | ПУЛЬТ УПРАВЛЕНИЯ MCL'
 $StateDir = Join-Path $Root '.mcl-dev'
 $Settings = @{
-    api = @{ Port = 8100; Label = 'PS1 API' }
-    web = @{ Port = 3100; Label = 'PS2 SITE' }
+    api = @{ Port = 8100; Label = 'PS1 БЭКЕНД (научный API)' }
+    web = @{ Port = 3100; Label = 'PS2 ФРОНТЕНД (сайт)' }
 }
 
 function Get-RecordPath([string]$Name) {
@@ -148,6 +150,12 @@ function Invoke-Action([string]$Command, [string]$Scope) {
         }
         'status' { Show-Status }
         'open' { Start-Process 'http://127.0.0.1:3100/pyz/PYZ-035' }
+        'diagnose' {
+            if (-not (Test-Path -LiteralPath $Diagnostics -PathType Leaf)) { throw "Missing diagnostics script: $Diagnostics" }
+            $Arguments = '-NoProfile -NoExit -ExecutionPolicy Bypass -File "{0}"' -f $Diagnostics
+            Start-Process -FilePath 'powershell.exe' -ArgumentList $Arguments -WorkingDirectory $Root
+            Write-Host 'PS3 — ДИАГНОСТИКА открыта в отдельном окне (без изменения данных).' -ForegroundColor Green
+        }
     }
 }
 
@@ -156,15 +164,23 @@ if ($Action -ne 'menu') {
     return
 }
 
-Write-Host 'MCL PYZ 2.0 | LOCAL CONTROL' -ForegroundColor Cyan
-Write-Host 'Only manager-owned windows may be stopped. Old MCL is protected.' -ForegroundColor Gray
+Write-Host ''
+Write-Host '======================================================' -ForegroundColor Cyan
+Write-Host '  PS0 — ПУЛЬТ УПРАВЛЕНИЯ MCL PYZ 2.0' -ForegroundColor Cyan
+Write-Host '  PS1 = БЭКЕНД (API + научные данные)    ПОРТ 8100' -ForegroundColor Cyan
+Write-Host '  PS2 = ФРОНТЕНД (сайт + страницы)       ПОРТ 3100' -ForegroundColor Cyan
+Write-Host '  PS3 = ДИАГНОСТИКА (проверка по запросу)' -ForegroundColor Cyan
+Write-Host '======================================================' -ForegroundColor Cyan
+Write-Host 'Управляем только своими окнами. Старый MCL не трогаем.' -ForegroundColor Gray
 while ($true) {
     Write-Host ''
-    Write-Host '[1] Start PS1 + PS2       [2] RESTART BOTH' -ForegroundColor White
-    Write-Host '[3] Restart PS1 (API)    [4] Restart PS2 (site)' -ForegroundColor White
-    Write-Host '[5] Status               [6] Open PYZ-035' -ForegroundColor White
-    Write-Host '[7] Stop both            [0] Exit control (keep servers running)' -ForegroundColor White
-    $Choice = (Read-Host 'Select').Trim()
+    Write-Host '[1] ЗАПУСТИТЬ PS1 + PS2       [2] ПЕРЕЗАПУСТИТЬ ОБА' -ForegroundColor White
+    Write-Host '[3] ПЕРЕЗАПУСТИТЬ PS1: БЭКЕНД (API, данные)' -ForegroundColor Cyan
+    Write-Host '[4] ПЕРЕЗАПУСТИТЬ PS2: ФРОНТЕНД (сайт)' -ForegroundColor Magenta
+    Write-Host '[5] Состояние PS1 / PS2      [6] Открыть PYZ-035' -ForegroundColor White
+    Write-Host '[7] Остановить PS1 + PS2     [8] ОТКРЫТЬ PS3: ДИАГНОСТИКА' -ForegroundColor Yellow
+    Write-Host '[0] Закрыть пульт (серверы оставить)' -ForegroundColor Gray
+    $Choice = (Read-Host 'Номер действия').Trim()
     try {
         switch ($Choice) {
             '1' { Invoke-Action 'start' 'all' }
@@ -174,6 +190,7 @@ while ($true) {
             '5' { Invoke-Action 'status' 'all' }
             '6' { Invoke-Action 'open' 'all' }
             '7' { Invoke-Action 'stop' 'all' }
+            '8' { Invoke-Action 'diagnose' 'all' }
             '0' { return }
             default { Write-Host 'Unknown option.' -ForegroundColor Yellow }
         }
