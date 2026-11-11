@@ -213,3 +213,35 @@ def test_ligand_baseline_does_not_require_full_depmap_context(tmp_path):
     # Real-data preflight is still blocked by missing ChEMBL/BindingDB
     # and missing documented assay approvals.
     assert result["ready_for_full_real_data_pilot"] is False
+
+
+def test_pilot_output_under_audit_report_parent_is_allowed(tmp_path, monkeypatch):
+    """Regression: MCL_TLS_V2_CHECK/pilot beside baseline_audit.json is safe."""
+    _, baseline, registry, _, _ = fixture(tmp_path)
+    output = baseline.parent / "pilot"
+    monkeypatch.setattr("sys.argv", [
+        "build_tls_v2_pilot_panel.py",
+        "--baseline", str(baseline),
+        "--registry", str(registry),
+        "--additional-n", "7",
+        "--output-dir", str(output),
+    ])
+    PANEL.main()
+    panel = pd.read_csv(output / "pilot_panel.tsv", sep="\t")
+    assert len(panel) == 20
+    assert baseline.is_file()
+    assert (output / "pilot_panel_manifest.json").is_file()
+
+
+def test_pilot_output_inside_original_science_root_is_forbidden(tmp_path, monkeypatch):
+    root, baseline, registry, _, _ = fixture(tmp_path)
+    output = root / "unsafe_pilot_results"
+    monkeypatch.setattr("sys.argv", [
+        "build_tls_v2_pilot_panel.py",
+        "--baseline", str(baseline),
+        "--registry", str(registry),
+        "--output-dir", str(output),
+    ])
+    with pytest.raises(SystemExit, match="outside the original scientific data"):
+        PANEL.main()
+    assert not output.exists()
