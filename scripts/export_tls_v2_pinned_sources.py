@@ -120,7 +120,7 @@ def export_sqlite(
         ]
     ))
     if pilot_panel is not None:
-        panel = pd.read_csv(pilot_panel, sep="\\t", dtype=str, keep_default_na=False)
+        panel = pd.read_csv(pilot_panel, sep="\t", dtype=str, keep_default_na=False)
         required_panel = {"uniprot_accession", "target_gene", "scope"}
         if not required_panel.issubset(panel.columns):
             raise ValueError("Pilot panel missing gene/accession/scope")
