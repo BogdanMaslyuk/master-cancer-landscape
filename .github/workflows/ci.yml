@@ -18,6 +18,20 @@ jobs:
           python -m pip install "pip==26.2.1"
           python -m pip install -c constraints/python-3.13.txt -e ".[dev,analysis]" -e "./apps/api[dev]"
           python -m pip check
+      - name: PowerShell control syntax
+        shell: pwsh
+        run: |
+          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1")
+          foreach ($path in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Host ("{0}: {1}" -f $path, $_) }
+              exit 1
+            }
+            Write-Host ("PowerShell syntax: PASS {0}" -f $path)
+          }
       - name: Architecture v1 repository contract
         run: python ./scripts/verify_architecture_v1.py
       - name: Python dependency constraints
