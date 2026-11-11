@@ -134,7 +134,7 @@ def compare_stages(first: Path, second: Path | None) -> tuple[bool,dict]:
 def inspect(
     preflight_path: Path, pilot_panel: Path, stage: Path, science_root: Path,
     baseline_path: Path, *, second_stage: Path | None=None,
-    manual_review: Path | None=None,
+    manual_review: Path | None=None, ingest_stage: Path | None=None,
 ) -> dict:
     checks:dict[str,bool]={}
     notes=[]
@@ -164,12 +164,23 @@ def inspect(
     except (ValueError,OSError,AssertionError,KeyError) as exc:
         checks["index_internal_consistency"]=False
         notes.append("index_validation_failed:"+type(exc).__name__+":"+str(exc))
-    checks["same_pinned_pilot_ingest"] = False
-    raw_ingest=stage.parent.parent.parent if False else None
-    # The index stage records the ingest *content SHA*, but the original
-    # ingest_manifest and normalized table are outside the index stage.
-    # Compare a complete scientific chain only if an explicit ingest stage
-    # path is passed in a future signed release record.
+    checks["same_pinned_pilot_ingest"]=False
+    if ingest_stage is not None:
+        try:
+            ingest_file=ingest_stage/"ingest_manifest.json"
+            ing=read(ingest_file)
+            checks["same_pinned_pilot_ingest"]=(
+                ing.get("contract")=="mcl-tls-v2-normalized-staging-v1"
+                and ing.get("status")=="staging_not_published"
+                and ing.get("selection_mode")=="reviewed_pilot_panel"
+                and ing.get("pilot_panel_sha256")==sha256(pilot_panel)
+                and ing.get("normalized_sha256")==stage_manifest.get("input_normalized_sha256")
+                and ing.get("normalized_sha256")==sha256(ingest_stage/"measurements_normalized.parquet")
+                and ing.get("registry_sha256")==stage_manifest.get("input_registry_sha256")
+                and sha256(ingest_file)==stage_manifest.get("input_ingest_sha256")
+            )
+        except (OSError,ValueError,KeyError,TypeError) as exc:
+            notes.append("ingest_chain_unverifiable:"+type(exc).__name__)
     checks["assay_source_linkage_present"]=stage_manifest.get("approved_assays_n",0)>0
     curated=stage/"measurements_curated.parquet"
     counts=Counter()
@@ -276,6 +287,7 @@ def main():
     parser.add_argument("--science-root",type=Path,required=True)
     parser.add_argument("--baseline",type=Path,required=True)
     parser.add_argument("--second-stage",type=Path)
+    parser.add_argument("--ingest-stage",type=Path)
     parser.add_argument("--manual-review",type=Path)
     parser.add_argument("--report",type=Path,required=True)
     parser.add_argument("--strict",action="store_true")
@@ -284,7 +296,7 @@ def main():
         raise SystemExit("Report output must be outside the archived scientific source")
     report=inspect(args.preflight,args.pilot_panel,args.stage,args.science_root,
                    args.baseline,second_stage=args.second_stage,
-                   manual_review=args.manual_review)
+                   manual_review=args.manual_review, ingest_stage=args.ingest_stage)
     args.report.parent.mkdir(parents=True,exist_ok=True)
     temp=args.report.with_suffix(args.report.suffix+".tmp")
     temp.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
