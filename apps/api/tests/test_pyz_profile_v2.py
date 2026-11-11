@@ -125,3 +125,24 @@ def test_profile_model_forbids_unexpected_new_fields():
     data["invented_probability_of_pyz_binding"] = 0.96
     with pytest.raises(ValueError):
         PyzProfileV2.model_validate(data)
+
+
+def test_all_65_registered_pyz_have_versioned_card_without_runtime_library():
+    """Use the real immutable registry; optional scientific runtimes may be absent."""
+    from pathlib import Path
+    from mcl_api.own_compounds import OwnCompoundStore
+
+    root = Path(__file__).resolve().parents[3]
+    store = OwnCompoundStore(root)
+    frame = store.registry()
+    assert frame["own_compound_id"].tolist() == [
+        "PYZ-" + str(i).zfill(3) for i in range(1, 66)
+    ]
+    for compound_id in frame["own_compound_id"]:
+        payload = store.detail(compound_id)
+        result = PyzDetailResponse.model_validate(payload)
+        profile = result.profile_v2
+        assert profile.compound_id == compound_id
+        assert profile.identity.standardized_smiles
+        assert profile.scientific_summary.own_target_binding == "not_measured"
+        assert profile.provenance.bindingdb_p036_status == "NOT_INGESTED_UNREVIEWED"
