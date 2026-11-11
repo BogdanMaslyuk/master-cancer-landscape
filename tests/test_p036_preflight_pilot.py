@@ -38,7 +38,7 @@ def sha(path):
 
 def fixture(tmp_path: Path):
     root = tmp_path/"science"
-    root.mkdir()
+    root.mkdir(parents=True)
     for relative in BASE.INPUTS.values():
         path = root/relative
         path.parent.mkdir(parents=True, exist_ok=True)
