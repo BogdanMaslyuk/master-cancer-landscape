@@ -77,14 +77,16 @@ def collect(source_registry: pd.DataFrame, uniprot: pd.DataFrame | None = None) 
         })
 
     if uniprot is not None:
-        required = {"Entry", "Reviewed", "Gene Names (primary)"}
+        required = {"Entry", "Reviewed"}
         if not required.issubset(uniprot.columns):
             raise ValueError(f"UniProt TSV missing required columns: {sorted(required - set(uniprot))}")
+        if not ({"Gene Names (primary)", "Gene names (primary)"} & set(uniprot.columns)):
+            raise ValueError("UniProt TSV missing primary-gene column")
         if "Organism (ID)" not in uniprot.columns and "Organism ID" not in uniprot.columns:
             raise ValueError("UniProt TSV must explicitly contain Organism (ID)")
         for row in uniprot.to_dict("records"):
             acc = _first(row, "Entry").upper()
-            gene = _first(row, "Gene Names (primary)").upper()
+            gene = _first(row, "Gene Names (primary)", "Gene names (primary)").upper()
             organism = _first(row, "Organism (ID)", "Organism ID")
             reviewed = _first(row, "Reviewed").lower()
             if organism != "9606":
