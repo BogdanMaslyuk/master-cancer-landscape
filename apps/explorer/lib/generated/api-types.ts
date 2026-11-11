@@ -266,13 +266,135 @@ export type PhenotypeImportResponse = Record<string, unknown>;
 
 export type PhenotypeModelsResponse = Record<string, unknown>;
 
+export type PyzAdmet = {
+  "status": "available" | "partial" | "not_available" | "pending_review";
+  "data_available": boolean;
+  "integrated_risk"?: string | null;
+  "note_ru"?: string | null;
+  "source_report"?: string | null;
+  "prediction_not_experiment": boolean;
+  "individual_ames"?: string | null;
+  "individual_dili"?: string | null;
+};
+
 export type PyzCatalogResponse = Record<string, unknown>;
 
-export type PyzDetailResponse = Record<string, unknown>;
+export type PyzCellContext = {
+  "status": "available" | "partial" | "not_available" | "pending_review";
+  "data_available": boolean;
+  "items"?: PyzContext[];
+};
+
+export type PyzContext = {
+  "target_gene"?: string | null;
+  "mcl_organ_ru"?: string | null;
+  "mcl_cancer_name"?: string | null;
+  "mcl_cancer_id"?: string | null;
+  "tanimoto"?: number | null;
+  "models"?: PyzContextModel[];
+  "context_status": string;
+  "source": string;
+};
+
+export type PyzContextModel = {
+  "model_id"?: string | null;
+  "cell_line_name"?: string | null;
+  "role"?: string | null;
+  "dependency_probability"?: number | null;
+  "gene_effect"?: number | null;
+  "available_in_laboratory_registry": boolean;
+  "known_reference_compounds"?: string[];
+};
+
+export type PyzDetailResponse = {
+  [key: string]: unknown;
+  "profile_v2": PyzProfileV2;
+};
+
+export type PyzIdentity = {
+  "status": "available" | "partial" | "not_available" | "pending_review";
+  "data_available": boolean;
+  "own_compound_id": string;
+  "standardized_smiles": string | null;
+  "chemotype_ru": string | null;
+  "ring_variant": string | null;
+  "series_range": string | null;
+  "source": string;
+};
 
 export type PyzMatrixResponse = Record<string, unknown>;
 
+export type PyzNeighbor = {
+  "ligand_id"?: string | null;
+  "tanimoto"?: number | null;
+  "reference_endpoint"?: string | null;
+  "reference_value_nm"?: number | null;
+};
+
+export type PyzProfileV2 = {
+  "schema_version": string;
+  "compound_id": string;
+  "identity": PyzIdentity;
+  "properties": PyzProperties;
+  "admet": PyzAdmet;
+  "target_hypotheses": PyzTargetHypotheses;
+  "cell_context": PyzCellContext;
+  "scientific_summary": PyzScientificSummary;
+  "provenance": PyzProvenance;
+};
+
+export type PyzProperties = {
+  "status": "available" | "partial" | "not_available" | "pending_review";
+  "data_available": boolean;
+  "qed"?: number | null;
+  "source"?: string | null;
+};
+
+export type PyzProvenance = {
+  "own_compounds_registry": string;
+  "admet_report"?: string | null;
+  "target_library": string;
+  "candidate_context": string;
+  "bindingdb_p036_status": string;
+  "docking_status": string;
+};
+
+export type PyzScientificSummary = {
+  "established": ScientificClaim[];
+  "hypotheses": ScientificClaim[];
+  "gaps": ScientificClaim[];
+  "next_step": ScientificClaim;
+  "rule_ids": string[];
+  "own_cellular_activity": string;
+  "own_target_binding": string;
+};
+
 export type PyzSummaryResponse = Record<string, unknown>;
+
+export type PyzTarget = {
+  "target_gene": string;
+  "uniprot_accession"?: string | null;
+  "tanimoto"?: number | null;
+  "passes_navigation_cutoff": boolean;
+  "ligands_compared_n"?: number | null;
+  "best_ligand_id"?: string | null;
+  "reference_value_nm"?: number | null;
+  "reference_endpoint"?: string | null;
+  "reference_measurement_owner": string;
+  "evidence_type": string;
+  "scientific_status": string;
+  "source": string;
+  "neighbors"?: PyzNeighbor[];
+};
+
+export type PyzTargetHypotheses = {
+  "status": "available" | "partial" | "not_available" | "pending_review";
+  "data_available": boolean;
+  "scope": string;
+  "cutoff_navigational": number;
+  "items": PyzTarget[];
+  "source": string;
+};
 
 export type QCResponse = Record<string, unknown>;
 
@@ -282,6 +404,13 @@ export type ReferenceCoverageSummary = {
   "gene_universe_n"?: number | null;
   "coverage_fraction"?: number | null;
   "available"?: boolean | null;
+};
+
+export type ScientificClaim = {
+  "rule_id": string;
+  "title": string;
+  "meaning": string;
+  "source": string;
 };
 
 export type StableGenesResponse = Record<string, unknown>[];
