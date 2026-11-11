@@ -162,7 +162,8 @@ def collect(source_registry: pd.DataFrame, uniprot: pd.DataFrame | None = None) 
 
 
 def build(v1_path: Path, uniprot_path: Path | None, output_dir: Path,
-          uniprot_release: str | None = None) -> dict:
+          uniprot_release: str | None = None,
+          uniprot_source_url: str | None = None) -> dict:
     if not v1_path.is_file():
         raise FileNotFoundError(f"Missing locally verified v1 registry: {v1_path}")
     if uniprot_path is not None and not uniprot_path.is_file():
@@ -188,6 +189,7 @@ def build(v1_path: Path, uniprot_path: Path | None, output_dir: Path,
         "universe_is_exhaustive": False,
         "uniprot_snapshot_included": uniprot_path is not None,
         "uniprot_release": uniprot_release,
+        "uniprot_source_url": uniprot_source_url,
         "source_files": [{"path": str(p.resolve()), "sha256": _digest(p)}
                          for p in [v1_path] + ([uniprot_path] if uniprot_path else [])],
         "target_genes_n": len(frame),
@@ -213,9 +215,11 @@ def main() -> None:
     parser.add_argument("--v1-registry", type=Path, default=DEFAULT_V1)
     parser.add_argument("--uniprot-tsv", type=Path)
     parser.add_argument("--uniprot-release", type=str)
+    parser.add_argument("--uniprot-source-url", type=str)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
-    manifest = build(args.v1_registry, args.uniprot_tsv, args.output_dir, args.uniprot_release)
+    manifest = build(args.v1_registry, args.uniprot_tsv, args.output_dir,
+                     args.uniprot_release, args.uniprot_source_url)
     print(f"Unique reviewed human mapped proteins: {manifest['target_genes_n']}")
     print("Ligand, DepMap and oncology coverage: NOT YET VERIFIED")
     print(f"Manifest: {args.output_dir / 'protein_target_universe_manifest.json'}")
