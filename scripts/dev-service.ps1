@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('api', 'web')]
     [string]$Service
@@ -10,8 +10,12 @@ $env:MCL_ROOT = $Root
 $env:PYTHONPATH = (Join-Path $Root 'apps\api')
 
 if ($Service -eq 'api') {
-    $Host.UI.RawUI.WindowTitle = 'MCL PYZ 2.0 | PS1 API :8100'
-    Write-Host '=== PS1 | MCL PYZ 2.0 | API ===' -ForegroundColor Cyan
+    $Host.UI.RawUI.WindowTitle = 'PS1 | БЭКЕНД — научный сервер | 8100'
+    Write-Host ''
+    Write-Host '===============================================' -ForegroundColor Cyan
+    Write-Host '  PS1 — БЭКЕНД | НАУЧНЫЙ СЕРВЕР MCL | API' -ForegroundColor Cyan
+    Write-Host '  ДАННЫЕ + РАСЧЁТЫ + ОТВЕТЫ ДЛЯ САЙТА' -ForegroundColor Cyan
+    Write-Host '===============================================' -ForegroundColor Cyan
 
     $PythonCandidates = @(
         (Join-Path $Root '.venv\Scripts\python.exe'),
@@ -32,7 +36,7 @@ if ($Service -eq 'api') {
     Set-Location $Root
     Write-Host "Code/data: $Root" -ForegroundColor Gray
     Write-Host "Python: $Python" -ForegroundColor Gray
-    Write-Host 'API: http://127.0.0.1:8100' -ForegroundColor Green
+    Write-Host 'БЭКЕНД: http://127.0.0.1:8100' -ForegroundColor Green
     Write-Host 'This window belongs to MCL_CONTROL. To restart, use the control menu.' -ForegroundColor Yellow
 
     & $Python -m uvicorn mcl_api.main:app --app-dir (Join-Path $Root 'apps\api') --host 127.0.0.1 --port 8100 --reload --reload-dir (Join-Path $Root 'apps\api')
@@ -40,8 +44,12 @@ if ($Service -eq 'api') {
     Write-Host "API process finished, exit code $Code. Control menu can restart it." -ForegroundColor Yellow
 }
 else {
-    $Host.UI.RawUI.WindowTitle = 'MCL PYZ 2.0 | PS2 WEB :3100'
-    Write-Host '=== PS2 | MCL PYZ 2.0 | SITE ===' -ForegroundColor Cyan
+    $Host.UI.RawUI.WindowTitle = 'PS2 | ФРОНТЕНД — сайт MCL | 3100'
+    Write-Host ''
+    Write-Host '===============================================' -ForegroundColor Magenta
+    Write-Host '  PS2 — ФРОНТЕНД | САЙТ MCL | NEXT.JS' -ForegroundColor Magenta
+    Write-Host '  СТРАНИЦЫ + КАРТОЧКИ + ИНТЕРФЕЙС' -ForegroundColor Magenta
+    Write-Host '===============================================' -ForegroundColor Magenta
 
     $Frontend = Join-Path $Root 'apps\explorer'
     if (-not (Test-Path -LiteralPath (Join-Path $Frontend 'package.json') -PathType Leaf)) {
@@ -50,7 +58,7 @@ else {
     Set-Location $Frontend
     $env:NEXT_PUBLIC_MCL_API_URL = 'http://127.0.0.1:8100'
     Write-Host "Code: $Frontend" -ForegroundColor Gray
-    Write-Host 'Site: http://127.0.0.1:3100/pyz/PYZ-035' -ForegroundColor Green
+    Write-Host 'ФРОНТЕНД: http://127.0.0.1:3100/pyz/PYZ-035' -ForegroundColor Green
     Write-Host 'API: http://127.0.0.1:8100' -ForegroundColor Gray
     Write-Host 'This window belongs to MCL_CONTROL. To restart, use the control menu.' -ForegroundColor Yellow
 
