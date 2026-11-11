@@ -209,7 +209,7 @@ def main() -> None:
         raise FileNotFoundError(args.bindingdb_tsv)
     if (not args.bindingdb_license.strip() or any(
         token in args.bindingdb_license.upper()
-        for token in ("VERIFY", "UNKNOWN", "TODO", "REPLACE", "TBD")
+        for token in ("VERIFY", "UNKNOWN", "TODO", "REPLACE", "TBD", "ACTUAL_", "INSERT_")
     )):
         raise ValueError("BindingDB license/attribution must be verified for the selected source")
     if not args.chembl_url.startswith("https://") or not args.bindingdb_url.startswith("https://"):
