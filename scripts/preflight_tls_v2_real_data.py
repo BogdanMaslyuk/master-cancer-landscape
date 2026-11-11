@@ -78,10 +78,21 @@ def inspect(science_root: Path, baseline_file: Path, registry: Path,
             else:
                 checks["p01_exact_pyz001_065_ids"] = False
             checks["p01_input_files_unchanged"] = True
+            # P0.3 requires core candidates, 65 PYZ and legacy ligands.
+            # Full DepMap model-target context belongs to later P1.2.
+            # An optional input absent at baseline must not block ligand work.
+            mandatory_sources = {"candidate_v2", "own_compounds", "ligand_v1"}
             for logical_name, item in baseline.get("files", {}).items():
                 path = science_root / str(item.get("relative_path", ""))
                 expected = item.get("sha256")
-                if not item.get("present") or not expected or not path.is_file():
+                if not item.get("present"):
+                    if logical_name in mandatory_sources:
+                        checks["p01_input_files_unchanged"] = False
+                        issues.append("p01_unavailable_source:" + logical_name)
+                    else:
+                        issues.append("p01_deferred_optional_source:" + logical_name)
+                    continue
+                if not expected or not path.is_file():
                     checks["p01_input_files_unchanged"] = False
                     issues.append("p01_unavailable_source:" + logical_name)
                     continue
