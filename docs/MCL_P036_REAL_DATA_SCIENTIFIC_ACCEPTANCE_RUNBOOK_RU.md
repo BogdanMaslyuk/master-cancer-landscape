@@ -40,7 +40,7 @@ $ExistingRegistry = "$Science\data\processed\target_registry\protein_targets.par
 $UniProt = "D:\MCL-sources\uniprot\official_reviewed_human.tsv"
 
 & $Python ".\scripts\audit_target_space_v2_baseline.py" --data-root $Science --output "$Run\p01\baseline_audit.json" --strict
-& $Python ".\scripts\build_expanded_target_registry.py" --v1-registry $ExistingRegistry --uniprot-tsv $UniProt --uniprot-release ACTUAL_UNIPROT_RELEASE --output-dir "$Run\p02"
+& $Python ".\scripts\build_expanded_target_registry.py" --v1-registry $ExistingRegistry --uniprot-tsv $UniProt --uniprot-release ACTUAL_UNIPROT_RELEASE --uniprot-source-url "https://rest.uniprot.org/uniprotkb/stream" --output-dir "$Run\p02"
 
 $Baseline = "$Run\p01\baseline_audit.json"
 $Registry = "$Run\p02\protein_target_universe.tsv"
@@ -48,7 +48,7 @@ $Registry = "$Run\p02\protein_target_universe.tsv"
 $Pilot = "$Run\pilot\pilot_panel.tsv"
 ~~~
 
-Все приведённые буквы дисков, имена архивов и названия RELEASE — **образцы**, не реальные пути и не утверждение о наличии файлов. Не подставлять фиктивные версии.
+Все приведённые буквы дисков, имена архивов и названия RELEASE — **образцы**, не реальные пути и не утверждение о наличии файлов. Не подставлять фиктивные версии. Ссылка UniProt должна соответствовать фактически скачанному и закреплённому запросу, а не просто домену ресурса.
 
 ## Пробная загрузка официальных источников
 
