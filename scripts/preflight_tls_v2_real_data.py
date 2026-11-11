@@ -16,6 +16,7 @@ import sys
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pandas as pd
 
@@ -109,6 +110,13 @@ def inspect(science_root: Path, baseline_file: Path, registry: Path,
             checks["p02_pinned_uniprot_snapshot"] = (
                 snapshot.get("uniprot_snapshot_included") is True
                 and bool(snapshot.get("uniprot_release"))
+                and "REPLACE" not in str(snapshot.get("uniprot_release")).upper()
+                and "ACTUAL_" not in str(snapshot.get("uniprot_release")).upper()
+            )
+            uniprot_url = urlparse(str(snapshot.get("uniprot_source_url") or ""))
+            checks["p02_official_source_declared"] = (
+                uniprot_url.scheme == "https"
+                and (uniprot_url.hostname or "").endswith("uniprot.org")
             )
             checks["p02_source_hashes"] = True
             for source in snapshot.get("source_files", []):
@@ -152,6 +160,16 @@ def inspect(science_root: Path, baseline_file: Path, registry: Path,
                         issues.append("p03_source_changed_or_missing:" + str(path))
                     if not all(str(source.get(field, "")).strip()
                                for field in ("release","url","license")):
+                        checks["p03_source_provenance"] = False
+                    parsed = urlparse(str(source.get("url") or ""))
+                    hostname = parsed.hostname or ""
+                    official = (
+                        (source.get("source") == "ChEMBL"
+                         and (hostname == "ebi.ac.uk" or hostname.endswith(".ebi.ac.uk")))
+                        or (source.get("source") == "BindingDB"
+                            and (hostname == "bindingdb.org" or hostname.endswith(".bindingdb.org")))
+                    )
+                    if parsed.scheme != "https" or not official:
                         checks["p03_source_provenance"] = False
                     if any(
                         placeholder in str(source.get("license", "")).upper()
@@ -204,6 +222,7 @@ def inspect(science_root: Path, baseline_file: Path, registry: Path,
         "limitations": [
             "A successful preflight does not confirm binding methods or biological activity.",
             "No external archives are downloaded or fabricated.",
+            "Source URLs are declarations; this check does not establish archive authenticity without official checksums.",
             "Scientific A/B signoff and P0.3.6 final acceptance require independent human review.",
         ],
     }
