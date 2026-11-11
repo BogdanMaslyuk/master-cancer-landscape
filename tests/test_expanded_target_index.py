@@ -198,3 +198,47 @@ def test_unlinked_publication_copy_is_quarantined_even_when_one_record_has_mirro
     ingest, registry, review = prepared(tmp_path, rows=rows)
     with pytest.raises(ValueError, match="Zero verified"):
         MODULE.build(ingest, registry, review, tmp_path/"runtime")
+
+
+def test_bindingdb_can_enter_A_only_after_confirmed_human_binding_assay(tmp_path: Path):
+    bdb = item(source="BindingDB",source_id="BDB-RS-1",gene="CDK4",
+               accession="P11802",smiles="CCO",endpoint="Ki",
+               assay="BDB-A1",nm="120")
+    bdb.update({
+        "organism_id":"Homo sapiens",
+        "reason_codes":json.dumps(["assay_method_requires_review"]),
+        "quality_tier":"C",
+    })
+    ingest,registry,reviews=prepared(tmp_path,rows=[bdb])
+    with reviews.open("a",encoding="utf-8") as stream:
+        stream.write(
+            "BindingDB\tfixture-test\tBDB-A1\tbinding_direct\tfixture-reviewer\t"
+            "https://example.org/bindingdb-method\tapproved\n"
+        )
+    result=MODULE.build(ingest,registry,reviews,tmp_path/"out")
+    assert result["verified_measurements_n"]==1
+    idx=tmp_path/"out"/"staging"/result["build_id"]
+    row=pd.read_parquet(idx/"measurements_curated.parquet").iloc[0]
+    assert row.curated_quality_tier=="A"
+    assert row.review_method=="binding_direct"
+    assert row.independence_status=="primary"
+
+
+def test_bindingdb_with_unresolved_target_problem_cannot_be_promoted(tmp_path: Path):
+    bdb=item(source="BindingDB",source_id="BDB-RS-2",gene="CDK4",
+             accession="P11802",smiles="CCO",endpoint="Ki",
+             assay="BDB-A2",nm="120")
+    bdb.update({
+        "organism_id":"Homo sapiens",
+        "reason_codes":json.dumps(
+            ["assay_method_requires_review","target_not_in_pinned_registry"]
+        ),"quality_tier":"C",
+    })
+    ingest,registry,reviews=prepared(tmp_path,rows=[bdb])
+    with reviews.open("a",encoding="utf-8") as stream:
+        stream.write(
+            "BindingDB\tfixture-test\tBDB-A2\tbinding_direct\tfixture-reviewer\t"
+            "https://example.org/bindingdb-method\tapproved\n"
+        )
+    with pytest.raises(ValueError,match="Zero verified"):
+        MODULE.build(ingest,registry,reviews,tmp_path/"out")
