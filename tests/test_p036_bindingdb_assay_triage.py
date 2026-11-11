@@ -34,7 +34,7 @@ def sample(tmp_path):
         ["expanded", "PARP1", "P09874", "102", "M3", "CCC", "", "", "", "not_numeric", "300_2",
          "functional", "In vitro cell assay", MOD.LINKED, ""],
         ["core", "EGFR", "P00533", "103", "M4", "CCCC", "10.1234/b", "", "", "50", "",
-         "", "", "", "NO_ASSAY_MAPPING", ""],
+         "", "", "NO_ASSAY_MAPPING", ""],
     ]
     with queue.open("w", encoding="utf-8", newline="") as file:
         writer = csv.writer(file, delimiter="\t")
