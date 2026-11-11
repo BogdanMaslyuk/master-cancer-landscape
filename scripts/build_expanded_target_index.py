@@ -267,11 +267,36 @@ def build(stage_dir: Path, registry: Path, review_file: Path, output_dir: Path) 
                     reason.append(chemical["chemistry_reasons"] or "unverified_chemistry")
                 if not review:
                     reason.append("assay_method_not_approved")
-                if prelim == "candidate_A" and review and review["method_class"] == "binding_direct":
+                # BindingDB rows begin in C because bulk TSV alone rarely proves
+                # the biochemical construct or assay type. A documented assay
+                # review may upgrade a precise, human, single-accession result.
+                # Every OTHER normalization problem still forbids promotion.
+                bindingdb_reviewed = False
+                if row.get("source") == "BindingDB" and review and prelim == "C":
+                    try:
+                        original_issues = set(json.loads(row.get("reason_codes") or "[]"))
+                    except (ValueError,TypeError):
+                        original_issues = {"unreadable_normalization_reasons"}
+                    permitted = {"assay_method_requires_review"}
+                    if (original_issues.issubset(permitted)
+                            and row.get("target_gene")
+                            and row.get("uniprot_accession")
+                            and str(row.get("organism_id") or "").strip().lower()
+                                in {"homo sapiens","human","9606"}
+                            and row.get("measurement_status") == "exact_eligible"):
+                        if (str(row.get("endpoint") or "").upper() in {"KI","KD"}
+                                and review["method_class"] == "binding_direct"):
+                            final = "A"
+                            bindingdb_reviewed = True
+                        elif (str(row.get("endpoint") or "").upper() == "IC50"
+                              and review["method_class"] == "biochemical_function"):
+                            final = "B"
+                            bindingdb_reviewed = True
+                if not bindingdb_reviewed and prelim == "candidate_A" and review and review["method_class"] == "binding_direct":
                     final = "A"
-                elif prelim == "candidate_B" and review and review["method_class"] == "biochemical_function":
+                elif not bindingdb_reviewed and prelim == "candidate_B" and review and review["method_class"] == "biochemical_function":
                     final = "B"
-                else:
+                elif not bindingdb_reviewed:
                     if prelim in {"candidate_A", "candidate_B"} and review:
                         reason.append("assay_endpoint_method_discordance")
                 if chemical["chemistry_status"] != "verified_pilot_scope":
