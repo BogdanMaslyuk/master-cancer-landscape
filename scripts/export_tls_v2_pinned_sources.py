@@ -101,6 +101,7 @@ def _check_tables(con: sqlite3.Connection) -> None:
 def export_sqlite(
     database: Path, registry: Path, output_tsv: Path, *,
     release: str, expected_db_sha256: str,
+    pilot_panel: Path | None = None,
 ) -> dict:
     if not release or not expected_db_sha256 or len(expected_db_sha256) != 64:
         raise ValueError("Pinned ChEMBL release and SQLite SHA-256 are mandatory")
@@ -118,6 +119,21 @@ def export_sqlite(
             mapping["organism_id"].eq("9606"), "uniprot_accession"
         ]
     ))
+    if pilot_panel is not None:
+        panel = pd.read_csv(pilot_panel, sep="\\t", dtype=str, keep_default_na=False)
+        required_panel = {"uniprot_accession", "target_gene", "scope"}
+        if not required_panel.issubset(panel.columns):
+            raise ValueError("Pilot panel missing gene/accession/scope")
+        if panel["uniprot_accession"].duplicated().any() or panel["target_gene"].duplicated().any():
+            raise ValueError("Ambiguous duplicate pilot panel")
+        mapping = dict(zip(mapping["uniprot_accession"], mapping["target_gene"]))
+        if any(mapping.get(row["uniprot_accession"]) != row["target_gene"]
+               for row in panel.to_dict("records")):
+            raise ValueError("Pilot panel contains unmapped/mismatched UniProt accession")
+        selected = set(panel["uniprot_accession"])
+        if not selected.issubset(set(accessions)):
+            raise ValueError("Pilot panel contains proteins outside reviewed registry")
+        accessions = sorted(selected)
     if not accessions:
         raise ValueError("No verified human target accessions in P0.2 registry")
     if output_tsv.exists():
@@ -161,6 +177,7 @@ def export_sqlite(
         temp.replace(output_tsv)
         return {
             "rows": count, "output": str(output_tsv),
+            "pilot_panel_sha256": digest(pilot_panel) if pilot_panel is not None else None,
             "output_sha256": digest(output_tsv),
             "database_sha256": expected_db_sha256.lower(),
             "registry_sha256": digest(registry),
@@ -184,6 +201,7 @@ def main() -> None:
     parser.add_argument("--bindingdb-url", required=True)
     parser.add_argument("--bindingdb-license", required=True, help="Verified terms for this exact source release")
     parser.add_argument("--registry", type=Path, required=True)
+    parser.add_argument("--pilot-panel", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -200,6 +218,7 @@ def main() -> None:
     result = export_sqlite(
         args.chembl_sqlite,args.registry,output,
         release=args.chembl_release,expected_db_sha256=args.chembl_sqlite_sha256,
+        pilot_panel=args.pilot_panel,
     )
     bdb_sha = digest(args.bindingdb_tsv)
     manifest = {
