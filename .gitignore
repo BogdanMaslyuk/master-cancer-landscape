@@ -86,3 +86,6 @@ secrets/
 # Large reproducible genome-wide matrices
 data/processed/depmap_genomewide/*_dependency_matrix.parquet
 data/processed/depmap_genomewide/*_gene_effect_matrix.parquet
+
+# Local PS1/PS2 review process ownership records
+.mcl-dev/
