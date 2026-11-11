@@ -35,7 +35,7 @@ if ($Service -eq 'api') {
     Write-Host 'API: http://127.0.0.1:8100' -ForegroundColor Green
     Write-Host 'This window belongs to MCL_CONTROL. To restart, use the control menu.' -ForegroundColor Yellow
 
-    & $Python -m uvicorn mcl_api.main:app --app-dir (Join-Path $Root 'apps\api') --host 127.0.0.1 --port 8100
+    & $Python -m uvicorn mcl_api.main:app --app-dir (Join-Path $Root 'apps\api') --host 127.0.0.1 --port 8100 --reload --reload-dir (Join-Path $Root 'apps\api')
     $Code = $LASTEXITCODE
     Write-Host "API process finished, exit code $Code. Control menu can restart it." -ForegroundColor Yellow
 }
