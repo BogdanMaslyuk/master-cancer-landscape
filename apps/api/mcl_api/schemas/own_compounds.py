@@ -84,10 +84,28 @@ class PyzTargetHypotheses(PyzBlock):
     source: str
 
 
+class PyzReferenceDrugObservation(BaseModel):
+    """A Candidate v2 observation about a *known* compound, never about PYZ."""
+
+    compound_id: str | None = None
+    preferred_name: str | None = None
+    hypothesis_id: str | None = None
+    candidate_priority_status: str | None = None
+    reference_model_role: str | None = None
+    prism_lfc: float | None = None
+    dependency_probability: float | None = Field(default=None, ge=0, le=1)
+    gene_effect: float | None = None
+    source_layer: Literal["candidate_v2"]
+    source_scope: Literal["candidate_v2_top_five_per_role"]
+    measurement_owner: Literal["known_reference_compound_not_pyz"]
+
+
 class PyzContextModel(BaseModel):
     model_id: str | None = None
     cell_line_name: str | None = None
     role: str | None = None
+    legacy_aggregated_role: str | None = None
+    reference_drug_observations: list[PyzReferenceDrugObservation] = Field(default_factory=list)
     dependency_probability: float | None = None
     gene_effect: float | None = None
     available_in_laboratory_registry: bool

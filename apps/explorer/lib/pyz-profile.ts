@@ -32,10 +32,26 @@ export interface PyzTarget {
   source: string;
   neighbors: PyzTargetNeighbor[];
 }
+/** Candidate v2 evidence about one known compound in one cell model; never a PYZ experiment. */
+export interface PyzReferenceDrugObservation {
+  compound_id: string | null;
+  preferred_name: string | null;
+  hypothesis_id: string | null;
+  candidate_priority_status: string | null;
+  reference_model_role: string | null;
+  prism_lfc: number | null;
+  dependency_probability: number | null;
+  gene_effect: number | null;
+  source_layer: "candidate_v2";
+  source_scope: "candidate_v2_top_five_per_role";
+  measurement_owner: "known_reference_compound_not_pyz";
+}
 export interface PyzCellModel {
   model_id: string | null;
   cell_line_name: string | null;
-  role: string | null;
+  role: string | null; // legacy aggregate, kept for compatibility only
+  legacy_aggregated_role: string | null;
+  reference_drug_observations: PyzReferenceDrugObservation[];
   dependency_probability: number | null;
   gene_effect: number | null;
   available_in_laboratory_registry: boolean;

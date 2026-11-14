@@ -71,14 +71,34 @@ def make_profile(detail: dict[str, Any]) -> dict[str, Any]:
     for context in contexts:
         models = []
         for model in context.get("models") or []:
+            # Candidate v2 may contain multiple drugs with contradictory roles
+            # for the same model. Keep every row; the historic model.role is a
+            # compatibility-only aggregate and must not be used for inference.
+            observations = []
+            for raw in model.get("reference_drug_observations") or []:
+                observations.append({
+                    "compound_id": raw.get("compound_id"),
+                    "preferred_name": raw.get("preferred_name"),
+                    "hypothesis_id": raw.get("hypothesis_id"),
+                    "candidate_priority_status": raw.get("candidate_priority_status"),
+                    "reference_model_role": raw.get("reference_model_role"),
+                    "prism_lfc": _number(raw.get("prism_lfc")),
+                    "dependency_probability": _number(raw.get("dependency_probability")),
+                    "gene_effect": _number(raw.get("gene_effect")),
+                    "source_layer": raw.get("source_layer") or "candidate_v2",
+                    "source_scope": raw.get("source_scope") or "candidate_v2_top_five_per_role",
+                    "measurement_owner": "known_reference_compound_not_pyz",
+                })
             models.append({
                 "model_id": model.get("model_id"),
                 "cell_line_name": model.get("cell_line_name"),
                 "role": model.get("role"),
+                "legacy_aggregated_role": model.get("legacy_candidate_role") or model.get("role"),
                 "dependency_probability": _number(model.get("dependency_probability")),
                 "gene_effect": _number(model.get("gene_effect")),
                 "available_in_laboratory_registry": bool(model.get("available_in_laboratory")),
                 "known_reference_compounds": list(model.get("known_reference_compounds") or []),
+                "reference_drug_observations": observations,
             })
         context_items.append({
             "target_gene": context.get("target_gene"),
