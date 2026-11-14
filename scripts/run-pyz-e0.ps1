@@ -24,6 +24,6 @@ if ($SkipPerformance) { $Arguments += '--skip-performance' }
 & $Python @Arguments
 $ExitCode = $LASTEXITCODE
 Write-Host "Код завершения аудитора: $ExitCode" -ForegroundColor Cyan
-Write-Host 'Отчёты: outputs\audits\pyz_e0 внутри аудируемого MCL.'
+Write-Host "Отчёты: $Repo\outputs\audits\pyz_e0 (отдельная копия с кодом аудитора)."
 if ($ExitCode -eq 2) { Write-Host 'Найдены блокирующие проблемы: см. defects.md. Э0 не принят.' -ForegroundColor Yellow }
 if ($ExitCode -ne 0 -and $ExitCode -ne 2) { throw "Аудитор завершился с ошибкой $ExitCode" }
