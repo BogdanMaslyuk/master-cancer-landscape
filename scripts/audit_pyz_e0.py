@@ -176,6 +176,15 @@ def inventory_sources(root: Path, issues: list[dict]) -> tuple[list[dict], dict[
                     row["column_types"] = {name: str(dtype) for name, dtype in frame.dtypes.items()}
                     keys = [x for x in REQUIRED_COLUMNS.get(label, ()) if x in frame.columns]
                     row["nulls_key"] = {x: int(frame[x].isna().sum()) for x in keys}
+                    key_grains = {
+                        "registry": ["own_compound_id"],
+                        "admet_individual": ["own_compound_id"],
+                        "matrix": ["own_compound_id", "target_gene"],
+                        "neighbors": ["own_compound_id", "target_gene", "rank_in_target"],
+                    }
+                    grain = key_grains.get(label, [])
+                    if grain and set(grain).issubset(frame.columns):
+                        row["duplicate_keys"] = int(frame.duplicated(subset=grain).sum())
                     row["status"] = "PASS"
             elif path.suffix == ".json":
                 json.loads(path.read_text(encoding="utf-8-sig"))
@@ -415,13 +424,35 @@ def audit_api(root: Path, base: str, inventory: dict[str, pd.DataFrame],
                 defect(issues, "ENV", "blocker", "WRONG_ROOT", entry["error"], path, str(actual_root), "ENV")
                 cases.append(entry)
                 break  # Do not audit a foreign instance.
+        if code == 200 and key == "summary" and isinstance(data, dict):
+            registry_df = inventory.get("registry")
+            matrix_df = inventory.get("matrix")
+            if registry_df is not None and "compounds_n" in data and int(data["compounds_n"]) != len(registry_df):
+                entry["pass"] = False
+                entry["error"] = "summary compounds_n disagrees with registered source rows"
+            if matrix_df is not None and "matrix_rows_n" in data and int(data["matrix_rows_n"]) != len(matrix_df):
+                entry["pass"] = False
+                entry["error"] = "summary matrix_rows_n disagrees with source rows"
+        if code == 200 and key == "catalog" and isinstance(data, dict):
+            registry_df = inventory.get("registry")
+            if registry_df is not None and data.get("total") != len(registry_df):
+                entry["pass"] = False
+                entry["error"] = "catalog total disagrees with registry source rows"
+        if code == 200 and key == "matrix" and isinstance(data, dict):
+            matrix_df = inventory.get("matrix")
+            if matrix_df is not None and len(data.get("items") or []) != len(matrix_df):
+                entry["pass"] = False
+                entry["error"] = "matrix API items_n disagrees with source rows"
         if code != 0 and code == 200 and key.startswith("PYZ-"):
             p = (data or {}).get("profile_v2") or {}
             actual_id = p.get("compound_id")
             actual_smiles = (p.get("identity") or {}).get("standardized_smiles")
+            summary_data = p.get("scientific_summary") or {}
             entry["pass"] = bool(p.get("schema_version") == PROFILE_VERSION and actual_id == key and
                                  (p.get("identity") or {}).get("own_compound_id") == key and
-                                 (not expected_registry or expected_registry.get(key) == actual_smiles))
+                                 (not expected_registry or expected_registry.get(key) == actual_smiles) and
+                                 summary_data.get("own_target_binding") == "not_measured" and
+                                 summary_data.get("own_cellular_activity") == "not_measured")
             if key in ("PYZ-001", "PYZ-035", "PYZ-051", "PYZ-065"):
                 reconciliation.append({"compound_id": key, "field": "identity.standardized_smiles",
                                        "source": "registry", "api_matches": expected_registry.get(key) == actual_smiles,
