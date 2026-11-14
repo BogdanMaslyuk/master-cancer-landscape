@@ -21,7 +21,7 @@ jobs:
       - name: PowerShell control syntax
         shell: pwsh
         run: |
-          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1")
+          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1", "scripts/run-pyz-e0.ps1", "scripts/run-pyz-e0-closeout.ps1")
           foreach ($path in $scripts) {
             $tokens = $null
             $parseErrors = $null
@@ -57,6 +57,8 @@ jobs:
           cache-dependency-path: apps/explorer/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
+      - name: E0 browser audit syntax
+        run: node --check ../../scripts/pyz_e0_browser.cjs
       - name: TypeScript contract check
         run: npm run typecheck
       - name: Production build
