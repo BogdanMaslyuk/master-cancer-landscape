@@ -89,3 +89,5 @@ data/processed/depmap_genomewide/*_gene_effect_matrix.parquet
 
 # Local PS1/PS2 review process ownership records
 .mcl-dev/
+# Read-only PYZ E0 audit reports (local science and screenshots)
+outputs/audits/pyz_e0/
