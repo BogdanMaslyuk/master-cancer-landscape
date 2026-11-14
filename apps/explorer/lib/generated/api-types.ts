@@ -300,6 +300,8 @@ export type PyzContextModel = {
   "model_id"?: string | null;
   "cell_line_name"?: string | null;
   "role"?: string | null;
+  "legacy_aggregated_role"?: string | null;
+  "reference_drug_observations"?: PyzReferenceDrugObservation[];
   "dependency_probability"?: number | null;
   "gene_effect"?: number | null;
   "available_in_laboratory_registry": boolean;
@@ -357,6 +359,20 @@ export type PyzProvenance = {
   "candidate_context": string;
   "bindingdb_p036_status": string;
   "docking_status": string;
+};
+
+export type PyzReferenceDrugObservation = {
+  "compound_id"?: string | null;
+  "preferred_name"?: string | null;
+  "hypothesis_id"?: string | null;
+  "candidate_priority_status"?: string | null;
+  "reference_model_role"?: string | null;
+  "prism_lfc"?: number | null;
+  "dependency_probability"?: number | null;
+  "gene_effect"?: number | null;
+  "source_layer": string;
+  "source_scope": string;
+  "measurement_owner": string;
 };
 
 export type PyzScientificSummary = {
