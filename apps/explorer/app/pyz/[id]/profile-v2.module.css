@@ -89,3 +89,16 @@
 @media(max-width:800px){.heroGrid{grid-template-columns:1fr}.structure{min-height:260px}.summaryGrid{grid-template-columns:1fr}.summaryCard:last-child{grid-column:auto}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sources{grid-template-columns:1fr}.pageHeader{align-items:flex-start;flex-direction:column}.targetHeader{grid-template-columns:minmax(95px,1fr) 100px;gap:10px}.targetHeader>.pillBlue,.targetHeader>.pillNeutral{grid-column:1/-1}}
 @media(max-width:500px){.page{padding-bottom:38px}.pageHeader h1{font-size:37px}.jumpNav{gap:2px}.jumpNav a{padding:9px 8px;font-size:11px}.structure{padding:13px}.identity,.summaryCard{padding:17px}.facts,.referenceGrid,.admetGrid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics>div{padding:12px}.metrics b{font-size:24px}.targetHeader{padding:14px}.detailsBody{padding:14px}.contextHeader{padding:16px;flex-direction:column}.nextStep{padding:18px;align-items:flex-start;flex-direction:column}.nextStep .primaryAction{width:100%}.section{margin-top:29px}.breadcrumbs{font-size:12px}.matrixLink{margin-left:0}}
 @media(prefers-reduced-motion:reduce){.jumpNav a,.primaryAction,.secondaryAction{transition:none}}
+
+/* E1-P0-A: candidate-v2 observations are per known reference drug, not a PYZ outcome. */
+.drugDetails{min-width:240px;max-width:430px}
+.drugDetails>summary{cursor:pointer;color:#215f99;font-size:12px;line-height:1.6;font-weight:750;padding:4px 0}
+.drugDetails>summary:focus-visible{outline:2px solid #2563a8;outline-offset:3px}
+.drugList{display:grid;gap:9px;margin:10px 0 2px}
+.drugObservation{display:grid;gap:5px;padding:11px 12px;border:1px solid #dfe8f1;background:#f7f9fd;border-radius:10px;overflow-wrap:anywhere;min-width:0}
+.drugObservation strong{color:#153b60;font-size:12px}
+.drugObservation span{font-size:11px;line-height:1.5;color:#415a74}
+.drugObservation small{font-size:10px;line-height:1.5;color:#677f96}
+.noDrugObservations{display:block;color:#75869a;font-size:11px;line-height:1.5}
+.contextFootnote{padding:12px 18px;margin:0;border-top:1px solid #e3ebf3;color:#60768b;font-size:11px;line-height:1.65;overflow-wrap:anywhere}
+@media(max-width:500px){.drugDetails{min-width:190px}.contextFootnote{padding:11px 14px}}

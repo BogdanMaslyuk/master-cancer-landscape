@@ -56,13 +56,35 @@ function TargetCard({ item, id, focus }: { item: PyzTarget; id: string; focus: b
   </article>;
 }
 
-const roleNames: Record<string, string> = {
-  positive: "Модель для проверки гипотезы о мишени",
-  negative_same_cancer: "Отрицательный опухолевый контроль",
-  negative_panel_comparator: "Сравнительная модель",
-  discordant_sensitive_without_dependency: "Известный препарат активен без CRISPR-зависимости",
-  discordant_dependency_without_activity: "CRISPR-зависимость без эффекта известного препарата",
+const referenceRoleNames: Record<string, string> = {
+  positive: "Положительная модель для известного препарата",
+  negative_same_cancer: "Отрицательный контроль в том же типе опухоли",
+  negative_panel_comparator: "Сравнительная модель для известного препарата",
+  discordant_sensitive_without_dependency: "Ответ на препарат без выраженной CRISPR-зависимости",
+  discordant_dependency_without_activity: "CRISPR-зависимость без выраженного ответа на препарат",
 };
+
+function ReferenceDrugObservations({ model }: { model: PyzContext["models"][number] }) {
+  const observations = model.reference_drug_observations ?? [];
+  if (!observations.length) {
+    return <span className={styles.noDrugObservations}>Отдельных наблюдений в этой выборке нет</span>;
+  }
+  return <details className={styles.drugDetails}>
+    <summary>{observations.length} наблюд. по известным препаратам</summary>
+    <div className={styles.drugList}>
+      {observations.map((observation, i) => <div className={styles.drugObservation}
+        key={String(observation.hypothesis_id || observation.compound_id || i) + "-" + i}>
+        <strong>{observation.preferred_name || observation.compound_id || "Вещество без идентификатора"}</strong>
+        <span>Роль для этого препарата: {referenceRoleNames[observation.reference_model_role || ""] ||
+          observation.reference_model_role || "не классифицирована"}</span>
+        <span>PRISM LFC из Candidate v2: {num(observation.prism_lfc)}</span>
+        <small>Гипотеза: {observation.hypothesis_id || "не указана"} ·
+          Статус: {observation.candidate_priority_status || "не указан"} ·
+          Источник: Candidate v2 (ограниченная выборка)</small>
+      </div>)}
+    </div>
+  </details>;
+}
 
 function ContextCard({ item }: { item: PyzContext }) {
   return <article className={styles.contextCard}>
@@ -71,15 +93,19 @@ function ContextCard({ item }: { item: PyzContext }) {
       <p>{item.target_gene || "Белок не указан"} · Танимото {num(item.tanimoto)}</p></div>
       <span className={styles.pillNeutral}>Не измерение PYZ</span></header>
     {item.models.length ? <div className={styles.tableScroll}><table className={styles.table}>
-      <thead><tr><th>Клеточная линия</th><th>Роль при проверке</th><th>CRISPR P(dep)</th><th>Gene Effect</th><th>Наличие</th></tr></thead>
+      <thead><tr><th>Клеточная линия</th><th>CRISPR P(dep)</th><th>Gene Effect</th>
+        <th>Известные препараты: отдельные наблюдения</th><th>Лабораторный реестр</th></tr></thead>
       <tbody>{item.models.map((model, i) => <tr key={String(model.model_id || i)}>
         <td>{model.model_id ? <Link className={styles.tableLink} href={"/models/" + encodeURIComponent(model.model_id)}>{model.cell_line_name || model.model_id}</Link> : model.cell_line_name || "нет названия"}</td>
-        <td>{roleNames[model.role || ""] || model.role || "не определена"}</td>
         <td>{num(model.dependency_probability, 2)}</td>
         <td>{num(model.gene_effect, 2)}</td>
+        <td><ReferenceDrugObservations model={model} /></td>
         <td>{model.available_in_laboratory_registry ? "В реестре; проверить наличие" : "Не отмечена в реестре"}</td>
       </tr>)}</tbody>
     </table></div> : <p className={styles.empty}>Сопоставленных клеточных моделей нет.</p>}
+    <p className={styles.contextFootnote}>CRISPR характеризует зависимость клетки от гена, а записи Candidate v2 — отдельные ответы на известные вещества.
+      Выборка Candidate v2 ограничена пятью моделями на роль и не содержит всех первичных опытов.
+      Обобщённая роль клетки из прежней версии скрыта: она не является универсальным свойством модели и не подтверждает действие PYZ.</p>
   </article>;
 }
 

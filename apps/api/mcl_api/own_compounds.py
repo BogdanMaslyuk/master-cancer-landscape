@@ -389,6 +389,7 @@ class OwnCompoundStore:
                                 "prism_lfc": ref.get("response_value"),
                                 "dependency_probability": ref.get("dependency_probability"),
                                 "gene_effect": ref.get("gene_effect"),
+                                "source_layer": "candidate_v2",
                                 "source_scope": "candidate_v2_top_five_per_role",
                             }))
                         lab_rows = lab_by_model.get(model_key, [])
