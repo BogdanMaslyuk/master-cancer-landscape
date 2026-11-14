@@ -584,7 +584,10 @@ def audit(args: argparse.Namespace) -> tuple[Path, int]:
     sha = git(root, "rev-parse", "HEAD")
     short = sha[:8] if re.fullmatch(r"[0-9a-f]{40}", sha) else "gitunknown"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    parent = root / "outputs" / "audits" / "pyz_e0"
+    report_root = Path(getattr(args, "report_root", None) or Path(__file__).resolve().parents[1]).expanduser().resolve()
+    if not (report_root / "scripts" / "audit_pyz_e0.py").is_file() and not getattr(args, "report_root", None):
+        raise ValueError(f"Cannot identify audit code root: {report_root}")
+    parent = report_root / "outputs" / "audits" / "pyz_e0"
     parent.mkdir(parents=True, exist_ok=True)
     out = parent / f"{stamp}-{short}"
     count = 1
@@ -628,6 +631,8 @@ def audit(args: argparse.Namespace) -> tuple[Path, int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="MCL PYZ E0 baseline audit (strictly read-only inputs)")
     parser.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
+    parser.add_argument("--report-root", default=None,
+                        help="Separate audit-code worktree where reports are created (default: script root)")
     parser.add_argument("--api-base", default="http://127.0.0.1:8100")
     parser.add_argument("--ui-base", default="http://127.0.0.1:3100")
     parser.add_argument("--offline", action="store_true", help="Skip all live HTTP requests")
