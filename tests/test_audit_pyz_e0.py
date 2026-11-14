@@ -117,10 +117,14 @@ def test_only_audit_output_modified(tmp_path):
     registry().to_csv(p, sep="\t", index=False)
     before = audit.sha256(p)
     from argparse import Namespace
-    out, code = audit.audit(Namespace(root=str(root), offline=True, api_base="http://127.0.0.1:8100",
+    report_root = tmp_path / "reports_code"
+    out, code = audit.audit(Namespace(root=str(root), report_root=str(report_root),
+                                           offline=True, api_base="http://127.0.0.1:8100",
                                            ui_base="http://127.0.0.1:3100", skip_performance=True, timeout=1))
     assert code == 2  # Matrix deliberately absent: never report success.
     assert out.is_dir()
+    assert out.is_relative_to(report_root)
+    assert not (root / "outputs").exists()
     assert (out / "input_inventory.tsv").exists()
     assert (out / "E0_ACCEPTANCE.md").exists()
     assert "НЕ ПРИНЯТО" in (out / "E0_ACCEPTANCE.md").read_text(encoding="utf-8")
