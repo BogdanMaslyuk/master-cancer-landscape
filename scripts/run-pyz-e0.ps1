@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$MclRoot = "$env:USERPROFILE\Desktop\mcl-pyz-v2-review",
     [switch]$Offline,
     [switch]$SkipPerformance
