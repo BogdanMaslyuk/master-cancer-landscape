@@ -26,6 +26,8 @@ def table(path: Path, header: list[str], rows: list[dict]) -> None:
 
 
 def fixtures(tmp_path: Path):
+    source_dir = tmp_path / "input"
+    source_dir.mkdir()
     a, b = MODULE.inchikey("CCO"), MODULE.inchikey("CCN")
     assert a == Chem.MolToInchiKey(Chem.MolFromSmiles("CCO"))
     assert b == Chem.MolToInchiKey(Chem.MolFromSmiles("CCN"))
@@ -66,10 +68,10 @@ def fixtures(tmp_path: Path):
          "link_status": "LINKED_DESCRIPTION_PRESENT_UNREVIEWED",
          "review_decision": "", "reviewer": ""},
     ]
-    neighbors_path = tmp_path / "neighbors.tsv"
-    queue_path = tmp_path / "queue.tsv"
-    link_path = tmp_path / "link.json"
-    triage_path = tmp_path / "triage.json"
+    neighbors_path = source_dir / "neighbors.tsv"
+    queue_path = source_dir / "queue.tsv"
+    link_path = source_dir / "link.json"
+    triage_path = source_dir / "triage.json"
     table(neighbors_path, list(neighbors[0]), neighbors)
     table(queue_path, list(MODULE.REQUIRED_QUEUE), queue_rows)
     link_path.write_text(json.dumps({
