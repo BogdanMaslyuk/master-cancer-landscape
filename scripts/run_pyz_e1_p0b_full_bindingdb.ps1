@@ -103,5 +103,8 @@ Write-Host "Rows scanned: $($Report.stats.rows_scanned)" -ForegroundColor Green
 Write-Host "Exact neighbors: $($Report.neighbors_exact_endpoint_coverage)"
 Write-Host "Connectivity-only neighbors: $($Report.neighbors_connectivity_only_coverage)"
 Write-Host "Primary assays approved: 0"
+if (-not (Test-Path -LiteralPath $ResultZip -PathType Leaf)) {
+    throw "ZIP result archive was not created"
+}
 Write-Host "Result: $ResultZip" -ForegroundColor Green
-explorer.exe /select,"$ResultZip"
+Write-Host "Archive saved. No Explorer launch is required." -ForegroundColor Green
