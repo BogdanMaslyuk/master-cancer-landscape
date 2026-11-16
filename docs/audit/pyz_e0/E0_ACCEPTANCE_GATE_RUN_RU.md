@@ -38,3 +38,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Не удалось создать отчёт 
 `MCL_Project/reports/MCL_E0_ACCEPTANCE_GATE_<timestamp>.zip` и соответствующая папка содержат `gate_report.json`, `acceptance_matrix.tsv`, `findings.tsv`, `source_hash_reconciliation.tsv`, `E0_ACCEPTANCE_GATE_RU.md`.
 
 Значения `BLOCKED`, `INCOMPLETE_EVIDENCE` и `PENDING_OWNER_ACCEPTANCE` не означают неудачу формирования отчёта. Код 0 означает, что протокол создан. **Научная приёмка всегда остаётся ручной.**
+
+## Дополнение: полный пакет свидетельств для ручной приёмки (Э0 v1.1)
+
+Начиная с исправления после первичного анализа от 16.11.2026, ZIP содержит не только пять итоговых файлов, но и:
+- `review_evidence/closeout/ui/screenshots/*.png` — девять исходных снимков;
+- `review_evidence/closeout/ui/browser_results.json` и `ui_diagnostics.tsv` — постраничные причины предупреждений, HTTP, заголовок, прокрутка, клавиатура и JS;
+- `review_evidence/input_inventory.tsv`, `review_evidence/performance.tsv`, `review_evidence/closeout/cold_api.json` и `review_evidence/closeout/cache_diagnostics.json` — исходные данные для AC-02/06;
+- `review_evidence_manifest.json` — список вложенных материалов, размеры и SHA-256 для независимой проверки целостности.
+
+Для пересборки **не требуется повторно запускать аудитор Э0 или браузер**: используется существующая локальная папка `mcl-pyz-e0-audit/outputs/audits/pyz_e0/...`. Повторяется только консолидатор в отдельной новой папке `MCL_Project/reports`. Исходные файлы неизменны. Предыдущий архив на 4 КБ сохраняется.
