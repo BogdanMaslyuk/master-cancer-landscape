@@ -263,7 +263,7 @@ def test_full_synthetic_ac02_report_has_evidence_but_not_approval(tmp_path,monke
     assert all(x['source_parquet_status']=='ORDER_AND_SAMPLE_MATCH' for x in result['layers'])
     assert sorted(p.name for p in outputs.iterdir())==sorted([
         'AC02_REPORT.json','AC02_SOURCES.tsv','AC02_SIDECARS.tsv','AC02_LAYERS.tsv',
-        'AC02_FINDINGS.tsv','AC02_REVIEW_RU.md'])
+        'AC02_FINDINGS.tsv','AC02_REVIEW_RU.md','AC02_COMPARISON_SOURCES.tsv'])
     with pytest.raises(FileExistsError):
         main(['--root',str(tmp_path),'--out',str(outputs),'--baseline-hashes',str(baseline)])
 
