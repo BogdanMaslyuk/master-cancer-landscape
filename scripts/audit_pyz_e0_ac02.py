@@ -383,8 +383,6 @@ def audit(root: Path, baseline_file: Path | None = None, *,
                 if orphan:
                     issue("REVIEW", name, "GENES_OUTSIDE_CATALOG", f"Genes not in catalog: {orphan} distinct")
             except Exception: pass
-    layer_checks = [inspect_layer(root, name, issue, inventory, baseline=baseline,
-                                  comparison_root=comparison_root) for name in LAYERS]
     # Supplemental provenance for the processed Parquet files used as comparison reference.
     # This is NOT a claim that the independent working copy is a certified DepMap snapshot.
     comparison_files: list[dict[str, Any]] = []
@@ -401,6 +399,8 @@ def audit(root: Path, baseline_file: Path | None = None, *,
             "sha256": sha256_file(p) if present else "",
             "unchanged_after": False,
         })
+    layer_checks = [inspect_layer(root, name, issue, inventory, baseline=baseline,
+                                  comparison_root=comparison_root) for name in LAYERS]
     comparison_manifest_path = safe_path(
         comparison_root, "data/processed/depmap_model_multiomics_manifest.json")
     comparison_manifest: dict[str, Any] = {}
