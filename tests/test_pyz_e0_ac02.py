@@ -188,7 +188,9 @@ def synthetic_science(tmp_path, monkeypatch):
         elif name == "gene_context_metrics":
             data = {'gene_symbol':['CDK4','EGFR'], 'comparison_id':['C-1','C-1'], 'delta_gene_effect':[0.1,0.3]}
         elif name == "gene_annotations":
-            data = {'gene_symbol':['CDK4','EGFR'], 'annotation_type':['pathway','pathway'], 'annotation_id':['p1','p2']}
+            data = {'gene_symbol':['CDK4','EGFR'], 'annotation_type':['pathway','pathway'],
+                    'annotation_id':['p1','p2'], 'source':['GO','Reactome'],
+                    'source_id':['GO:0001','R-HSA-001']}
         else:
             data = {col: ['CDK4','EGFR'] if col=='gene_symbol' else
                     [1,1] if col=='dependency_models_n' else
@@ -246,6 +248,8 @@ def test_full_synthetic_ac02_report_has_evidence_but_not_approval(tmp_path,monke
     assert result['source_hashes_unchanged']==7
     assert result['baseline_matches']==7
     assert result['sidecars_unchanged']==6
+    assert result['sidecar_present']==6
+    assert result['sidecar_missing']==0
     assert result['technical_status']=='REVIEW_REQUIRED'
     assert result['ac02_scientific_acceptance']=='NOT_APPROVED'
     assert result['merge_permitted'] is False
@@ -275,3 +279,46 @@ def test_full_synthetic_detects_mutated_scientific_cell(tmp_path,monkeypatch):
     report, _, issues, _, _ = audit(tmp_path,baseline)
     assert report['technical_status']=='BLOCKED'
     assert any(i['code']=='SAMPLED_VALUES_MISMATCH' for i in issues)
+
+
+def test_annotations_same_coarse_key_distinct_sources_are_not_duplicates(tmp_path, monkeypatch):
+    """One functional label may be justified by different reference terms."""
+    from audit_pyz_e0_ac02 import audit
+    baseline, frames = synthetic_science(tmp_path, monkeypatch)
+    table = str(tmp_path / 'data/runtime/explorer/gene_annotations.parquet')
+    base = frames[table].copy()
+    # The same gene/type/class is supported by two distinct source identifiers.
+    base.loc[0, 'annotation_id'] = 'functional:kinase'
+    repeated = base.iloc[[0]].copy()
+    repeated.loc[:, 'source'] = 'Reactome'
+    repeated.loc[:, 'source_id'] = 'R-HSA-003'
+    frames[table] = pd.concat([base, repeated], ignore_index=True)
+    result, _, issues, _, _ = audit(tmp_path, baseline)
+    anno = next(x for x in result['tables'] if x['table'] == 'gene_annotations')
+    assert anno['duplicate_keys'] == 0
+    assert anno['coarse_annotation_repeats'] == 1
+    assert not any(x['code'] == 'DUPLICATE_ANNOTATION_EVIDENCE' for x in issues)
+
+
+def test_annotations_same_full_provenance_key_is_review_not_false_pass(tmp_path, monkeypatch):
+    from audit_pyz_e0_ac02 import audit
+    baseline, frames = synthetic_science(tmp_path, monkeypatch)
+    table = str(tmp_path / 'data/runtime/explorer/gene_annotations.parquet')
+    frames[table] = pd.concat([frames[table], frames[table].iloc[[0]]], ignore_index=True)
+    result, _, issues, _, _ = audit(tmp_path, baseline)
+    anno = next(x for x in result['tables'] if x['table'] == 'gene_annotations')
+    assert anno['duplicate_keys'] == 1
+    assert any(x['code'] == 'DUPLICATE_ANNOTATION_EVIDENCE' and x['severity'] == 'REVIEW' for x in issues)
+
+
+def test_missing_multiomics_manifest_is_not_reported_as_modified(tmp_path, monkeypatch):
+    from audit_pyz_e0_ac02 import audit
+    baseline, _ = synthetic_science(tmp_path, monkeypatch)
+    (tmp_path / 'data/processed/depmap_model_multiomics_manifest.json').unlink()
+    result, _, issues, _, sidecars = audit(tmp_path, baseline)
+    assert result['sidecar_present'] == 5
+    assert result['sidecar_missing'] == 1
+    assert result['sidecars_unchanged'] == 5
+    assert any(x['code'] == 'MANIFEST_MISSING' for x in issues)
+    assert not any(x['code'] == 'MANIFEST_UNAVAILABLE' and x['component'] == 'multiomics_manifest' for x in issues)
+    assert any(not x['exists'] for x in sidecars)
