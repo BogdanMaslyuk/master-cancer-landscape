@@ -259,8 +259,8 @@ def main(argv=None):
     if out.exists():
         raise FileExistsError(f"Refusing to overwrite {out}")
     for path in (args.neighbors, args.bindingdb):
-        if out.is_relative_to(path.resolve().parent):
-            raise ValueError("Output cannot be inside scientific source directory")
+        if path.resolve().is_relative_to(out):
+            raise ValueError("Output directory must not contain the scientific source")
     db_sha = sha256(args.bindingdb)
     if args.expected_sha256 and db_sha.lower() != args.expected_sha256.strip().lower():
         raise ValueError("BindingDB SHA256 mismatch")
