@@ -268,6 +268,10 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
     for name, file in (("explorer_manifest", index_manifest_path),
                        ("dependency_manifest", dependency_meta_path),
                        ("multiomics_manifest", processed_multiomics_manifest)):
+        if not file.is_file():
+            issue("REVIEW" if name == "multiomics_manifest" else "BLOCKER", name,
+                  "MANIFEST_MISSING", f"Manifest file is absent: {file.name}")
+            continue
         try:
             data = read_json(file)
             if name == "explorer_manifest": manifest = data
@@ -309,7 +313,13 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
                 continue
             key_columns = ["gene_symbol"]
             if name == "gene_context_metrics": key_columns.append("comparison_id")
-            if name == "gene_annotations": key_columns.extend(["annotation_type", "annotation_id"])
+            if name == "gene_annotations":
+                key_columns.extend(["annotation_type", "annotation_id"])
+                if {"source", "source_id"}.issubset(available):
+                    key_columns.extend(["source", "source_id"])
+                else:
+                    issue("REVIEW", name, "ANNOTATION_PROVENANCE_FIELDS_MISSING",
+                          "Cannot distinguish repeated mappings by original source and source_id")
             if name == "gene_dependency_summary": key_columns.extend(["dependency_models_n", "dependency_models_total_n", "dependency_fraction"])
             frame = pd.read_parquet(path, columns=key_columns)
             raw_genes = frame["gene_symbol"].astype("string")
@@ -318,14 +328,23 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
             genes = set(keys.dropna().astype(str)) - {""}
             dup_key_columns = [keys.rename("gene_symbol")]
             if name == "gene_context_metrics": dup_key_columns.append(frame["comparison_id"])
-            if name == "gene_annotations": dup_key_columns.extend([frame["annotation_type"], frame["annotation_id"]])
-            if name == "gene_dependency_summary": pass
+            coarse_annotation_repeats = 0
+            if name == "gene_annotations":
+                dup_key_columns.extend([frame["annotation_type"], frame["annotation_id"]])
+                coarse_annotation_repeats = int(pd.concat(dup_key_columns, axis=1).duplicated().sum())
+                if {"source", "source_id"}.issubset(frame.columns):
+                    # This is the *actual materialization key* used by
+                    # AnnotatedGeneExplorerStore.materialize_indexes().
+                    # Multiple GO/Reactome/other terms may legitimately
+                    # map to the same (gene, annotation_type, annotation_id).
+                    dup_key_columns.extend([frame["source"], frame["source_id"]])
             duplicate = int(pd.concat(dup_key_columns, axis=1).duplicated().sum())
             if null_n:
                 issue("BLOCKER", name, "EMPTY_GENE_SYMBOL", f"Null/blank gene symbols: {null_n}")
             if duplicate:
-                issue("REVIEW" if name == "gene_annotations" else "BLOCKER", name, "DUPLICATE_KEYS",
-                      f"Repeated scientific identifier keys: {duplicate}")
+                issue("REVIEW" if name == "gene_annotations" else "BLOCKER", name,
+                      "DUPLICATE_ANNOTATION_EVIDENCE" if name == "gene_annotations" else "DUPLICATE_KEYS",
+                      f"Repeated full materialization identifier keys: {duplicate}")
             if name == "gene_catalog": catalog_genes = genes
             if name == "gene_dependency_summary":
                 d = pd.to_numeric(frame["dependency_models_n"], errors="coerce")
@@ -335,7 +354,8 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
                 if int(invalid.sum()):
                     issue("BLOCKER", name, "INVALID_DEPENDENCY_FRACTION", f"Out-of-range dependency records: {int(invalid.sum())}")
             tables.append({"table": name, "rows": int(meta.metadata.num_rows), "genes": len(genes),
-                           "null_genes": null_n, "duplicate_keys": duplicate})
+                           "null_genes": null_n, "duplicate_keys": duplicate,
+                           "coarse_annotation_repeats": coarse_annotation_repeats})
             counts[name] = len(genes)
             if name == "gene_catalog" and manifest:
                 if manifest.get("genes_n") != len(genes):
@@ -389,6 +409,8 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
               "baseline_entries_compared": sum(x.get("baseline_match") != "NOT_AVAILABLE" for x in inventory),
               "baseline_matches": sum(x.get("baseline_match") == "MATCH" for x in inventory),
               "tables": tables, "layers": layer_checks, "sidecar_files": len(sidecar_rows),
+              "sidecar_present": sum(bool(x["exists"]) for x in sidecar_rows),
+              "sidecar_missing": sum(not x["exists"] for x in sidecar_rows),
               "sidecars_unchanged": sum(bool(x["unchanged_after"]) for x in sidecar_rows),
               "provenance": provenance,
               "counts_by_severity": dict(Counter(x["severity"] for x in issues)),
@@ -420,7 +442,8 @@ def main(argv: list[str] | None = None) -> int:
              f"**Статус:** {report['technical_status']} (научная приёмка НЕ УТВЕРЖДЕНА)", "",
              f"- Входных источников на месте: {report['seven_sources_found']}/7",
              f"- SHA-256 повторно совпали: {report['source_hashes_unchanged']}/7",
-             f"- Сопроводительные манифесты неизменны: {report['sidecars_unchanged']}/{report['sidecar_files']}",
+             f"- Сопроводительные файлы обнаружены: {report['sidecar_present']}/{report['sidecar_files']}",
+             f"- Из найденных сопроводительных файлов неизменны: {report['sidecars_unchanged']}/{report['sidecar_present']}",
              f"- Совпадений с исторической базой Э0: {report['baseline_matches']}/{report['baseline_entries_compared']}",
              f"- DepMap release (заявлено): {report['provenance']['depmap_release_declared'] or 'НЕ УКАЗАН'}",
              f"- Подтверждение официального первоисточника: {report['provenance']['external_source_authenticity']}",
