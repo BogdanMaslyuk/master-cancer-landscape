@@ -364,6 +364,83 @@ def write_tsv(path: Path, fields: tuple[str, ...], rows: list[dict]):
         writer.writerows(rows)
 
 
+
+# Whitelisted E0 *evidence*, not original scientific source tables/Parquet.
+REVIEW_MATERIALS = {
+    "E0_ACCEPTANCE.md", "input_inventory.tsv", "schema_audit.json",
+    "coverage_matrix.tsv", "api_cases.tsv", "performance.tsv",
+    "ui_checklist.tsv", "defects.md", "environment.json",
+    "closeout/E0_ACCEPTANCE_CLOSEOUT.md", "closeout/browser_status.json",
+    "closeout/cold_api.json", "closeout/cache_diagnostics.json",
+    "closeout/ui/browser_results.json",
+    "closeout/ui/ui_checklist_automated.tsv",
+    "closeout/source_api_reconciliation.tsv",
+    "closeout/ui_expected.json",
+    "closeout/scientific_reference_examples.tsv",
+    "closeout/cell_context_observations.tsv",
+}
+
+
+def export_review_evidence(source: Evidence, out: Path) -> dict:
+    """Copy only whitelisted E0 evidence into new report, never source files.
+
+    Preserve original bytes and store their SHA-256 for manual AC-02/05/06 review.
+    Evidence() has already rejected unsafe archive names, duplicate entries and
+    symlinks. We apply an explicit allowlist again before writing output.
+    """
+    src_names = sorted(name for name in source.names()
+                       if name in REVIEW_MATERIALS or
+                       (name.startswith("closeout/ui/screenshots/") and
+                        name.lower().endswith(".png")))
+    records = []
+    root = out.resolve()
+    for name in src_names:
+        rel = norm(name)
+        dest = (out / "review_evidence" / rel).resolve()
+        if not dest.is_relative_to(root):
+            raise ValueError("Evidence path escaped the report output directory")
+        raw = source.read(name)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(raw)
+        records.append({"name": rel, "size_bytes": len(raw),
+                        "sha256": hashlib.sha256(raw).hexdigest()})
+    manifest = {"scope": "whitelisted E0 source report files, no scientific input edits",
+                "files": records, "screenshots": sum(
+                    item["name"].startswith("closeout/ui/screenshots/") for item in records)}
+    (out / "review_evidence_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    diagnostic_rows = []
+    if source.has("closeout/ui/browser_results.json"):
+        browser = source.json("closeout/ui/browser_results.json")
+        for item in browser.get("screenshots", []):
+            causes = []
+            if not item.get("saved"): causes.append("SCREENSHOT_NOT_SAVED")
+            if item.get("http_status") != 200: causes.append("HTTP_NOT_200")
+            if item.get("heading_matches") is not True: causes.append("HEADING_MISMATCH")
+            if item.get("horizontal_overflow") is True: causes.append("HORIZONTAL_OVERFLOW")
+            if item.get("keyboard_focus") is not True: causes.append("KEYBOARD_FOCUS_MISSING")
+            if item.get("console_errors"): causes.append("BROWSER_ERRORS")
+            if item.get("status") != "AUTO_PASS" and not causes:
+                causes.append("UNCLASSIFIED_WARNING")
+            diagnostic_rows.append({
+                "route": item.get("route", ""), "width": item.get("width", ""),
+                "height": item.get("height", ""), "status": item.get("status", ""),
+                "http_status": item.get("http_status", ""),
+                "heading_matches": item.get("heading_matches", ""),
+                "horizontal_overflow": item.get("horizontal_overflow", ""),
+                "keyboard_focus": item.get("keyboard_focus", ""),
+                "console_errors": json.dumps(item.get("console_errors", []), ensure_ascii=False),
+                "screenshot": item.get("screenshot", ""),
+                "warning_causes": "|".join(causes),
+            })
+    write_tsv(out / "ui_diagnostics.tsv", (
+        "route", "width", "height", "status", "http_status",
+        "heading_matches", "horizontal_overflow", "keyboard_focus",
+        "console_errors", "screenshot", "warning_causes"), diagnostic_rows)
+    return manifest
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--e0", type=Path, required=True, help="Existing E0 report ZIP or folder")
@@ -382,6 +459,11 @@ def main(argv=None):
     finally:
         evidence.close()
     out.mkdir(parents=True)
+    review_source = Evidence(src)
+    try:
+        export_review_evidence(review_source, out)
+    finally:
+        review_source.close()
     write_tsv(out / "acceptance_matrix.tsv", ("criterion", "technical_status", "evidence", "required_manual_review", "manual_decision", "reviewer", "review_date"), criteria)
     write_tsv(out / "findings.tsv", ("severity", "criterion", "detail"), findings)
     write_tsv(out / "source_hash_reconciliation.tsv", ("phase", "path", "status", "sha_matches"), hashes)
