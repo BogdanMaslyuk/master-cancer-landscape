@@ -147,7 +147,8 @@ def verify_values(matrix: np.ndarray, source: pd.DataFrame, genes: list[str],
     return good, total
 
 
-def inspect_layer(root: Path, name: str, add_issue, inventory, *, baseline: dict[str, str]) -> dict[str, Any]:
+def inspect_layer(root: Path, name: str, add_issue, inventory, *,
+                  baseline: dict[str, str], comparison_root: Path | None = None) -> dict[str, Any]:
     prefix = BASE / "model_layers" / name
     rel_npy = f"{prefix}.npy".replace("\\", "/")
     rel_json = f"{prefix}.json".replace("\\", "/")
@@ -183,7 +184,7 @@ def inspect_layer(root: Path, name: str, add_issue, inventory, *, baseline: dict
         expected_source_name = f"depmap_model_{name}.parquet"
         if meta.get("source_file") != expected_source_name or meta.get("matrix_file") != matrix_path.name:
             add_issue("BLOCKER", name, "SOURCE_FILE_METADATA", "Layer source_file/matrix_file metadata mismatches builder")
-        source_path = safe_path(root, Path("data/processed") / expected_source_name)
+        source_path = safe_path(comparison_root or root, Path("data/processed") / expected_source_name)
         if not source_path.is_file():
             add_issue("REVIEW", name, "MISSING_PROCESSED_MATRIX", "Cannot independently verify ordered axes/values without builder source")
             result["source_parquet_status"] = "MISSING"
@@ -215,15 +216,23 @@ def inspect_layer(root: Path, name: str, add_issue, inventory, *, baseline: dict
         elif good != count:
             add_issue("BLOCKER", name, "SAMPLED_VALUES_MISMATCH", f"Float32 scientific values differ: {good}/{count} matched")
         else:
-            result["source_parquet_status"] = "ORDER_AND_SAMPLE_MATCH"
+            result["source_parquet_status"] = (
+                "ORDER_AND_SAMPLE_MATCH_CROSS_ROOT"
+                if comparison_root is not None and comparison_root.resolve() != root.resolve()
+                else "ORDER_AND_SAMPLE_MATCH"
+            )
         return result
     except Exception as ex:
         add_issue("BLOCKER", name, "UNREADABLE_LAYER", f"Unable to validate layer or its axes: {type(ex).__name__}: {str(ex)[:130]}")
         return result
 
 
-def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any], list[dict], list[dict], list[dict]]:
+def audit(root: Path, baseline_file: Path | None = None, *,
+          comparison_root: Path | None = None) -> tuple[dict[str, Any], list[dict], list[dict], list[dict]]:
     root = root.resolve()
+    comparison_root = comparison_root.resolve() if comparison_root is not None else root
+    if not comparison_root.is_dir():
+        raise FileNotFoundError("Comparison source root does not exist")
     if not safe_path(root, BASE).is_dir():
         raise FileNotFoundError("Explorer runtime data directory is missing")
     baseline = recorded_hashes(baseline_file)
@@ -374,17 +383,94 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
                 if orphan:
                     issue("REVIEW", name, "GENES_OUTSIDE_CATALOG", f"Genes not in catalog: {orphan} distinct")
             except Exception: pass
-    layer_checks = [inspect_layer(root, name, issue, inventory, baseline=baseline) for name in LAYERS]
+    layer_checks = [inspect_layer(root, name, issue, inventory, baseline=baseline,
+                                  comparison_root=comparison_root) for name in LAYERS]
+    # Supplemental provenance for the processed Parquet files used as comparison reference.
+    # This is NOT a claim that the independent working copy is a certified DepMap snapshot.
+    comparison_files: list[dict[str, Any]] = []
+    for rel_path in [
+        *(f"data/processed/depmap_model_{name}.parquet" for name in LAYERS),
+        "data/processed/depmap_model_multiomics_manifest.json",
+        "data/processed/depmap_input_inventory.tsv",
+    ]:
+        p = safe_path(comparison_root, rel_path)
+        present = p.is_file()
+        comparison_files.append({
+            "path": rel_path, "exists": present,
+            "bytes": p.stat().st_size if present else 0,
+            "sha256": sha256_file(p) if present else "",
+            "unchanged_after": False,
+        })
+    comparison_manifest_path = safe_path(
+        comparison_root, "data/processed/depmap_model_multiomics_manifest.json")
+    comparison_manifest: dict[str, Any] = {}
+    if comparison_manifest_path.is_file():
+        try:
+            comparison_manifest = read_json(comparison_manifest_path)
+        except (ValueError, OSError, json.JSONDecodeError):
+            issue("REVIEW", "comparison_provenance", "COMPARISON_MANIFEST_INVALID",
+                  "Comparison-root DepMap multiomics manifest could not be read")
+    elif comparison_root != root:
+        issue("REVIEW", "comparison_provenance", "COMPARISON_MANIFEST_MISSING",
+              "Comparison-root DepMap multiomics manifest does not exist")
+
+    if comparison_root != root:
+        # Even matching data across two worktrees is not official release verification.
+        issue("REVIEW", "comparison_provenance", "CROSS_ROOT_LINEAGE_REVIEW_REQUIRED",
+              "Reference matrices reside in a different worktree; their release lineage needs manual confirmation")
+        layer_manifest = comparison_manifest.get("layers", {})
+        for layer_info in layer_checks:
+            name = layer_info["layer"]
+            declared = layer_manifest.get(name, {}) if isinstance(layer_manifest, dict) else {}
+            if declared and layer_info["source_parquet_status"].startswith("ORDER_AND_SAMPLE_MATCH"):
+                expected_models = layer_info["models_n"]
+                expected_genes = layer_info["genes_n"]
+                if (declared.get("available") is not True or
+                    declared.get("models_n") != expected_models or
+                    declared.get("genes_n") != expected_genes):
+                    issue("BLOCKER", name, "COMPARISON_MANIFEST_AXES_MISMATCH",
+                          "Comparison manifest model/gene counts differ from verified runtime array")
+            elif not declared:
+                issue("REVIEW", name, "COMPARISON_LAYER_PROVENANCE_MISSING",
+                      "No per-layer evidence in comparison-root manifest")
+        scientific_inventory = safe_path(root, "data/processed/depmap_input_inventory.tsv")
+        reference_inventory = safe_path(comparison_root, "data/processed/depmap_input_inventory.tsv")
+        if scientific_inventory.is_file() and reference_inventory.is_file():
+            if sha256_file(scientific_inventory) != sha256_file(reference_inventory):
+                issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_HASH_DIFFERENT",
+                      "Scientific/reference input inventory files differ; verify the DepMap release manually")
+        else:
+            issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_MISSING",
+                  "Cannot cross-check both DepMap input inventories")
+
+    for row in comparison_files:
+        p = safe_path(comparison_root, row["path"])
+        current = sha256_file(p) if p.is_file() else ""
+        row["unchanged_after"] = row["exists"] and current == row["sha256"]
+        if row["exists"] and not row["unchanged_after"]:
+            issue("BLOCKER", row["path"], "REFERENCE_CHANGED_DURING_AUDIT",
+                  "The comparison Parquet or manifest was modified during audit")
     # Explicit release provenance, but no unaudited inference about downloaded raw source.
     release = multiomics.get("depmap_release") if multiomics else None
     provenance = {"index_contract": manifest.get("index_contract"), "index_schema_version": manifest.get("schema_version"),
                   "index_builder": manifest.get("builder"), "index_built_at": manifest.get("built_at"),
                   "reference_source_description": manifest.get("source"),
-                  "depmap_release_declared": release, "dependency_call_method": depmeta.get("dependency_call_method"),
+                  "depmap_release_declared": release,
+                  "depmap_release_comparison_declared": comparison_manifest.get("depmap_release"),
+                  "depmap_release_declared_source": (
+                      "scientific_root_manifest" if release else
+                      "comparison_root_manifest" if comparison_manifest.get("depmap_release") else "UNAVAILABLE"),
+                  "dependency_call_method": depmeta.get("dependency_call_method"),
                   "external_source_authenticity": "NOT_INDEPENDENTLY_VERIFIED",
                   "notes": "A declared release or local checksum does not establish independent official source authenticity"}
-    if not release:
-        issue("REVIEW", "provenance", "DEPMAP_RELEASE_UNDOCUMENTED", "DepMap release missing in processed source manifest")
+    if not release and not comparison_manifest.get("depmap_release"):
+        issue("REVIEW", "provenance", "DEPMAP_RELEASE_UNDOCUMENTED",
+              "DepMap release missing in scientific and comparison manifests")
+    if release and comparison_manifest.get("depmap_release") and (
+        release != comparison_manifest["depmap_release"]
+    ):
+        issue("BLOCKER", "provenance", "DEPMAP_RELEASE_CONTRADICTION",
+              "Scientific and reference-root manifests declare different DepMap releases")
     if not manifest.get("source"):
         issue("REVIEW", "provenance", "INDEX_SOURCE_DESCRIPTION_MISSING", "Index source description missing")
     # Recheck the exact seven source files after source/matrix comparisons.
@@ -408,7 +494,13 @@ def audit(root: Path, baseline_file: Path | None = None) -> tuple[dict[str, Any]
               "source_files_total": 7, "source_hashes_unchanged": sum(bool(x.get("unchanged_after")) for x in inventory),
               "baseline_entries_compared": sum(x.get("baseline_match") != "NOT_AVAILABLE" for x in inventory),
               "baseline_matches": sum(x.get("baseline_match") == "MATCH" for x in inventory),
-              "tables": tables, "layers": layer_checks, "sidecar_files": len(sidecar_rows),
+              "tables": tables, "layers": layer_checks,
+              "comparison_root": str(comparison_root),
+              "comparison_cross_worktree": comparison_root != root,
+              "comparison_sources": comparison_files,
+              "comparison_source_files_found": sum(int(x["exists"]) for x in comparison_files),
+              "comparison_source_files_unchanged": sum(int(x["unchanged_after"]) for x in comparison_files),
+              "sidecar_files": len(sidecar_rows),
               "sidecar_present": sum(bool(x["exists"]) for x in sidecar_rows),
               "sidecar_missing": sum(not x["exists"] for x in sidecar_rows),
               "sidecars_unchanged": sum(bool(x["unchanged_after"]) for x in sidecar_rows),
@@ -425,18 +517,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--baseline-hashes", type=Path, default=None)
+    parser.add_argument("--comparison-root", type=Path, default=None,
+                        help="Independent existing repository containing processed DepMap Parquet; read-only")
     args = parser.parse_args(argv)
     root, out = args.root.resolve(), args.out.resolve()
     if out.exists():
         raise FileExistsError("Refusing to overwrite an earlier AC-02 report")
     if out.is_relative_to(root) or root.is_relative_to(out):
         raise ValueError("Output must be isolated outside source root")
-    report, inventory, issues, layer_checks, sidecar_rows = audit(root, args.baseline_hashes)
+    comparison_root = args.comparison_root.resolve() if args.comparison_root is not None else root
+    if out.is_relative_to(comparison_root) or comparison_root.is_relative_to(out):
+        raise ValueError("Output must be isolated outside comparison root")
+    report, inventory, issues, layer_checks, sidecar_rows = audit(
+        root, args.baseline_hashes, comparison_root=comparison_root)
     out.mkdir(parents=True)
     (out / "AC02_REPORT.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     write_tsv(out / "AC02_SOURCES.tsv", ["path", "exists", "bytes", "sha256", "baseline_match", "unchanged_after"], inventory)
     write_tsv(out / "AC02_FINDINGS.tsv", ["severity", "component", "code", "detail"], issues)
     write_tsv(out / "AC02_SIDECARS.tsv", ["path", "exists", "sha256", "unchanged_after"], sidecar_rows)
+    write_tsv(out / "AC02_COMPARISON_SOURCES.tsv",
+              ["path", "exists", "bytes", "sha256", "unchanged_after"],
+              report["comparison_sources"])
     write_tsv(out / "AC02_LAYERS.tsv", ["layer", "axis_status", "models_n", "genes_n", "shape", "dtype", "orientation", "sample_compared", "sample_matched", "source_parquet_status"], layer_checks)
     lines = ["# MCL Э0 / AC-02 — аудит генетических источников", "",
              f"**Статус:** {report['technical_status']} (научная приёмка НЕ УТВЕРЖДЕНА)", "",
@@ -445,7 +546,10 @@ def main(argv: list[str] | None = None) -> int:
              f"- Сопроводительные файлы обнаружены: {report['sidecar_present']}/{report['sidecar_files']}",
              f"- Из найденных сопроводительных файлов неизменны: {report['sidecars_unchanged']}/{report['sidecar_present']}",
              f"- Совпадений с исторической базой Э0: {report['baseline_matches']}/{report['baseline_entries_compared']}",
-             f"- DepMap release (заявлено): {report['provenance']['depmap_release_declared'] or 'НЕ УКАЗАН'}",
+             f"- Использована отдельная копия для сравнения: {'ДА' if report['comparison_cross_worktree'] else 'НЕТ'}",
+             f"- Источники сравнения целы: {report['comparison_source_files_unchanged']}/{report['comparison_source_files_found']}",
+             f"- DepMap release в научной копии: {report['provenance']['depmap_release_declared'] or 'НЕ УКАЗАН'}",
+             f"- DepMap release в копии сравнения: {report['provenance']['depmap_release_comparison_declared'] or 'НЕ УКАЗАН'}",
              f"- Подтверждение официального первоисточника: {report['provenance']['external_source_authenticity']}",
              "", "## Массивы gene × model", "",
              "| Слой | Генов | Моделей | Оси | Источник/значения |", "|---|---:|---:|---|---|"]
