@@ -210,3 +210,60 @@ def test_e0_review_bundle_reads_zip_without_unpacking_source(tmp_path):
     assert (out / 'review_evidence/closeout/performance.tsv').exists() is False
     assert (out / 'review_evidence/performance.tsv').is_file()
     assert hashlib.sha256(archive.read_bytes()).hexdigest() == before
+
+
+
+def test_viewport_only_screenshots_are_not_fake_browser_failures(tmp_path):
+    root = fixture(tmp_path)
+    source = root / 'closeout/ui/browser_results.json'
+    source.write_text(json.dumps({
+        'status': 'PARTIAL_SCREENSHOTS_MANUAL_REVIEW_PENDING',
+        'method': 'headless Edge/Chrome CLI, viewport-only',
+        'screenshots': [
+            {'route': '/pyz', 'width': 390, 'height': 844,
+             'status': 'CAPTURED', 'saved': True,
+             'path': 'ui\\screenshots\\screen-0.png',
+             'note': 'Only screenshot: DOM checks not executed'}
+            for _ in range(9)
+        ],
+        'manual_review_required': True,
+    }), encoding='utf-8')
+    source_zip = as_zip(root, tmp_path / 'source.zip')
+    result_dir = tmp_path / 'review'
+    report = main(['--e0', str(source_zip), '--out-dir', str(result_dir)])
+    assert report['browser_capture_only_count'] == 9
+    assert report['browser_executed_check_count'] == 0
+    assert report['merge_permitted'] is False
+    assert report['final_status'] == 'PENDING_OWNER_ACCEPTANCE'
+    findings = list(csv.DictReader(
+        (result_dir / 'findings.tsv').open(encoding='utf-8-sig'), delimiter='\t'))
+    ac5 = [row['detail'] for row in findings if row['criterion'] == 'AC-05']
+    assert any('without HTTP/DOM/keyboard checks: 9' in s for s in ac5)
+    assert all('checks with warnings: 9' not in s for s in ac5)
+    with (result_dir / 'ui_diagnostics.tsv').open(encoding='utf-8-sig') as file:
+        screenshots = list(csv.DictReader(file, delimiter='\t'))
+    assert len(screenshots) == 9
+    assert all(row['warning_causes'] == 'NOT_TESTED_VIEWPORT_ONLY' for row in screenshots)
+    assert all(row['http_status'] == '' for row in screenshots)
+    assert all(row['screenshot'].endswith('screen-0.png') for row in screenshots)
+
+
+def test_executed_browser_failure_is_not_downgraded_to_capture_only(tmp_path):
+    root = fixture(tmp_path)
+    source = root / 'closeout/ui/browser_results.json'
+    source.write_text(json.dumps({
+        'method': 'Playwright',
+        'screenshots': [{
+            'route': '/pyz', 'width': 390, 'height': 844,
+            'status': 'AUTO_WARN', 'saved': True, 'http_status': 200,
+            'heading_matches': True, 'horizontal_overflow': True,
+            'keyboard_focus': True, 'console_errors': [],
+            'screenshot': 'screenshots/screen-0.png'}]
+    }), encoding='utf-8')
+    out = tmp_path / 'review'
+    report = main(['--e0', str(root), '--out-dir', str(out)])
+    assert report['browser_capture_only_count'] == 0
+    assert report['browser_executed_check_count'] == 1
+    with (out / 'ui_diagnostics.tsv').open(encoding='utf-8-sig') as file:
+        rows = list(csv.DictReader(file, delimiter='\t'))
+    assert rows[0]['warning_causes'] == 'HORIZONTAL_OVERFLOW'
