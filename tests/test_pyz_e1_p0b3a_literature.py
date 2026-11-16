@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from validate_pyz_e1_p0b3a_literature import validate, main
+from scripts.validate_pyz_e1_p0b3a_literature import validate, main
 
 BASE = {
     'record_id': 'E1B3-ONE', 'own_compound_id': 'PYZ-035',
