@@ -13,7 +13,8 @@ const ROUTES = Object.freeze([
 ]);
 const SIZES = Object.freeze([[1440, 900], [768, 1024], [390, 844]]);
 const CHECKS = Object.freeze(['HTTP_NOT_200', 'H1_MISMATCH', 'ROOT_OVERFLOW',
-  'JS_OR_HTTP_5XX_ERRORS', 'NO_KEYBOARD_FOCUS', 'SCREENSHOT_FAILED', 'VIEWPORT_MISMATCH']);
+  'JS_OR_HTTP_5XX_ERRORS', 'HTTP_4XX_RESOURCE_WARNING', 'NO_KEYBOARD_FOCUS',
+  'SCREENSHOT_FAILED', 'VIEWPORT_MISMATCH']);
 
 function arg(name, fallback = '') {
   const i = process.argv.indexOf(name);
@@ -35,6 +36,8 @@ function reasons(item) {
   if (item.heading_matches !== true) r.push('H1_MISMATCH');
   if (item.layout?.horizontal_overflow === true) r.push('ROOT_OVERFLOW');
   if ((item.errors || []).length) r.push('JS_OR_HTTP_5XX_ERRORS');
+  if ((item.http_resource_failures || []).some(x => x.status >= 400 && x.status < 500))
+    r.push('HTTP_4XX_RESOURCE_WARNING');
   if (item.keyboard_focus !== true) r.push('NO_KEYBOARD_FOCUS');
   if (item.screenshot_saved !== true) r.push('SCREENSHOT_FAILED');
   if (item.layout?.window_inner_width !== item.width) r.push('VIEWPORT_MISMATCH');
@@ -54,6 +57,7 @@ function outputSummary(items) {
     screenshots_saved: items.filter(x => x.screenshot_saved).length,
     root_overflow_cases: executed.filter(x => x.layout?.horizontal_overflow === true).length,
     js_error_cases: executed.filter(x => (x.errors || []).length > 0).length,
+    http_4xx_cases: executed.filter(x => (x.http_resource_failures || []).some(y => y.status >= 400 && y.status < 500)).length,
     failed_technical_checks: executed.filter(x => reasons(x).length > 0).length,
     keyboard_focus_cases: executed.filter(x => x.keyboard_focus === true).length,
   };
@@ -130,17 +134,33 @@ async function execute({ origin, out, toolsRoot, expectedFile }) {
       for (const [width, height] of SIZES) {
         const item = {route: route.path, width, height, executed: false,
           http_status: null, heading: null, heading_matches: null,
-          layout: null, keyboard_focus: null, errors: [], screenshot: '', screenshot_saved: false,
+          layout: null, keyboard_focus: null, errors: [], http_resource_failures: [], screenshot: '', screenshot_saved: false,
           screenshot_sha256: null, elapsed_domcontentloaded_ms: null, failure_reasons: []};
         const context = await browser.newContext({ viewport: {width, height}, deviceScaleFactor: 1,
           isMobile: width === 390, hasTouch: width === 390, locale: 'ru-RU', reducedMotion: 'reduce' });
         const page = await context.newPage();
         try {
           const errors = [];
+          const httpResourceFailures = [];
           page.on('pageerror', e => errors.push('PAGEERROR: ' + String(e).slice(0, 420)));
-          page.on('console', e => { if (e.type() === 'error') errors.push('CONSOLE: ' + e.text().slice(0, 420)); });
-          page.on('response', res => { if (res.url().startsWith(origin) && res.status() >= 500)
-            errors.push('HTTP_5XX: ' + res.status() + ' ' + res.url().slice(0, 160)); });
+          page.on('console', e => {
+            if (e.type() !== 'error') return;
+            const message = e.text().slice(0, 420);
+            // A missing resource (e.g. favicon) is not a JS exception or HTTP 5xx.
+            // The response listener below records its actual URL/status separately.
+            if (/Failed to load resource:.*status of 4\d\d/i.test(message)) return;
+            errors.push('CONSOLE: ' + message);
+          });
+          page.on('response', res => {
+            if (!res.url().startsWith(origin + '/')) return;
+            const status = res.status();
+            const resourcePath = new URL(res.url()).pathname.slice(0, 220);
+            if (status >= 400 && status < 500) {
+              httpResourceFailures.push({ status, resource_type: res.request().resourceType(), path: resourcePath });
+            } else if (status >= 500) {
+              errors.push('HTTP_5XX: ' + status + ' ' + resourcePath);
+            }
+          });
           const t0 = performance.now();
           const response = await page.goto(origin + route.path, {waitUntil:'domcontentloaded', timeout: 45000});
           item.executed = true;
@@ -175,6 +195,7 @@ async function execute({ origin, out, toolsRoot, expectedFile }) {
           item.screenshot_saved = true;
           item.screenshot_sha256 = sha(fs.readFileSync(screenshotFile));
           item.errors = errors;
+          item.http_resource_failures = httpResourceFailures;
         } catch(e) {
           item.errors.push('RUN: ' + String(e).slice(0, 420));
         } finally {
@@ -215,11 +236,13 @@ async function execute({ origin, out, toolsRoot, expectedFile }) {
     if (browser) await browser.close();
     const cols = ['route', 'width','height','executed','http_status','heading_matches',
       'html_scroll_width','html_client_width','overflow_px','horizontal_overflow','keyboard_focus',
-      'errors','failure_reasons','screenshot','screenshot_sha256'];
+      'errors','http_resource_failures','failure_reasons','screenshot','screenshot_sha256'];
     const rows = output.items.map(x=>({
       ...x, html_scroll_width:x.layout?.html_scroll_width, html_client_width:x.layout?.html_client_width,
       overflow_px:x.layout?.overflow_px, horizontal_overflow:x.layout?.horizontal_overflow,
-      errors:x.errors.join(' | '), failure_reasons:x.failure_reasons.join(' | '),
+      errors:x.errors.join(' | '),
+      http_resource_failures:(x.http_resource_failures || []).map(y=>y.status + ' ' + y.resource_type + ' ' + y.path).join(' | '),
+      failure_reasons:x.failure_reasons.join(' | '),
     }));
     writeTsv(path.join(out,'ui_diagnostics.tsv'),cols,rows);
     writeTsv(path.join(out,'source_dom_comparisons.tsv'),
@@ -230,6 +253,7 @@ async function execute({ origin, out, toolsRoot, expectedFile }) {
       `- Скриншотов: ${output.summary.screenshots_saved}/9`,
       `- Случаев корневого горизонтального переполнения: ${output.summary.root_overflow_cases}`,
       `- Случаев ошибок JS/HTTP 5xx: ${output.summary.js_error_cases}`,
+      `- Сценариев с HTTP 4xx у вспомогательных ресурсов: ${output.summary.http_4xx_cases}`,
       `- Сценариев с предупреждениями: ${output.summary.failed_technical_checks}`,
       '', 'Ни успешная автоматическая проверка, ни скриншот не заменяют ручную оценку интерфейса.',
       'Модуль ADMET и научные файлы не изменены; Э0 остаётся НЕ ПРИНЯТЫМ.',
