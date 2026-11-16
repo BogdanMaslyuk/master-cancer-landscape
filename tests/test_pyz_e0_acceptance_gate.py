@@ -166,3 +166,47 @@ def test_live_original_sources_verified_and_mismatch_blocks(tmp_path):
     r,*_=analyze(Evidence(root),science)
     assert r['final_status']=='BLOCKED'
     assert r['fresh_live_sha_checked'] is False
+
+
+def test_e0_review_bundle_preserves_original_png_and_exposes_warning_reason(tmp_path):
+    root = fixture(tmp_path)
+    original_png = root / 'closeout/ui/screenshots/screen-0.png'
+    original_hash = hashlib.sha256(original_png.read_bytes()).hexdigest()
+    browser_results = {
+        'screenshots': [
+            {'route': '/pyz', 'width': 1440, 'height': 900, 'saved': True,
+             'http_status': 200, 'heading_matches': True,
+             'horizontal_overflow': False, 'keyboard_focus': False,
+             'console_errors': [], 'status': 'AUTO_WARN', 'screenshot': 'screenshots/screen-0.png'}
+        ]
+    }
+    (root / 'closeout/ui/browser_results.json').write_text(json.dumps(browser_results), encoding='utf-8')
+    out = tmp_path / 'final_report'
+    report = main(['--e0', str(root), '--out-dir', str(out)])
+    assert report['merge_permitted'] is False
+    copy = out / 'review_evidence/closeout/ui/screenshots/screen-0.png'
+    assert copy.read_bytes() == original_png.read_bytes()
+    assert hashlib.sha256(copy.read_bytes()).hexdigest() == original_hash
+    manifest = json.loads((out / 'review_evidence_manifest.json').read_text(encoding='utf-8'))
+    assert manifest['screenshots'] == 9
+    entry = next(x for x in manifest['files'] if x['name'].endswith('screen-0.png'))
+    assert entry['sha256'] == original_hash
+    assert (out / 'review_evidence/closeout/ui/browser_results.json').is_file()
+    with (out / 'ui_diagnostics.tsv').open(encoding='utf-8-sig') as handle:
+        items = list(csv.DictReader(handle, delimiter='\t'))
+    assert len(items) == 1
+    assert items[0]['warning_causes'] == 'KEYBOARD_FOCUS_MISSING'
+    assert items[0]['route'] == '/pyz'
+    assert hashlib.sha256(original_png.read_bytes()).hexdigest() == original_hash
+
+
+def test_e0_review_bundle_reads_zip_without_unpacking_source(tmp_path):
+    root = fixture(tmp_path)
+    archive = as_zip(root, tmp_path / 'source_e0.zip')
+    before = hashlib.sha256(archive.read_bytes()).hexdigest()
+    out = tmp_path / 'evidence_review'
+    main(['--e0', str(archive), '--out-dir', str(out)])
+    assert (out / 'review_evidence/closeout/ui/screenshots/screen-8.png').is_file()
+    assert (out / 'review_evidence/closeout/performance.tsv').exists() is False
+    assert (out / 'review_evidence/performance.tsv').is_file()
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == before
