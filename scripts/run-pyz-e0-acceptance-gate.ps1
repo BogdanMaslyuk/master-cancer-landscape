@@ -77,15 +77,10 @@ $Report = Get-Content -LiteralPath $ReportPath -Raw -Encoding UTF8 | ConvertFrom
 if ($Report.merge_permitted -ne $false -or $Report.criteria_count -ne 9) {
     throw 'Нарушен консервативный контракт аудита Э0'
 }
-$Files = @(
-    $ReportPath,
-    (Join-Path $Out 'acceptance_matrix.tsv'),
-    (Join-Path $Out 'findings.tsv'),
-    (Join-Path $Out 'source_hash_reconciliation.tsv'),
-    (Join-Path $Out 'E0_ACCEPTANCE_GATE_RU.md')
-)
 $ZipPath = Join-Path $Reports ('MCL_E0_ACCEPTANCE_GATE_' + $Stamp + '.zip')
-Compress-Archive -LiteralPath $Files -DestinationPath $ZipPath -CompressionLevel Fastest
+# Include the review_evidence tree, screenshots, browser logs, and manifest.
+# Compress-Archive -LiteralPath $Files would silently omit those subfolders.
+Compress-Archive -Path (Join-Path $Out '*') -DestinationPath $ZipPath -CompressionLevel Fastest
 if (-not (Test-Path -LiteralPath $ZipPath -PathType Leaf)) { throw 'Не сформирован ZIP отчёта Э0' }
 Write-Host "Критериев AC: $($Report.criteria_count)" -ForegroundColor Green
 Write-Host "Технический итог: $($Report.final_status)" -ForegroundColor Yellow
