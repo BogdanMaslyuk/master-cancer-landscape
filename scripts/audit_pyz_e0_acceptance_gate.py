@@ -293,12 +293,28 @@ def analyze(source: Evidence, science_root: Path | None = None) -> tuple[dict, l
     invalid_png = [p for p in shots if not source.read(p).startswith(b"\x89PNG\r\n\x1a\n")]
     if invalid_png:
         issue("BLOCKER", "AC-05", f"Screenshot files without PNG signatures: {len(invalid_png)}")
+    browser_mode = "NOT_RECORDED"
+    browser_tested_count = 0
+    browser_capture_only_count = 0
     if source.has("closeout/ui/browser_results.json"):
         browser_results = source.json("closeout/ui/browser_results.json")
-        ui_warnings = [row for row in browser_results.get("screenshots", [])
-                       if row.get("status") != "AUTO_PASS"]
+        browser_mode = str(browser_results.get("method") or "UNKNOWN")
+        ui_warnings = []
+        for row in browser_results.get("screenshots", []):
+            has_test_fields = any(k in row for k in (
+                "http_status", "heading_matches", "horizontal_overflow",
+                "keyboard_focus", "console_errors"))
+            if not has_test_fields:
+                browser_capture_only_count += 1
+            else:
+                browser_tested_count += 1
+                if row.get("status") != "AUTO_PASS":
+                    ui_warnings.append(row)
         if ui_warnings:
-            issue("MANUAL", "AC-05", f"Browser technical checks with warnings: {len(ui_warnings)}")
+            issue("MANUAL", "AC-05", f"Executed browser checks with warnings: {len(ui_warnings)}")
+        if browser_capture_only_count:
+            issue("MANUAL", "AC-05",
+                  f"Viewport-only captures without HTTP/DOM/keyboard checks: {browser_capture_only_count}")
     if source.has("closeout/browser_status.json"):
         browser = source.json("closeout/browser_status.json")
         reported_n = browser.get("n_screenshots", 0)
@@ -340,6 +356,9 @@ def analyze(source: Evidence, science_root: Path | None = None) -> tuple[dict, l
         "fresh_live_sha_checked": bool(science_root and live_count == len(hashes) and not errors),
         "screenshot_files": len(shots),
         "browser_reported_screenshots": reported_n,
+        "browser_capture_method": browser_mode,
+        "browser_executed_check_count": browser_tested_count,
+        "browser_capture_only_count": browser_capture_only_count,
         "cold_api_status": cold_status,
         "counts_by_technical_status": dict(counts),
         "blocking_findings": len(blockers),
@@ -415,14 +434,25 @@ def export_review_evidence(source: Evidence, out: Path) -> dict:
         browser = source.json("closeout/ui/browser_results.json")
         for item in browser.get("screenshots", []):
             causes = []
-            if not item.get("saved"): causes.append("SCREENSHOT_NOT_SAVED")
-            if item.get("http_status") != 200: causes.append("HTTP_NOT_200")
-            if item.get("heading_matches") is not True: causes.append("HEADING_MISMATCH")
-            if item.get("horizontal_overflow") is True: causes.append("HORIZONTAL_OVERFLOW")
-            if item.get("keyboard_focus") is not True: causes.append("KEYBOARD_FOCUS_MISSING")
-            if item.get("console_errors"): causes.append("BROWSER_ERRORS")
-            if item.get("status") != "AUTO_PASS" and not causes:
-                causes.append("UNCLASSIFIED_WARNING")
+            tested = any(k in item for k in (
+                "http_status", "heading_matches", "horizontal_overflow",
+                "keyboard_focus", "console_errors"))
+            if item.get("saved") is False: causes.append("SCREENSHOT_NOT_SAVED")
+            if tested:
+                if "http_status" in item and item["http_status"] != 200:
+                    causes.append("HTTP_NOT_200")
+                if "heading_matches" in item and item["heading_matches"] is not True:
+                    causes.append("HEADING_MISMATCH")
+                if item.get("horizontal_overflow") is True:
+                    causes.append("HORIZONTAL_OVERFLOW")
+                if "keyboard_focus" in item and item["keyboard_focus"] is not True:
+                    causes.append("KEYBOARD_FOCUS_MISSING")
+                if item.get("console_errors"):
+                    causes.append("BROWSER_ERRORS")
+                if item.get("status") != "AUTO_PASS" and not causes:
+                    causes.append("UNCLASSIFIED_WARNING")
+            else:
+                causes.append("NOT_TESTED_VIEWPORT_ONLY")
             diagnostic_rows.append({
                 "route": item.get("route", ""), "width": item.get("width", ""),
                 "height": item.get("height", ""), "status": item.get("status", ""),
@@ -431,7 +461,7 @@ def export_review_evidence(source: Evidence, out: Path) -> dict:
                 "horizontal_overflow": item.get("horizontal_overflow", ""),
                 "keyboard_focus": item.get("keyboard_focus", ""),
                 "console_errors": json.dumps(item.get("console_errors", []), ensure_ascii=False),
-                "screenshot": item.get("screenshot", ""),
+                "screenshot": item.get("screenshot") or item.get("path", ""),
                 "warning_causes": "|".join(causes),
             })
     write_tsv(out / "ui_diagnostics.tsv", (
