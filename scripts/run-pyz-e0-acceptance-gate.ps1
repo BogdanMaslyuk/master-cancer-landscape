@@ -1,4 +1,4 @@
-# E0 evidence assessment: one MCL_Project workspace, no Git merge, no science modifications.
+﻿# E0 evidence assessment: one MCL_Project workspace, no Git merge, no science modifications.
 param(
     [string]$Root = (Join-Path $env:USERPROFILE 'MCL_Project'),
     [string]$InputPath = '',
