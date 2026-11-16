@@ -1,0 +1,11 @@
+{
+  "contract": "mcl-pyz-e1-p0b3a-source-literature-check-v1",
+  "created_utc": "2026-11-16T03:22:12.705404+00:00",
+  "parent_zip_filename": "MCL_E1_P0B3_EVIDENCE_REVIEW_2026-11-16.zip",
+  "parent_zip_sha256": "c6db4591a2a872133bccb20ef7a0f22f272cf1cd6343dd74bad2304e1584a12c",
+  "total_records": 11,
+  "source_checked_records": 4,
+  "approved_primary_assays": 0,
+  "external_admet_not_integrated": true,
+  "note": "Structured literature triage only; no assay accepted and no new PYZ activity inferred"
+}
