@@ -37,5 +37,24 @@ test('no execution does not count as successful coverage',()=>{
  const x={executed:false,screenshot_saved:false};
  assert.deepEqual(outputSummary([x]),{
   expected_page_checks:9,executed_page_checks:0,screenshots_saved:0,
-  root_overflow_cases:0,js_error_cases:0,failed_technical_checks:0,keyboard_focus_cases:0});
+  root_overflow_cases:0,js_error_cases:0,http_4xx_cases:0,failed_technical_checks:0,keyboard_focus_cases:0});
+});
+test('HTTP 404 resource warning does not fabricate a JS exception or 5xx',()=>{
+ const x={executed:true,width:1440,http_status:200,heading_matches:true,
+  layout:{window_inner_width:1440,horizontal_overflow:false},
+  keyboard_focus:true,screenshot_saved:true,errors:[],
+  http_resource_failures:[{status:404,resource_type:'image',path:'/favicon.ico'}]};
+ assert.deepEqual(reasons(x),['HTTP_4XX_RESOURCE_WARNING']);
+ const stats=outputSummary([x]);
+ assert.equal(stats.js_error_cases,0);
+ assert.equal(stats.http_4xx_cases,1);
+ assert.equal(stats.failed_technical_checks,1);
+});
+test('real JS errors and HTTP 500 remain separate from nonblocking 404 warnings',()=>{
+ const x={executed:true,width:390,http_status:200,heading_matches:true,
+  layout:{window_inner_width:390,horizontal_overflow:false},
+  keyboard_focus:true,screenshot_saved:true,errors:['PAGEERROR: TypeError'],
+  http_resource_failures:[{status:404,resource_type:'image',path:'/missing.png'}]};
+ assert.deepEqual(reasons(x),['JS_OR_HTTP_5XX_ERRORS','HTTP_4XX_RESOURCE_WARNING']);
+ assert.equal(outputSummary([x]).js_error_cases,1);
 });
