@@ -21,7 +21,7 @@ jobs:
       - name: PowerShell control syntax
         shell: pwsh
         run: |
-          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1", "scripts/run-pyz-e0.ps1", "scripts/run-pyz-e0-closeout.ps1", "scripts/run-pyz-e0-acceptance-gate.ps1")
+          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1", "scripts/run-pyz-e0.ps1", "scripts/run-pyz-e0-closeout.ps1", "scripts/run-pyz-e0-acceptance-gate.ps1", "scripts/run-pyz-e0-ac05-browser.ps1")
           foreach ($path in $scripts) {
             $tokens = $null
             $parseErrors = $null
@@ -59,6 +59,10 @@ jobs:
         run: npm ci
       - name: E0 browser audit syntax
         run: node --check ../../scripts/pyz_e0_browser.cjs
+      - name: E0 AC-05 real browser auditor syntax and contracts
+        run: |
+          node --check ../../scripts/audit_pyz_e0_ac05_browser.cjs
+          node --test ../../scripts/test_pyz_e0_ac05_browser.cjs
       - name: TypeScript contract check
         run: npm run typecheck
       - name: Production build
