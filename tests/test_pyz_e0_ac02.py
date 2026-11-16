@@ -171,6 +171,9 @@ def test_powershell_utf8_bom_and_no_science_rebuild():
     assert "build-explorer.ps1" not in text
     assert "run-pyz-e0-ac02.ps1" not in text  # no recursive launch
     assert "Compress-Archive" in text
+    assert "--comparison-root" in text
+    assert "master-cancer-landscape" in text
+
 
 
 def synthetic_science(tmp_path, monkeypatch):
@@ -248,6 +251,10 @@ def test_full_synthetic_ac02_report_has_evidence_but_not_approval(tmp_path,monke
     assert result['source_hashes_unchanged']==7
     assert result['baseline_matches']==7
     assert result['sidecars_unchanged']==6
+    assert result['comparison_source_files_found'] >= 4
+    assert result['comparison_source_files_unchanged'] == result['comparison_source_files_found']
+    assert result['comparison_cross_worktree'] is False
+
     assert result['sidecar_present']==6
     assert result['sidecar_missing']==0
     assert result['technical_status']=='REVIEW_REQUIRED'
@@ -322,3 +329,90 @@ def test_missing_multiomics_manifest_is_not_reported_as_modified(tmp_path, monke
     assert any(x['code'] == 'MANIFEST_MISSING' for x in issues)
     assert not any(x['code'] == 'MANIFEST_UNAVAILABLE' and x['component'] == 'multiomics_manifest' for x in issues)
     assert any(not x['exists'] for x in sidecars)
+
+
+def test_cross_worktree_can_validate_numpy_values_without_copying_scientific_files(tmp_path, monkeypatch):
+    """The comparison root may hold only processed matrices; scientific NPY remains immutable."""
+    from audit_pyz_e0_ac02 import audit
+    baseline, frames = synthetic_science(tmp_path, monkeypatch)
+    ref = tmp_path.parent / (tmp_path.name + '_comparison')
+    processed = ref / 'data/processed'
+    processed.mkdir(parents=True)
+    for name in ('gene_effect', 'expression', 'copy_number'):
+        dest = processed / f'depmap_model_{name}.parquet'
+        dest.write_bytes(b'synthetic-proc-parquet')
+        original = str(tmp_path / 'data/processed' / dest.name)
+        frames[str(dest)] = frames[original].copy()
+        (tmp_path / 'data/processed' / dest.name).unlink()
+    manifest = {'depmap_release': 'TEST_ONLY', 'layers': {
+        name: {'available': True, 'models_n': 2, 'genes_n': 2}
+        for name in ('gene_effect','expression','copy_number')}}
+    (processed / 'depmap_model_multiomics_manifest.json').write_text(json.dumps(manifest))
+    for location in (tmp_path, ref):
+        (location / 'data/processed/depmap_input_inventory.tsv').write_text(
+            'depmap_release\\nTEST_ONLY\\n', encoding='utf-8')
+    hash_before = {
+        str(p): sha256_file(p)
+        for p in (tmp_path / 'data/runtime/explorer/model_layers').glob('*.npy')
+    }
+    report, _, issues, layers, _ = audit(tmp_path, baseline, comparison_root=ref)
+    assert report['technical_status']=='REVIEW_REQUIRED'
+    assert report['comparison_cross_worktree'] is True
+    assert report['comparison_source_files_found'] == 5
+    assert report['comparison_source_files_unchanged'] == 5
+    assert report['provenance']['depmap_release_comparison_declared']=='TEST_ONLY'
+    assert report['provenance']['depmap_release_declared_source']=='scientific_root_manifest'
+    assert all(x['sample_compared'] == x['sample_matched'] == 4 for x in layers)
+    assert all(x['source_parquet_status']=='ORDER_AND_SAMPLE_MATCH_CROSS_ROOT' for x in layers)
+    assert any(x['code']=='CROSS_ROOT_LINEAGE_REVIEW_REQUIRED' for x in issues)
+    assert not any(x['severity']=='BLOCKER' for x in issues)
+    assert hash_before=={str(p):sha256_file(p) for p in
+                        (tmp_path/'data/runtime/explorer/model_layers').glob('*.npy')}
+
+
+def test_cross_worktree_model_order_mismatch_blocks(tmp_path, monkeypatch):
+    from audit_pyz_e0_ac02 import audit
+    baseline, frames = synthetic_science(tmp_path, monkeypatch)
+    ref = tmp_path.parent / (tmp_path.name + '_comparison_bad_model')
+    processed = ref / 'data/processed'
+    processed.mkdir(parents=True)
+    for name in ('gene_effect','expression','copy_number'):
+        dest = processed / f'depmap_model_{name}.parquet'
+        dest.write_bytes(b'synthetic')
+        original = str(tmp_path / 'data/processed' / dest.name)
+        frames[str(dest)] = frames[original].copy()
+    frames[str(processed / 'depmap_model_gene_effect.parquet')] = (
+        frames[str(processed / 'depmap_model_gene_effect.parquet')].iloc[::-1].reset_index(drop=True))
+    (processed / 'depmap_model_multiomics_manifest.json').write_text(
+        json.dumps({'depmap_release':'TEST_ONLY','layers':{
+            name:{'available':True,'models_n':2,'genes_n':2}
+            for name in ('gene_effect','expression','copy_number')}}))
+    for location in (tmp_path,ref):
+        (location/'data/processed/depmap_input_inventory.tsv').write_text(
+            'depmap_release\\nTEST_ONLY\\n')
+    report, _, issues, _, _ = audit(tmp_path, baseline, comparison_root=ref)
+    assert report['technical_status']=='BLOCKED'
+    assert any(x['code']=='MODEL_AXIS_OR_GENE_COLUMN_MISMATCH' and
+               x['component']=='gene_effect' for x in issues)
+
+
+def test_cross_worktree_manifest_release_contradiction_blocks(tmp_path, monkeypatch):
+    from audit_pyz_e0_ac02 import audit
+    baseline, frames = synthetic_science(tmp_path, monkeypatch)
+    ref = tmp_path.parent / (tmp_path.name + '_comparison_bad_release')
+    processed = ref / 'data/processed'
+    processed.mkdir(parents=True)
+    for name in ('gene_effect', 'expression', 'copy_number'):
+        dest = processed / f'depmap_model_{name}.parquet'
+        dest.write_bytes(b'synthetic')
+        frames[str(dest)] = frames[str(tmp_path/'data/processed'/dest.name)].copy()
+    (processed/'depmap_model_multiomics_manifest.json').write_text(json.dumps({
+        'depmap_release':'DIFFERENT_RELEASE', 'layers': {
+            name:{'available':True,'models_n':2,'genes_n':2}
+            for name in ('gene_effect','expression','copy_number')}}))
+    for location in (tmp_path,ref):
+        (location/'data/processed/depmap_input_inventory.tsv').write_text(
+            'depmap_release\\nTEST_ONLY\\n')
+    report, _, issues, _, _ = audit(tmp_path, baseline, comparison_root=ref)
+    assert report['technical_status']=='BLOCKED'
+    assert any(x['code']=='DEPMAP_RELEASE_CONTRADICTION' for x in issues)
