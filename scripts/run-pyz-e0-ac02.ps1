@@ -2,6 +2,7 @@
 param(
     [string]$Root = (Join-Path $env:USERPROFILE 'MCL_Project'),
     [string]$ScienceRoot = '',
+    [string]$ComparisonRoot = '',
     [string]$BaselineHashes = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -9,6 +10,11 @@ $Root = [IO.Path]::GetFullPath($Root)
 $Reports = Join-Path $Root 'reports'
 if (-not $ScienceRoot) { $ScienceRoot = Join-Path $Root 'repositories\mcl-pyz-v2-review' }
 $ScienceRoot = [IO.Path]::GetFullPath($ScienceRoot)
+if (-not $ComparisonRoot) { $ComparisonRoot = Join-Path $Root 'repositories\master-cancer-landscape' }
+$ComparisonRoot = [IO.Path]::GetFullPath($ComparisonRoot)
+if (-not (Test-Path -LiteralPath (Join-Path $ComparisonRoot 'data\processed') -PathType Container)) {
+    throw "Comparison source folder missing: $ComparisonRoot"
+}
 $Registry = Join-Path $ScienceRoot 'data\runtime\explorer'
 if (-not (Test-Path -LiteralPath $Registry -PathType Container)) {
     throw "Explorer scientific source folder missing: $Registry"
@@ -42,11 +48,12 @@ if (-not $BaselineHashes) {
 $Stamp = Get-Date -Format 'yyyyMMdd_HHmmss_fff'
 $Out = Join-Path $Reports ('AC02_GENETIC_' + $Stamp)
 $Zip = Join-Path $Reports ('MCL_E0_AC02_GENETIC_' + $Stamp + '.zip')
-$Arguments = @($Audit, '--root', $ScienceRoot, '--out', $Out)
+$Arguments = @($Audit, '--root', $ScienceRoot, '--comparison-root', $ComparisonRoot, '--out', $Out)
 if ($BaselineHashes) { $Arguments += @('--baseline-hashes', $BaselineHashes) }
 else { Write-Warning 'Historical E0 checksum baseline unavailable; comparisons marked NOT_AVAILABLE.' }
 Write-Host '=== MCL E0 / AC-02: genetic data read-only audit ===' -ForegroundColor Cyan
 Write-Host "Scientific root: $ScienceRoot"
+Write-Host "Comparison root (read-only): $ComparisonRoot"
 Write-Host "Python: $Python"
 Write-Host "Historical checksum record: $BaselineHashes"
 Write-Host 'PS1 and PS2 are not required for this file-only audit.'
