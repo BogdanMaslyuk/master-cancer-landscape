@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Root = "$env:USERPROFILE\MCL_Project",
     [string]$ScienceRoot = '',
     [string]$ReferenceRoot = '',
