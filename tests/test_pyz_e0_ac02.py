@@ -263,7 +263,8 @@ def test_full_synthetic_ac02_report_has_evidence_but_not_approval(tmp_path,monke
     assert all(x['source_parquet_status']=='ORDER_AND_SAMPLE_MATCH' for x in result['layers'])
     assert sorted(p.name for p in outputs.iterdir())==sorted([
         'AC02_REPORT.json','AC02_SOURCES.tsv','AC02_SIDECARS.tsv','AC02_LAYERS.tsv',
-        'AC02_FINDINGS.tsv','AC02_REVIEW_RU.md','AC02_COMPARISON_SOURCES.tsv'])
+        'AC02_FINDINGS.tsv','AC02_REVIEW_RU.md','AC02_COMPARISON_SOURCES.tsv',
+        'AC02_INVENTORY_COMPARISON.json'])
     with pytest.raises(FileExistsError):
         main(['--root',str(tmp_path),'--out',str(outputs),'--baseline-hashes',str(baseline)])
 
@@ -416,3 +417,48 @@ def test_cross_worktree_manifest_release_contradiction_blocks(tmp_path, monkeypa
     report, _, issues, _, _ = audit(tmp_path, baseline, comparison_root=ref)
     assert report['technical_status']=='BLOCKED'
     assert any(x['code']=='DEPMAP_RELEASE_CONTRADICTION' for x in issues)
+
+
+def test_inventory_comparison_ignores_paths_order_and_optional_columns(tmp_path):
+    from audit_pyz_e0_ac02 import compare_inventories
+    a, b = tmp_path/'science.tsv', tmp_path/'central.tsv'
+    header = 'depmap_release\\tlogical_name\\tfilename\\tpath\\tsize_bytes\\tsha256\\tcolumns_json\\n'
+    h1, h2 = 'a'*64, 'b'*64
+    a.write_text(header + f'26Q1\\tmodels\\tModel.csv\\tC:/old\\t123\\t{h1}\\t[]\\n'
+                 + f'26Q1\\tgene_effect\\tCRISPRGeneEffect.csv\\tC:/old\\t456\\t{h2}\\t[]\\n')
+    b.write_text(header + f'26Q1\\tgene_effect\\tCRISPRGeneEffect.csv\\tD:/new\\t456\\t{h2}\\t[extra]\\n'
+                 + f'26Q1\\tmodels\\tModel.csv\\tD:/new\\t123\\t{h1}\\t[extra]\\n')
+    result = compare_inventories(a, b)
+    assert result['semantic_match'] is True
+    assert result['full_tsv_sha_match'] is False
+    assert result['scientific_rows'] == result['reference_rows'] == 2
+    assert result['matched_rows'] == 2
+    assert result['scientific_only_rows'] == result['reference_only_rows'] == 0
+
+
+def test_inventory_comparison_detects_data_or_release_drift(tmp_path):
+    from audit_pyz_e0_ac02 import compare_inventories
+    a, b = tmp_path/'science.tsv', tmp_path/'central.tsv'
+    header = 'depmap_release\\tlogical_name\\tfilename\\tsize_bytes\\tsha256\\n'
+    a.write_text(header + '26Q1\\tmodels\\tModel.csv\\t100\\t' + '0'*64 + '\\n')
+    b.write_text(header + '26Q2\\tmodels\\tModel.csv\\t100\\t' + '0'*64 + '\\n')
+    result = compare_inventories(a, b)
+    assert result['semantic_match'] is False
+    assert result['matched_rows'] == 0
+    assert result['scientific_only_rows'] == result['reference_only_rows'] == 1
+
+
+def test_inventory_comparison_rejects_missing_sha_or_duplicate_rows(tmp_path):
+    from audit_pyz_e0_ac02 import compare_inventories, read_inventory_rows
+    a, b = tmp_path/'science.tsv', tmp_path/'central.tsv'
+    header = 'depmap_release\\tlogical_name\\tfilename\\tsize_bytes\\tsha256\\n'
+    line = '26Q1\\tmodels\\tModel.csv\\t100\\t' + 'b'*64 + '\\n'
+    a.write_text(header + line + line)
+    b.write_text(header + line)
+    assert len(read_inventory_rows(a)) == 2
+    result = compare_inventories(a, b)
+    assert result['scientific_duplicate_rows'] == 1
+    assert result['semantic_match'] is False
+    b.write_text(header + '26Q1\\tmodels\\tModel.csv\\t100\\tINVALID\\n')
+    with pytest.raises(ValueError):
+        read_inventory_rows(b)
