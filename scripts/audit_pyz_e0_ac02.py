@@ -67,6 +67,50 @@ def write_tsv(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> Non
             w.writerow({col: "" if row.get(col) is None else str(row.get(col)) for col in columns})
 
 
+INVENTORY_COMPARE_FIELDS = (
+    "depmap_release", "logical_name", "filename", "size_bytes", "sha256"
+)
+
+
+def read_inventory_rows(path: Path) -> list[tuple[str, ...]]:
+    """Parse the five scientific-identity fields; ignore machine-specific paths."""
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        if not reader.fieldnames or not set(INVENTORY_COMPARE_FIELDS).issubset(reader.fieldnames):
+            raise ValueError("DepMap inventory lacks required scientific-identity columns")
+        rows: list[tuple[str, ...]] = []
+        for entry in reader:
+            values = tuple(str(entry.get(k) or "").strip() for k in INVENTORY_COMPARE_FIELDS)
+            if not all(values):
+                raise ValueError("DepMap inventory has blank scientific-identity fields")
+            if not values[3].isdigit() or int(values[3]) < 1:
+                raise ValueError("DepMap inventory has invalid source file size")
+            if not re.fullmatch(r"[a-fA-F0-9]{64}", values[4]):
+                raise ValueError("DepMap inventory has invalid source SHA256")
+            rows.append((*values[:3], str(int(values[3])), values[4].lower()))
+    if not rows:
+        raise ValueError("DepMap inventory is empty")
+    return rows
+
+
+def compare_inventories(scientific: Path, reference: Path) -> dict[str, Any]:
+    """Compare source identities irrespective of TSV ordering or absolute paths."""
+    left = Counter(read_inventory_rows(scientific))
+    right = Counter(read_inventory_rows(reference))
+    return {
+        "scientific_rows": sum(left.values()),
+        "reference_rows": sum(right.values()),
+        "matched_rows": sum((left & right).values()),
+        "scientific_only_rows": sum((left - right).values()),
+        "reference_only_rows": sum((right - left).values()),
+        "scientific_duplicate_rows": sum(n - 1 for n in left.values()),
+        "reference_duplicate_rows": sum(n - 1 for n in right.values()),
+        "semantic_match": left == right,
+        "full_tsv_sha_match": sha256_file(scientific) == sha256_file(reference),
+        "compared_fields": list(INVENTORY_COMPARE_FIELDS),
+    }
+
+
 def recorded_hashes(file: Path | None) -> dict[str, str]:
     if file is None:
         return {}
@@ -414,6 +458,7 @@ def audit(root: Path, baseline_file: Path | None = None, *,
         issue("REVIEW", "comparison_provenance", "COMPARISON_MANIFEST_MISSING",
               "Comparison-root DepMap multiomics manifest does not exist")
 
+    inventory_comparison: dict[str, Any] = {"status": "NOT_CHECKED"}
     if comparison_root != root:
         # Even matching data across two worktrees is not official release verification.
         issue("REVIEW", "comparison_provenance", "CROSS_ROOT_LINEAGE_REVIEW_REQUIRED",
@@ -436,9 +481,18 @@ def audit(root: Path, baseline_file: Path | None = None, *,
         scientific_inventory = safe_path(root, "data/processed/depmap_input_inventory.tsv")
         reference_inventory = safe_path(comparison_root, "data/processed/depmap_input_inventory.tsv")
         if scientific_inventory.is_file() and reference_inventory.is_file():
-            if sha256_file(scientific_inventory) != sha256_file(reference_inventory):
-                issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_HASH_DIFFERENT",
-                      "Scientific/reference input inventory files differ; verify the DepMap release manually")
+            try:
+                inventory_comparison = compare_inventories(
+                    scientific_inventory, reference_inventory)
+                if not inventory_comparison["semantic_match"]:
+                    issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_CONTENT_DIFFERENT",
+                          "DepMap inventory source identities (release/file/size/SHA) differ")
+                if inventory_comparison["scientific_duplicate_rows"] or inventory_comparison["reference_duplicate_rows"]:
+                    issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_DUPLICATE_ENTRIES",
+                          "Repeated identical source-identity rows in a DepMap inventory")
+            except (OSError, ValueError, csv.Error) as ex:
+                issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_UNREADABLE",
+                      f"Unable to verify source identities: {type(ex).__name__}")
         else:
             issue("REVIEW", "comparison_provenance", "INPUT_INVENTORY_MISSING",
                   "Cannot cross-check both DepMap input inventories")
@@ -498,6 +552,7 @@ def audit(root: Path, baseline_file: Path | None = None, *,
               "comparison_root": str(comparison_root),
               "comparison_cross_worktree": comparison_root != root,
               "comparison_sources": comparison_files,
+              "inventory_comparison": inventory_comparison,
               "comparison_source_files_found": sum(int(x["exists"]) for x in comparison_files),
               "comparison_source_files_unchanged": sum(int(x["unchanged_after"]) for x in comparison_files),
               "sidecar_files": len(sidecar_rows),
@@ -535,6 +590,9 @@ def main(argv: list[str] | None = None) -> int:
     write_tsv(out / "AC02_SOURCES.tsv", ["path", "exists", "bytes", "sha256", "baseline_match", "unchanged_after"], inventory)
     write_tsv(out / "AC02_FINDINGS.tsv", ["severity", "component", "code", "detail"], issues)
     write_tsv(out / "AC02_SIDECARS.tsv", ["path", "exists", "sha256", "unchanged_after"], sidecar_rows)
+    (out / "AC02_INVENTORY_COMPARISON.json").write_text(
+        json.dumps(report["inventory_comparison"], indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8")
     write_tsv(out / "AC02_COMPARISON_SOURCES.tsv",
               ["path", "exists", "bytes", "sha256", "unchanged_after"],
               report["comparison_sources"])
