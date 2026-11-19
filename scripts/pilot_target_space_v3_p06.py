@@ -376,60 +376,99 @@ def binding_quality(payload: dict, accession: str) -> dict:
 
 
 def probe_one(client: ControlledClient, gene: str, accession: str) -> dict:
-    out={'chembl_status':'NOT_QUERIED','chembl_target_id':'','chembl_activity_candidates_total':'',
-         'chembl_exact_assay_example_ids':'','bindingdb_status':'NOT_QUERIED',
+    """Preserve independently obtained endpoint evidence if another API call fails."""
+    out={'chembl_status':'NOT_QUERIED','chembl_target_id':'',
+         'chembl_activity_candidates_total':'',
+         'chembl_exact_assay_example_ids':'',
+         'chembl_valid_sample_rows_n':0,
+         'chembl_completed_endpoints_json':'[]',
+         'chembl_request_errors_json':'[]',
+         'chembl_request_failure_count':0,
+         'bindingdb_status':'NOT_QUERIED',
          'bindingdb_records_parsed':'','bindingdb_candidate_records':'',
-         'bindingdb_name_only_candidate_rows':'','bindingdb_distinct_query_names_n':'',
-         'bindingdb_mixed_query_names':False,'bindingdb_query_name_examples_json':'[]',
+         'bindingdb_name_only_candidate_rows':'',
+         'bindingdb_distinct_query_names_n':'',
+         'bindingdb_mixed_query_names':False,
+         'bindingdb_query_name_examples_json':'[]',
          'bindingdb_experiment_verified':False}
     if not accession:
         out['chembl_status']=out['bindingdb_status']='MAPPING_NOT_RESOLVED'
         return out
+    errors=[]
     try:
-        doc=client.json(CHEMBL_TARGET_URL,{'target_components__accession':accession,'limit':100},max_bytes=400_000)
+        doc=client.json(CHEMBL_TARGET_URL,
+                        {'target_components__accession':accession,'limit':100},max_bytes=400_000)
         target,status=exact_chembl_target(doc, accession)
-        out['chembl_status']=status;out['chembl_target_id']=target
+        out['chembl_status']=status
+        out['chembl_target_id']=target
         if target:
-            total=0;examples=[];queried=0
+            total=0
+            examples=[]
+            completed=[]
             for typ in ENDPOINTS:
-                activities=client.json(CHEMBL_ACTIVITY_URL,
-                    {'target_chembl_id':target,'assay_type':'B','standard_type':typ,
-                     'standard_units':'nM','limit':10,'offset':0},max_bytes=400_000)
-                rows=activities.get('activities');meta=activities.get('page_meta')
-                if not isinstance(rows,list) or not isinstance(meta,dict):
-                    raise ValueError('Unexpected ChEMBL activity page schema')
-                n=meta.get('total_count')
-                if not isinstance(n,int) or n<0:
-                    raise ValueError('No ChEMBL total_count')
-                total+=n;queried+=1
-                examples.extend([x for x in rows if isinstance(x,dict) and valid_chembl_activity(x,target,typ)])
-            out['chembl_activity_candidates_total']=total
-            # Verify up to two distinct assay IDs, never treat a mere result count
-            # as experimental binding confirmed.
+                try:
+                    activities=client.json(CHEMBL_ACTIVITY_URL,
+                        {'target_chembl_id':target,'assay_type':'B',
+                         'standard_type':typ,'standard_units':'nM',
+                         'limit':10,'offset':0},max_bytes=400_000)
+                    rows=activities.get('activities')
+                    meta=activities.get('page_meta')
+                    if not isinstance(rows,list) or not isinstance(meta,dict):
+                        raise ValueError('Unexpected ChEMBL activity page schema')
+                    n=meta.get('total_count')
+                    if not isinstance(n,int) or n<0:
+                        raise ValueError('No ChEMBL total_count')
+                    total+=n
+                    completed.append(typ)
+                    examples.extend(r for r in rows
+                                    if isinstance(r,dict) and valid_chembl_activity(r,target,typ))
+                except (httpx.HTTPError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+                    errors.append(f'{typ}:{type(exc).__name__}')
+            out['chembl_completed_endpoints_json']=json.dumps(completed)
+            out['chembl_valid_sample_rows_n']=len(examples)
+            # Total covers only successfully queried types, NOT missing endpoints.
+            if completed:
+                out['chembl_activity_candidates_total']=total
             seen_assays=set()
             verified=[]
             for row in examples:
                 aid=strval(row.get('assay_chembl_id'))
-                if not re.fullmatch(r'CHEMBL[0-9]{1,12}', aid):
-                    continue  # never interpolate arbitrary provider text in URL paths
-                if aid in seen_assays or len(seen_assays)>=2:continue
+                if not re.fullmatch(r'CHEMBL[0-9]{1,12}',aid):
+                    continue
+                if aid in seen_assays or len(seen_assays)>=2:
+                    continue
                 seen_assays.add(aid)
-                assay=client.json(f'{CHEMBL_ASSAY}/{aid}.json',{},max_bytes=100_000)
-                if strval(assay.get('assay_type')).upper() == 'B' and \
-                    strval(assay.get('target_chembl_id')) == target and \
-                    strval(assay.get('confidence_score')) == '9':
-                    verified.append(f'{strval(row.get("activity_id"))}:{aid}:{strval(row.get("molecule_chembl_id"))}')
+                try:
+                    assay=client.json(f'{CHEMBL_ASSAY}/{aid}.json',{},max_bytes=100_000)
+                    if strval(assay.get('assay_type')).upper() == 'B' and \
+                       strval(assay.get('target_chembl_id')) == target and \
+                       strval(assay.get('confidence_score')) == '9':
+                        verified.append(
+                            f'{strval(row.get("activity_id"))}:{aid}:{strval(row.get("molecule_chembl_id"))}')
+                except (httpx.HTTPError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+                    errors.append(f'assay:{aid}:{type(exc).__name__}')
             out['chembl_exact_assay_example_ids']=';'.join(verified)
-            out['chembl_status']='EXAMPLE_DIRECT_ASSAY_VERIFIED' if verified else \
-                'CANDIDATES_EXIST_NOT_INDEPENDENTLY_VERIFIED' if total else 'ZERO_IN_FILTERED_QUERY'
-    except (httpx.HTTPError, ValueError, RuntimeError, json.JSONDecodeError) as e:
-        out['chembl_status']='ERROR_'+type(e).__name__
+            if verified:
+                out['chembl_status']='EXAMPLE_DIRECT_ASSAY_VERIFIED_PARTIAL' if errors else \
+                                     'EXAMPLE_DIRECT_ASSAY_VERIFIED'
+            elif errors:
+                out['chembl_status']='PARTIAL_WITH_ERRORS' if completed else 'ERROR_ALL_ENDPOINTS'
+            elif total:
+                out['chembl_status']='CANDIDATES_EXIST_NOT_INDEPENDENTLY_VERIFIED'
+            else:
+                out['chembl_status']='ZERO_IN_FILTERED_QUERY'
+    except (httpx.HTTPError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+        out['chembl_status']='ERROR_'+type(exc).__name__
+        errors.append(f'target:{type(exc).__name__}')
+    out['chembl_request_errors_json']=json.dumps(errors,ensure_ascii=False)
+    out['chembl_request_failure_count']=len(errors)
     try:
         binding=client.json(BINDINGDB_URL,
-            {'uniprot':accession,'cutoff':10000,'response':'application/json'},max_bytes=2_000_000)
+            {'uniprot':accession,'cutoff':10000,'response':'application/json'},
+            max_bytes=2_000_000)
         out.update(binding_quality(binding,accession))
-    except (httpx.HTTPError, ValueError, RuntimeError, json.JSONDecodeError) as e:
-        out['bindingdb_status']='ERROR_'+type(e).__name__
+    except (httpx.HTTPError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+        out['bindingdb_status']='ERROR_'+type(exc).__name__
     return out
 
 
@@ -530,7 +569,9 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
               ['gene_symbol','sample_stratum','local_uniprot_accession',
                'uniprot_accession','hgnc_id','mapping_status','local_registry_match',
                'chembl_status','chembl_target_id','chembl_activity_candidates_total',
-               'chembl_exact_assay_example_ids','bindingdb_status','bindingdb_records_parsed',
+               'chembl_exact_assay_example_ids','chembl_valid_sample_rows_n',
+               'chembl_completed_endpoints_json','chembl_request_errors_json',
+               'chembl_request_failure_count','bindingdb_status','bindingdb_records_parsed',
                'bindingdb_candidate_records','bindingdb_name_only_candidate_rows',
                'bindingdb_distinct_query_names_n','bindingdb_mixed_query_names',
                'bindingdb_query_name_examples_json','bindingdb_experiment_verified'])
@@ -543,8 +584,9 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
         raise RuntimeError('SOURCE_CHANGED_DURING_PILOT')
     strata={name:sum(r['sample_stratum']==name for r in selection)
             for name in [x[0] for x in QUOTAS]+['OTHER']}
-    verified=[r for r in external_rows if r.get('chembl_status')=='EXAMPLE_DIRECT_ASSAY_VERIFIED']
-    source_errors=[r for r in external_rows if strval(r.get('chembl_status')).startswith('ERROR_')
+    verified=[r for r in external_rows if strval(r.get('chembl_exact_assay_example_ids'))]
+    source_errors=[r for r in external_rows
+                   if int(strval(r.get('chembl_request_failure_count')) or 0)>0
                    or strval(r.get('bindingdb_status')).startswith('ERROR_')]
     summary={
         'contract':CONTRACT,'technical_status':'REVIEW_REQUIRED',
@@ -557,6 +599,11 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
         'mcl_uniprot_local_mapping_conflicts_n':sum(x['mapping_status']=='LOCAL_UNIPROT_CONFLICT' for x in mapped_all) if mapped_all else None,
         'sample_chembl_exact_assay_examples_n':len(verified),
         'sample_source_error_targets_n':len(source_errors),
+        'sample_chembl_partial_targets_n':sum(int(strval(r.get('chembl_request_failure_count')) or 0)>0
+                                                and int(strval(r.get('chembl_valid_sample_rows_n')) or 0)>0
+                                                for r in external_rows),
+        'sample_chembl_valid_rows_in_first_pages_n':sum(int(strval(r.get('chembl_valid_sample_rows_n')) or 0)
+                                                    for r in external_rows),
         'bindingdb_name_only_targets_n':sum(int(strval(r.get('bindingdb_name_only_candidate_rows')) or 0)>0 for r in external_rows),
         'bindingdb_name_only_chemical_rows_n':sum(int(strval(r.get('bindingdb_name_only_candidate_rows')) or 0) for r in external_rows),
         'bindingdb_mixed_query_name_targets_n':sum(istrue(r.get('bindingdb_mixed_query_names')) for r in external_rows),
@@ -582,6 +629,9 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
                    'detail':'UniProt response does not expose X-Total-Results; reviewed-human snapshot may need separate count validation'})
     if source_errors:
         qc.append({'severity':'REVIEW','code':'REMOTE_SOURCE_ERRORS','detail':str(len(source_errors))})
+    if summary['sample_chembl_partial_targets_n']:
+        qc.append({'severity':'REVIEW','code':'CHEMBL_PARTIAL_EVIDENCE_RETAINED',
+                   'detail':f"{summary['sample_chembl_partial_targets_n']} targets have numerically eligible cached ChEMBL rows but one or more endpoint/assay requests failed; partial is not a negative result"})
     if summary['bindingdb_name_only_targets_n']:
         qc.append({'severity':'REVIEW','code':'BINDINGDB_NAME_ONLY_TARGET_NOT_VERIFIED',
                    'detail':f"{summary['bindingdb_name_only_targets_n']} target responses include {summary['bindingdb_name_only_chemical_rows_n']} chemically eligible rows whose query is protein name, not independent UniProt/assay target identity; mixed names in {summary['bindingdb_mixed_query_name_targets_n']} responses"})
