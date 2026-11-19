@@ -396,3 +396,80 @@ def test_bindingdb_name_only_does_not_upgrade_direct_evidence():
     assert r['bindingdb_name_only_candidate_rows']==1
     assert r['bindingdb_candidate_records']==0
     assert r['bindingdb_experiment_verified'] is False
+
+
+def test_chembl_keeps_valid_assay_when_later_endpoint_http500(tmp_path):
+    def mock(req):
+        if req.url.path.endswith('/target.json'):
+            return httpx.Response(200,json=_target_doc())
+        if req.url.path.endswith('/activity.json'):
+            typ=req.url.params['standard_type']
+            if typ=='Kd':
+                return httpx.Response(500,json={'error':'temporary'})
+            return httpx.Response(200,json={
+                'activities':[_activity()] if typ=='Ki' else [],
+                'page_meta':{'total_count':1 if typ=='Ki' else 0}})
+        if req.url.path.endswith('/assay/CHEMBL123.json'):
+            return httpx.Response(200,json={'assay_type':'B','confidence_score':9,
+                                            'target_chembl_id':'CHEMBL331'})
+        if req.url.path.endswith('/getLigandsByUniprots'):
+            return httpx.Response(200,json={'items':[]})
+        return httpx.Response(404)
+    cl=ControlledClient(tmp_path,Limits(min_delay_s=0),transport=httpx.MockTransport(mock))
+    try:
+        result=probe_one(cl,'CDK4','P11802')
+        assert result['chembl_status']=='EXAMPLE_DIRECT_ASSAY_VERIFIED_PARTIAL'
+        assert result['chembl_valid_sample_rows_n']==1
+        assert result['chembl_activity_candidates_total']==1
+        assert result['chembl_request_failure_count']==1
+        assert json.loads(result['chembl_completed_endpoints_json'])==['Ki','IC50']
+        assert 'Kd:HTTPStatusError' in result['chembl_request_errors_json']
+        assert result['chembl_exact_assay_example_ids']
+    finally:
+        cl.close()
+
+
+def test_chembl_records_partial_activity_when_assay_api_fails(tmp_path):
+    def mock(req):
+        if req.url.path.endswith('/target.json'):
+            return httpx.Response(200,json=_target_doc())
+        if req.url.path.endswith('/activity.json'):
+            typ=req.url.params['standard_type']
+            return httpx.Response(200,json={
+                'activities':[_activity()] if typ=='Ki' else [],
+                'page_meta':{'total_count':1 if typ=='Ki' else 0}})
+        if '/assay/' in req.url.path:
+            return httpx.Response(500,json={'error':'outage'})
+        if req.url.path.endswith('/getLigandsByUniprots'):
+            return httpx.Response(200,json={'items':[]})
+        return httpx.Response(404)
+    cl=ControlledClient(tmp_path,Limits(min_delay_s=0),transport=httpx.MockTransport(mock))
+    try:
+        result=probe_one(cl,'CDK4','P11802')
+        assert result['chembl_status']=='PARTIAL_WITH_ERRORS'
+        assert result['chembl_valid_sample_rows_n']==1
+        assert result['chembl_activity_candidates_total']==1
+        assert result['chembl_request_failure_count']==1
+        assert not result['chembl_exact_assay_example_ids']
+    finally:
+        cl.close()
+
+
+def test_chembl_all_endpoint_errors_do_not_claim_zero_activity(tmp_path):
+    def mock(req):
+        if req.url.path.endswith('/target.json'):
+            return httpx.Response(200,json=_target_doc())
+        if req.url.path.endswith('/activity.json'):
+            return httpx.Response(503,json={'error':'temporary'})
+        if req.url.path.endswith('/getLigandsByUniprots'):
+            return httpx.Response(200,json={'items':[]})
+        return httpx.Response(404)
+    cl=ControlledClient(tmp_path,Limits(min_delay_s=0),transport=httpx.MockTransport(mock))
+    try:
+        result=probe_one(cl,'CDK4','P11802')
+        assert result['chembl_status']=='ERROR_ALL_ENDPOINTS'
+        assert result['chembl_request_failure_count']==3
+        assert result['chembl_activity_candidates_total']==''
+        assert result['chembl_valid_sample_rows_n']==0
+    finally:
+        cl.close()
