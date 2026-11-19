@@ -171,7 +171,8 @@ def test_missing_source_exposed_not_fabricated(mock_science,tmp_path):
 
 def test_t0_t1_t2_t3_t4_counts(mock_science,tmp_path):
     s,c=mock_science;r=audit(s,c,tmp_path/'report')
-    assert r['counts']['T4']==1
+    assert r['counts']['T3']==1
+    assert r['counts']['T4']==0  # linked source-compound/ModelID verification not yet available
     assert r['counts']['T0']>=r['counts']['T1']>=r['counts']['T2']>=r['counts']['T3']>=r['counts']['T4']
 
 
@@ -259,3 +260,42 @@ def test_atypical_axis_identifier_kept_in_inventory_and_flagged(mock_science,tmp
     assert 'EXPR+GENE' in set(report.gene_symbol)
     assert 'ATYPICAL_AXIS_GENE_IDENTIFIERS_PRESERVED' in set(qc.code)
     assert result['scientific_acceptance']=='NOT_APPROVED'
+
+
+def test_source_placeholder_retained_but_excluded_from_valid_gene_tier(mock_science,tmp_path):
+    s,c=mock_science
+    for key in ('expression_axes','copy_number_axes'):
+        axis=s/FILES[key]
+        axis.write_text(json.dumps({'genes':['CDK4','UNNAMED: 0']}))
+    result=audit(s,c,tmp_path/'report_placeholders')
+    universe=pd.read_csv(tmp_path/'report_placeholders'/'target_universe.tsv',sep='\t')
+    artifact=universe.loc[universe.gene_symbol.eq('UNNAMED: 0')].iloc[0]
+    qc=pd.read_csv(tmp_path/'report_placeholders'/'QC.tsv',sep='\t')
+    assert result['universe_entities_n']==4
+    assert result['valid_gene_candidates_n']==3
+    assert result['suspect_source_placeholders_n']==1
+    assert artifact['coverage_tier']=='EXCLUDED_SOURCE_PLACEHOLDER'
+    assert not bool(artifact['T0'])
+    assert 'SOURCE_PLACEHOLDER_EXCLUDED_FROM_GENE_COUNTS' in set(qc.code)
+
+
+def test_nonpriority_mapped_and_unresolved_reported_separately(mock_science,tmp_path):
+    s,c=mock_science
+    result=audit(s,c,tmp_path/'report_mapping')
+    assert result['filter_excluded_candidate_genes_n']==1
+    assert result['nonpriority_with_unique_mapping_n']==0
+    assert result['nonpriority_mapping_unresolved_n']==1
+
+
+def test_known_drug_context_is_not_assumed_to_be_verified_ligand_link(mock_science,tmp_path):
+    s,c=mock_science
+    result=audit(s,c,tmp_path/'report_drug')
+    universe=pd.read_csv(tmp_path/'report_drug'/'target_universe.tsv',sep='\t')
+    row=universe.loc[universe.gene_symbol.eq('CDK4')].iloc[0]
+    qc=pd.read_csv(tmp_path/'report_drug'/'QC.tsv',sep='\t')
+    assert result['counts']['T3']==1
+    assert result['counts']['T4']==0
+    assert bool(row['has_known_drug_activity_context'])
+    assert not bool(row['has_measured_known_drug_context'])
+    assert row['drug_source_id_linkage']=='NOT_VERIFIED'
+    assert 'T4_SOURCE_ID_LINKAGE_NOT_VERIFIED' in set(qc.code)
