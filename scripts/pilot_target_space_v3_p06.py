@@ -374,6 +374,8 @@ def probe_one(client: ControlledClient, gene: str, accession: str) -> dict:
             verified=[]
             for row in examples:
                 aid=strval(row.get('assay_chembl_id'))
+                if not re.fullmatch(r'CHEMBL[0-9]{1,12}', aid):
+                    continue  # never interpolate arbitrary provider text in URL paths
                 if aid in seen_assays or len(seen_assays)>=2:continue
                 seen_assays.add(aid)
                 assay=client.json(f'{CHEMBL_ASSAY}/{aid}.json',{},max_bytes=100_000)
