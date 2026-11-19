@@ -158,7 +158,7 @@ def test_chembl_duplicate_exact_targets_flagged():
 def _activity():
     return {'target_chembl_id':'CHEMBL331','standard_type':'Ki','standard_units':'nM',
             'standard_relation':'=','standard_value':'23','assay_type':'B',
-            'assay_chembl_id':'CHEMBL_A1','molecule_chembl_id':'CHEMBL_M1','activity_id':444}
+            'assay_chembl_id':'CHEMBL123','molecule_chembl_id':'CHEMBL_M1','activity_id':444}
 
 
 def test_activity_direct_candidate_strict_rules():
@@ -283,7 +283,7 @@ def test_full_mocked_external_pilot_and_provenance(p0,tmp_path):
             typ=request.url.params.get('standard_type','')
             return httpx.Response(200,json={'activities':[_activity()] if typ=='Ki' else [],
                                             'page_meta':{'total_count':1 if typ=='Ki' else 0}})
-        if path.endswith('/assay/CHEMBL_A1.json'):
+        if path.endswith('/assay/CHEMBL123.json'):
             return httpx.Response(200,json={'assay_type':'B','confidence_score':9,
                                             'target_chembl_id':'CHEMBL331'})
         if path.endswith('/getLigandsByUniprots'):
@@ -336,3 +336,25 @@ def test_bindingdb_smiles_alias_allowed_but_not_verified():
     row=binding_quality(doc,'P11802')
     assert row['bindingdb_candidate_records']==1
     assert not row['bindingdb_experiment_verified']
+
+
+def test_chembl_injected_assay_url_is_not_requested(tmp_path):
+    calls=[]
+    def mock(req):
+        calls.append(req.url.path)
+        if req.url.path.endswith('/target.json'):
+            return httpx.Response(200,json=_target_doc())
+        if req.url.path.endswith('/activity.json'):
+            row={**_activity(),'assay_chembl_id':'CHEMBL123/../../other'}
+            typ=req.url.params.get('standard_type','')
+            return httpx.Response(200,json={'activities':[row] if typ=='Ki' else [],
+                                            'page_meta':{'total_count':1 if typ=='Ki' else 0}})
+        if req.url.path.endswith('/getLigandsByUniprots'):
+            return httpx.Response(200,json={'items':[]})
+        return httpx.Response(404)
+    client=ControlledClient(tmp_path,Limits(min_delay_s=0),transport=httpx.MockTransport(mock))
+    try:
+        row=probe_one(client,'CDK4','P11802')
+        assert row['chembl_status']=='CANDIDATES_EXIST_NOT_INDEPENDENTLY_VERIFIED'
+        assert not any('/assay/' in x for x in calls)
+    finally:client.close()
