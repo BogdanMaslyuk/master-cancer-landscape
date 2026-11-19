@@ -273,7 +273,9 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
     def known_active(records:list[dict]) -> bool:
         return any(num(x.get('active_models_n')) is not None and num(x.get('active_models_n'))>0
                    for x in records)
-    universe = genes | biological | set(ligand_counts) | old_genes
+    # Keep gene IDs that occur in expression/CN only as T0 candidates.
+    # These do NOT constitute CRISPR dependency or a known molecular target.
+    universe = genes | biological | expr_genes | cn_genes | set(ligand_counts) | old_genes
     out_rows=[]; ligand_rows=[]; biology_rows=[]
     for g in sorted(universe):
         r=reg_by.get(g,[])
