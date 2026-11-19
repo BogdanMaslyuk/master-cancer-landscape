@@ -234,7 +234,7 @@ def test_axis_normalization_duplicate_still_fails(tmp_path):
         axes_genes(p)
 
 
-@pytest.mark.parametrize('bad_id',['', ' ', 'CDK4\\nEGFR'])
+@pytest.mark.parametrize('bad_id',['', ' ', 'CDK4\nEGFR'])
 def test_axis_rejects_empty_or_control_character_genes(tmp_path,bad_id):
     p=tmp_path/'expression.json'
     p.write_text(json.dumps({'genes':['EGFR',bad_id]}))
@@ -254,8 +254,8 @@ def test_atypical_axis_identifier_kept_in_inventory_and_flagged(mock_science,tmp
     p=s/FILES['expression_axes']
     p.write_text(json.dumps({'genes':['CDK4','EXPR+GENE']}))
     result=audit(s,c,tmp_path/'atypical')
-    report=pd.read_csv(tmp_path/'atypical'/'target_universe.tsv',sep='\\t')
-    qc=pd.read_csv(tmp_path/'atypical'/'QC.tsv',sep='\\t')
+    report=pd.read_csv(tmp_path/'atypical'/'target_universe.tsv',sep='\t')
+    qc=pd.read_csv(tmp_path/'atypical'/'QC.tsv',sep='\t')
     assert 'EXPR+GENE' in set(report.gene_symbol)
     assert 'ATYPICAL_AXIS_GENE_IDENTIFIERS_PRESERVED' in set(qc.code)
     assert result['scientific_acceptance']=='NOT_APPROVED'
