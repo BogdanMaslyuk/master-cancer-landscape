@@ -103,16 +103,40 @@ def load_frame(path: Path | None, required: tuple[str, ...] = ()) -> pd.DataFram
 
 
 def axes_genes(path: Path | None) -> set[str]:
+    """Use the gene-axis identity contract already validated by AC-02.
+
+    Some legitimate source labels need not satisfy GENE_RE for display names.
+    Never silently drop them from measured CRISPR/expression/CN coverage.
+    """
     if path is None:
         return set()
     val = json.loads(path.read_text(encoding='utf-8-sig'))
     seq = val.get('genes')
-    if not isinstance(seq, list):
-        raise ValueError(f'{path.name}: genes axis missing')
-    cleaned = [gene(x) for x in seq]
-    if any(not x for x in cleaned) or len(set(cleaned)) != len(cleaned):
-        raise ValueError(f'{path.name}: invalid gene axis')
+    if not isinstance(seq, list) or not seq:
+        raise ValueError(f'{path.name}: genes axis missing or empty')
+    if any(not isinstance(x, str) for x in seq):
+        raise ValueError(f'{path.name}: non-string gene identifier in axis')
+    cleaned = [x.strip().upper() for x in seq]
+    blank = [i for i, x in enumerate(cleaned) if not x]
+    if blank:
+        raise ValueError(f'{path.name}: blank gene axis entries at {blank[:10]}')
+    repeated = sorted(x for x, n in Counter(cleaned).items() if n > 1)
+    if repeated:
+        raise ValueError(f'{path.name}: duplicated gene identifiers: {repeated[:10]}')
+    controls = [i for i, x in enumerate(cleaned)
+                if any(ord(ch) < 32 or ord(ch) == 127 for ch in x)]
+    if controls:
+        raise ValueError(f'{path.name}: control characters in axis at {controls[:10]}')
     return set(cleaned)
+
+
+def axis_nonstandard_genes(path: Path | None) -> list[str]:
+    """Preserve atypical source identifiers while reporting them to QC."""
+    if path is None:
+        return []
+    raw = json.loads(path.read_text(encoding='utf-8-sig'))['genes']
+    return sorted({x.strip().upper() for x in raw
+                   if not GENE_RE.fullmatch(x.strip().upper())})
 
 
 def validate_output(out: Path, roots: list[Path]) -> None:
@@ -199,6 +223,14 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
     crispr_genes = axes_genes(paths['gene_effect_axes']) if paths['gene_effect_axes'] else set()
     expr_genes = axes_genes(paths['expression_axes']) if paths['expression_axes'] else set()
     cn_genes = axes_genes(paths['copy_number_axes']) if paths['copy_number_axes'] else set()
+    for layer in ('gene_effect_axes', 'expression_axes', 'copy_number_axes'):
+        if paths[layer] is None:
+            continue
+        atypical = axis_nonstandard_genes(paths[layer])
+        if atypical:
+            qc.append({'severity':'REVIEW', 'component':layer,
+                       'code':'ATYPICAL_AXIS_GENE_IDENTIFIERS_PRESERVED',
+                       'detail':f'{len(atypical)} nonstandard symbols retained verbatim; examples: {atypical[:8]}'})
     summary_genes = {gene(x) for x in deps.get('gene_symbol', pd.Series(dtype=str))}
     summary_genes.discard('')
     biological = crispr_genes | summary_genes
