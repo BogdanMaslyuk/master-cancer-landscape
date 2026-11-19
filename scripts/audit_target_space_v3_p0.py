@@ -39,6 +39,7 @@ FILES = {
 }
 GENE_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
 ENDPOINTS = {'Ki', 'Kd', 'IC50'}
+SOURCE_PLACEHOLDER_RE = re.compile(r'^UNNAMED:\s*\d+$', re.I)
 OUTPUTS = ('target_universe.parquet', 'target_universe.tsv', 'ligand_coverage.tsv',
            'biology_coverage.tsv', 'mapping_issues.tsv', 'filter_loss_audit.tsv',
            'source_manifest.json', 'coverage_summary.json', 'TLS_V3_P0_REPORT_RU.md', 'QC.tsv')
@@ -152,12 +153,13 @@ def evaluate_coverage(rows: pd.DataFrame, measurements: pd.DataFrame,
                       known_drugs: pd.DataFrame) -> pd.DataFrame:
     """Keep absent/unknown distinct and never synthesize target potency."""
     out = rows.copy()
-    out['T0'] = True
-    out['T1'] = out['protein_unique_reviewed_human'].astype(bool)
+    out['T0'] = ~out.get('source_artifact', pd.Series(False, index=out.index)).astype(bool)
+    out['T1'] = out['T0'] & out['protein_unique_reviewed_human'].astype(bool)
     out['T2'] = out['T1'] & out['has_direct_ligand'].astype(bool)
     out['T3'] = out['T2'] & out['has_crispr'].astype(bool)
     out['T4'] = out['T3'] & out['has_measured_known_drug_context'].astype(bool)
-    out['coverage_tier'] = out.apply(lambda r: 'T4' if r['T4'] else 'T3' if r['T3']
+    out['coverage_tier'] = out.apply(lambda r: 'EXCLUDED_SOURCE_PLACEHOLDER' if not r['T0'] else
+                                     'T4' if r['T4'] else 'T3' if r['T3']
                                      else 'T2' if r['T2'] else 'T1' if r['T1'] else 'T0', axis=1)
     return out
 
@@ -292,14 +294,23 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
         known=candidate_by.get(g,[])
         pathA=g in biological;pathB=g in meas_stats and stats['eligible_direct']>0;pathC=g in old_genes
         knownctx=known_active(known)
+        source_artifact=bool(SOURCE_PLACEHOLDER_RE.fullmatch(g))
+        if source_artifact:
+            issues.append({'source':'runtime_gene_axes','row':None,'gene_symbol':g,
+                           'issue':'SUSPECT_CSV_INDEX_HEADER_NOT_A_GENE'})
+        # Reference activity summary is not an independently verified
+        # source-compound/ModelID link to the same eligible target ligand.
+        linked_drug_context=False
         panel_coverage= 'CHECKED_OLD_PANEL' if g in old_genes else 'NOT_ASSESSED_OUTSIDE_OLD_PANEL'
-        base={'gene_symbol':g,'hgnc_id':text(good[0].get('hgnc_id')) if unique else '',
+        base={'gene_symbol':g,'source_artifact':source_artifact,'hgnc_id':text(good[0].get('hgnc_id')) if unique else '',
               'uniprot_accession':accession,'protein_mapping_status':
                'unique_swissprot' if unique else 'unresolved_or_not_in_local_registry',
               'protein_unique_reviewed_human':unique,'path_A':pathA,'path_B':pathB,'path_C':pathC,
               'has_crispr':g in crispr_genes,'has_expression':g in expr_genes,
               'has_copy_number':g in cn_genes,'has_direct_ligand':present_ligand,
-              'has_measured_known_drug_context':knownctx,
+              'has_measured_known_drug_context':linked_drug_context,
+              'has_known_drug_activity_context':knownctx,
+              'drug_source_id_linkage':'NOT_VERIFIED' if knownctx else 'NO_ACTIVE_REFERENCE_CONTEXT',
               'ligand_evidence_scope':panel_coverage,
               'missing_ligand_is_negative':False,
               'candidate_v2_any_status':bool(known),
@@ -316,9 +327,19 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
                              'dependency_summary_available':g in summary_genes,
                              'expression_available':g in expr_genes,'copy_number_available':g in cn_genes,
                              'candidate_v2_context_available':bool(known),
-                             'known_drug_active_context':knownctx})
+                             'known_drug_active_context':knownctx,
+                             'drug_source_id_linkage_verified':linked_drug_context})
     print(f'[TLS V3/P0] Universe rows: {len(out_rows)}; building coverage and filter audit', flush=True)
     universe_df=evaluate_coverage(pd.DataFrame(out_rows),ms,candidates)
+    source_artifacts=sorted(g for g in universe if SOURCE_PLACEHOLDER_RE.fullmatch(g))
+    if source_artifacts:
+        qc.append({'severity':'REVIEW','component':'gene_universe',
+                   'code':'SOURCE_PLACEHOLDER_EXCLUDED_FROM_GENE_COUNTS',
+                   'detail':f'{len(source_artifacts)} source index artifacts retained as excluded records: {source_artifacts[:8]}'})
+    if any(row['has_known_drug_activity_context'] for row in out_rows):
+        qc.append({'severity':'REVIEW','component':'known_drug_context',
+                   'code':'T4_SOURCE_ID_LINKAGE_NOT_VERIFIED',
+                   'detail':'Candidate v2 active-model summaries have not been independently linked by source compound ID and ModelID to eligible ligand measurements in this P0 audit.'})
     # Audit the non-causal selection funnel separately: observed exclusion vs.
     # inferred selection bias, never assuming unseen ligands are absent.
     losses=[]
@@ -328,6 +349,8 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
     for g in sorted(universe):
         r=indexed_universe.loc[g]
         losses.append({'gene_symbol':g,'in_old_13':bool(r['path_C']),
+                       'protein_unique_reviewed_human':bool(r['protein_unique_reviewed_human']),
+                       'nonpriority_with_unique_mapping':bool(r['candidate_v2_any_status']) and not bool(r['candidate_v2_priority']) and bool(r['protein_unique_reviewed_human']),
                        'in_candidate_v2':bool(r['candidate_v2_any_status']),
                        'priority_for_in_vitro':bool(r['candidate_v2_priority']),
                        'known_direct_ligand_locally':bool(r['has_direct_ligand']),
@@ -364,6 +387,8 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
              'full_chembl_bindingdb_coverage':'NOT_ASSESSED',
              'depmap_release_declared':sorted(release_claims),
              'universe_genes_n':len(genes),'universe_entities_n':len(universe),
+              'valid_gene_candidates_n':int(universe_df['T0'].sum()),
+              'suspect_source_placeholders_n':len(source_artifacts),
              'panel_genes_n':len(old_genes),'own_compounds_n':len(pyz),
              'existing_matrix_rows_n':len(old_matrix),
              'counts':{f'T{i}':int(universe_df[f'T{i}'].sum()) for i in range(5)},
@@ -371,6 +396,9 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
              'with_local_direct_ligand_n':int(universe_df['has_direct_ligand'].sum()),
              'outside_panel_not_assessed_n':int((~universe_df['path_C']).sum()),
              'filter_excluded_candidate_genes_n':sum(x['gene_not_eligible_due_to_priority_filter'] for x in losses),
+              'nonpriority_with_unique_mapping_n':sum(x['nonpriority_with_unique_mapping'] for x in losses),
+              'nonpriority_mapping_unresolved_n':sum(x['gene_not_eligible_due_to_priority_filter'] and not x['protein_unique_reviewed_human'] for x in losses),
+              'known_drug_active_context_unverified_n':sum(row['has_known_drug_activity_context'] for row in out_rows),
              'recommendation':'P1_NO_AUTOMATIC_GO: review identity gaps and acquire complete licensed ChEMBL/BindingDB source snapshots before setting new target count',
              'read_only':True,'evidence_limitations':[
                  'Local ligand collection is restricted to previous target panel; not entire ChEMBL/BindingDB.',
@@ -397,14 +425,15 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
 ## Наблюдения
 
 - Генов в исходном каталоге: **{len(genes)}**.
-- Уникальных кандидатов (гены ∪ локальные мишени): **{len(universe)}**.
+- Строк в объединении источников: **{len(universe)}**; валидных кандидатных генных записей: **{summary['valid_gene_candidates_n']}**; подозрительных служебных заголовков: **{summary['suspect_source_placeholders_n']}**.
 - Старых мишеней из карты: **{len(old_genes)}**.
 - PYZ в реестре: **{len(pyz)}**; строк действующей матрицы: **{len(old_matrix)}**.
 - Локальные классы покрытия: {', '.join(f'T{i}: {summary['counts'][f'T{i}']}' for i in range(5))}.
 - CRISPR Gene Effect: **{summary['with_crispr_n']}** генов.
 - Локальные прямые лигандные данные: **{summary['with_local_direct_ligand_n']}** мишеней.
 - Вне старой панели: **{summary['outside_panel_not_assessed_n']}** генов/кандидатов; лигандные данные НЕ оценены.
-- Отобраны фильтром Candidate v2 без статуса priority_for_in_vitro: **{summary['filter_excluded_candidate_genes_n']}** кандидатов (если данные доступны).
+- Без приоритетного статуса Candidate v2: **{summary['filter_excluded_candidate_genes_n']}** кандидатов; из них **{summary['nonpriority_with_unique_mapping_n']}** с однозначным белковым соответствием и **{summary['nonpriority_mapping_unresolved_n']}** без такого соответствия. Это не подтверждение наличия пригодных лигандов.
+- Фармакологический контекст известных препаратов присутствует для **{summary['known_drug_active_context_unverified_n']}** генов, но P0 не подтвердил сквозную связь с конкретными лигандами/ModelID; уровень T4 до такой проверки не присваивается.
 - Заявленный релиз DepMap в локальной инвентаризации: {', '.join(sorted(release_claims)) or 'НЕ ИЗВЕСТЕН'}.
 
 ## Научные ограничения
