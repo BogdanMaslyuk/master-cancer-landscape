@@ -18,10 +18,19 @@ jobs:
           python -m pip install "pip==26.2.1"
           python -m pip install -c constraints/python-3.13.txt -e ".[dev,analysis]" -e "./apps/api[dev]"
           python -m pip check
+      - name: Windows PowerShell 5.1 UTF-8 BOM compatibility
+        shell: pwsh
+        run: |
+          $path = "scripts/run-target-space-v3-p06.ps1"
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path).Path)
+          if ($bytes.Length -lt 3 -or $bytes[0] -ne 239 -or $bytes[1] -ne 187 -or $bytes[2] -ne 191) {
+            throw "$path must have a UTF-8 BOM because Windows PowerShell 5.1 otherwise misparses Cyrillic characters"
+          }
+          Write-Host "PowerShell 5.1 script encoding: PASS"
       - name: PowerShell control syntax
         shell: pwsh
         run: |
-          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1", "scripts/run-pyz-e0.ps1", "scripts/run-pyz-e0-closeout.ps1", "scripts/run-pyz-e0-acceptance-gate.ps1", "scripts/run-pyz-e0-ac05-browser.ps1", "scripts/run-pyz-e0-ac02.ps1", "scripts/run-target-space-v3-p0.ps1")
+          $scripts = @("scripts/dev-service.ps1", "scripts/dev-control.ps1", "scripts/dev-diagnostics.ps1", "scripts/run-pyz-e0.ps1", "scripts/run-pyz-e0-closeout.ps1", "scripts/run-pyz-e0-acceptance-gate.ps1", "scripts/run-pyz-e0-ac05-browser.ps1", "scripts/run-pyz-e0-ac02.ps1", "scripts/run-target-space-v3-p0.ps1", "scripts/run-target-space-v3-p06.ps1")
           foreach ($path in $scripts) {
             $tokens = $null
             $parseErrors = $null
