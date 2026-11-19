@@ -155,6 +155,7 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
         source_manifest.append({'name': key, 'path': str(p) if p else None,
                                 'present': p is not None, 'bytes': p.stat().st_size if p else None,
                                 'sha256': hash_file(p) if p else None})
+    print(f'[TLS V3/P0] Sources: {sum(p is not None for p in paths.values())}/{len(paths)} found; reading local tables', flush=True)
     # No inference of unknown protein mapping: local registry is restricted to
     # previous pharmacology targets and has no complete proteome coverage.
     catalog = load_frame(paths['gene_catalog'], ('gene_symbol',))
@@ -282,12 +283,16 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
                              'expression_available':g in expr_genes,'copy_number_available':g in cn_genes,
                              'candidate_v2_context_available':bool(known),
                              'known_drug_active_context':knownctx})
+    print(f'[TLS V3/P0] Universe rows: {len(out_rows)}; building coverage and filter audit', flush=True)
     universe_df=evaluate_coverage(pd.DataFrame(out_rows),ms,candidates)
     # Audit the non-causal selection funnel separately: observed exclusion vs.
     # inferred selection bias, never assuming unseen ligands are absent.
     losses=[]
+    # Index once: filtering a 20,000-row dataframe separately for each gene
+    # is quadratic and can make a real local run unnecessarily expensive.
+    indexed_universe=universe_df.set_index('gene_symbol',verify_integrity=True)
     for g in sorted(universe):
-        r=universe_df.loc[universe_df['gene_symbol'].eq(g)].iloc[0]
+        r=indexed_universe.loc[g]
         losses.append({'gene_symbol':g,'in_old_13':bool(r['path_C']),
                        'in_candidate_v2':bool(r['candidate_v2_any_status']),
                        'priority_for_in_vitro':bool(r['candidate_v2_priority']),
@@ -338,6 +343,7 @@ def audit(science_root: Path, reference_root: Path, out: Path, *,
                  'Missing evidence outside panel is NOT an inactive target.',
                  'CRISPR knockout does not establish target engagement or efficacy of PYZ.',
                  'The local registry covers pharmacology-linked targets, not the entire human proteome.']}
+    print(f'[TLS V3/P0] Writing report tables to: {out}', flush=True)
     out.mkdir(parents=True,exist_ok=False)
     universe_df.to_parquet(out/'target_universe.parquet',index=False)
     universe_df.to_csv(out/'target_universe.tsv',sep='\t',index=False)
