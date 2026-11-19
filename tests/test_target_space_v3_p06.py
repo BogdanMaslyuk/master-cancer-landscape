@@ -358,3 +358,41 @@ def test_chembl_injected_assay_url_is_not_requested(tmp_path):
         assert row['chembl_status']=='CANDIDATES_EXIST_NOT_INDEPENDENTLY_VERIFIED'
         assert not any('/assay/' in x for x in calls)
     finally:client.close()
+
+def test_bindingdb_real_provider_name_only_fields_are_not_direct_accession_evidence():
+    """BindingDB can return different proteins under one requested UniProt."""
+    doc={'getLindsByUniprotsResponse':{'affinities':[
+        {'query':'Protein farnesyltransferase subunit beta',
+         'affinity_type':'Kd','affinity':'475','smile':'CCO','monomerid':'1'},
+        {'query':'Protein farnesyltransferase/geranylgeranyltransferase type-1 subunit alpha',
+         'affinity_type':'IC50','affinity':'8.9','smile':'CCN','monomerid':'2'},
+        {'query':'Protein farnesyltransferase subunit beta',
+         'affinity_type':'IC50','affinity':'>30000','smile':'CCC','monomerid':'3'}
+    ]}}
+    r=binding_quality(doc,'P49356')
+    assert r['bindingdb_records_parsed']==3
+    assert r['bindingdb_name_only_candidate_rows']==2
+    assert r['bindingdb_distinct_query_names_n']==2
+    assert r['bindingdb_mixed_query_names'] is True
+    assert r['bindingdb_candidate_records']==0
+    assert r['bindingdb_status']=='NAME_ONLY_EVIDENCE_TARGET_UNVERIFIED'
+    assert r['bindingdb_experiment_verified'] is False
+
+
+def test_bindingdb_explicit_wrong_accession_is_not_name_only_evidence():
+    doc={'x':[{'query':'Protein X','uniprot':'P99999',
+               'affinity_type':'Ki','affinity':'15',
+               'smile':'CCO'}]}
+    r=binding_quality(doc,'P11802')
+    assert r['bindingdb_candidate_records']==0
+    assert r['bindingdb_name_only_candidate_rows']==0
+
+
+def test_bindingdb_name_only_does_not_upgrade_direct_evidence():
+    doc={'x':[{'query':'Receptor tyrosine-protein kinase erbB-3',
+               'affinity_type':'IC50','affinity':'10',
+               'smile':'CCO','doi':'10.1000/example'}]}
+    r=binding_quality(doc,'P21860')
+    assert r['bindingdb_name_only_candidate_rows']==1
+    assert r['bindingdb_candidate_records']==0
+    assert r['bindingdb_experiment_verified'] is False
