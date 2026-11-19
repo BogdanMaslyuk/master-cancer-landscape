@@ -317,34 +317,70 @@ def read_binding_records(payload: dict) -> list[dict]:
 
 
 def binding_quality(payload: dict, accession: str) -> dict:
+    """Separate observed chemistry from independently verified protein identity.
+
+    BindingDB getLigandsByUniprots normally returns the *protein name* in
+    \`query\` (not a UniProt accession), sometimes including rows of other
+    proteins. Name-only rows are candidates for source inspection, NEVER
+    validated direct target measurements or proof of target engagement.
+    """
     records=read_binding_records(payload)
+    empty={'bindingdb_records_parsed':len(records),
+           'bindingdb_candidate_records':0,
+           'bindingdb_name_only_candidate_rows':0,
+           'bindingdb_distinct_query_names_n':0,
+           'bindingdb_mixed_query_names':False,
+           'bindingdb_query_name_examples_json':'[]',
+           'bindingdb_experiment_verified':False}
     if not records:
-        return {'bindingdb_status':'NO_PARSEABLE_RECORDS_OR_EMPTY','bindingdb_records_parsed':0,
-                'bindingdb_candidate_records':0, 'bindingdb_experiment_verified':False}
+        return {'bindingdb_status':'NO_PARSEABLE_RECORDS_OR_EMPTY', **empty}
     candidates=0
+    name_only=0
+    names=set()
     for r in records:
         fields={re.sub('[^a-z0-9]','',k.lower()):strval(v) for k,v in r.items()}
         def val(suffix):
             return next((v for k,v in fields.items() if k.endswith(suffix)), '')
+        query_name=val('query')
+        if query_name:
+            names.add(query_name)
         endpoint=val('affinitytype').upper()
-        if endpoint not in {'KI','KD','IC50'}: continue
+        if endpoint not in {'KI','KD','IC50'}:continue
         raw=val('affinity').replace(',','')
         m=re.fullmatch(r'\s*(<=|>=|<|>|=)?\s*(\d+(?:\.\d+)?)\s*',raw)
-        if not m or not (0 < float(m[2]) <= 10000): continue
+        if not m or not (0<float(m[2])<=10000):continue
         if m[1] not in (None,'=','<','<='):continue
-        declared=val('uniprot') or val('query')
-        seen=set(re.findall(r'\b(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9][A-Z0-9]{3}[0-9])\b',declared.upper()))
-        if not seen or seen!={accession}: continue # fail closed without exact reported target
-        if val('smile') or val('smiles'): candidates+=1
-    return {'bindingdb_status':'CANDIDATE_ROWS_NEED_SOURCE_ASSAY_REVIEW' if candidates else 'NO_STRICT_CANDIDATES_IN_RESPONSE',
-            'bindingdb_records_parsed':len(records), 'bindingdb_candidate_records':candidates,
-            'bindingdb_experiment_verified':False}
+        if not (val('smile') or val('smiles')):continue
+        declared=val('uniprot') or query_name
+        seen=set(re.findall(
+            r'\b(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9][A-Z0-9]{3}[0-9])\b',
+            declared.upper()))
+        if seen == {accession}:
+            candidates+=1
+        elif not seen and query_name:
+            # Do not silently equate a protein-name field to UniProt.
+            name_only+=1
+        # Any different explicitly reported accession is excluded completely.
+    if candidates:
+        status='CANDIDATE_ROWS_NEED_SOURCE_ASSAY_REVIEW'
+    elif name_only:
+        status='NAME_ONLY_EVIDENCE_TARGET_UNVERIFIED'
+    else:
+        status='NO_ELIGIBLE_CHEMICAL_ROWS'
+    return {**empty,'bindingdb_status':status,
+            'bindingdb_candidate_records':candidates,
+            'bindingdb_name_only_candidate_rows':name_only,
+            'bindingdb_distinct_query_names_n':len(names),
+            'bindingdb_mixed_query_names':len(names)>1,
+            'bindingdb_query_name_examples_json':json.dumps(sorted(names)[:5],ensure_ascii=False)}
 
 
 def probe_one(client: ControlledClient, gene: str, accession: str) -> dict:
     out={'chembl_status':'NOT_QUERIED','chembl_target_id':'','chembl_activity_candidates_total':'',
          'chembl_exact_assay_example_ids':'','bindingdb_status':'NOT_QUERIED',
          'bindingdb_records_parsed':'','bindingdb_candidate_records':'',
+         'bindingdb_name_only_candidate_rows':'','bindingdb_distinct_query_names_n':'',
+         'bindingdb_mixed_query_names':False,'bindingdb_query_name_examples_json':'[]',
          'bindingdb_experiment_verified':False}
     if not accession:
         out['chembl_status']=out['bindingdb_status']='MAPPING_NOT_RESOLVED'
@@ -495,7 +531,9 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
                'uniprot_accession','hgnc_id','mapping_status','local_registry_match',
                'chembl_status','chembl_target_id','chembl_activity_candidates_total',
                'chembl_exact_assay_example_ids','bindingdb_status','bindingdb_records_parsed',
-               'bindingdb_candidate_records','bindingdb_experiment_verified'])
+               'bindingdb_candidate_records','bindingdb_name_only_candidate_rows',
+               'bindingdb_distinct_query_names_n','bindingdb_mixed_query_names',
+               'bindingdb_query_name_examples_json','bindingdb_experiment_verified'])
     write_tsv(out/'p06_mapping_issues.tsv',problems,['gene_symbol','source','issue','detail'])
     write_tsv(out/'p06_requests.tsv',request_rows,
               ['url','requested_at_utc','http_status','response_bytes','response_sha256','result',
@@ -519,6 +557,9 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
         'mcl_uniprot_local_mapping_conflicts_n':sum(x['mapping_status']=='LOCAL_UNIPROT_CONFLICT' for x in mapped_all) if mapped_all else None,
         'sample_chembl_exact_assay_examples_n':len(verified),
         'sample_source_error_targets_n':len(source_errors),
+        'bindingdb_name_only_targets_n':sum(int(strval(r.get('bindingdb_name_only_candidate_rows')) or 0)>0 for r in external_rows),
+        'bindingdb_name_only_chemical_rows_n':sum(int(strval(r.get('bindingdb_name_only_candidate_rows')) or 0) for r in external_rows),
+        'bindingdb_mixed_query_name_targets_n':sum(istrue(r.get('bindingdb_mixed_query_names')) for r in external_rows),
         'requests_n':len(request_rows),'sample_not_proteome_estimate':True,
         'old_panel_preserved':True,'source_p0_sha256_before_after':before,
         'target_pyz_binding_established':False,
@@ -541,6 +582,9 @@ def run(p0: Path, out: Path, *, enable_external_pilot: bool=False,
                    'detail':'UniProt response does not expose X-Total-Results; reviewed-human snapshot may need separate count validation'})
     if source_errors:
         qc.append({'severity':'REVIEW','code':'REMOTE_SOURCE_ERRORS','detail':str(len(source_errors))})
+    if summary['bindingdb_name_only_targets_n']:
+        qc.append({'severity':'REVIEW','code':'BINDINGDB_NAME_ONLY_TARGET_NOT_VERIFIED',
+                   'detail':f"{summary['bindingdb_name_only_targets_n']} target responses include {summary['bindingdb_name_only_chemical_rows_n']} chemically eligible rows whose query is protein name, not independent UniProt/assay target identity; mixed names in {summary['bindingdb_mixed_query_name_targets_n']} responses"})
     qc.append({'severity':'REVIEW','code':'BINDINGDB_DIRECTNESS_NOT_VERIFIED','detail':'Candidate rows only; no full assay verification'})
     write_tsv(out/'p06_QC.tsv',qc,['severity','code','detail'])
     text=f'''# TLS V3 / P0.6 — проверка расширяемости пространства мишеней\n\n**Режим:** {summary['external_mode']}. **Научная приёмка:** NOT_APPROVED. **Слияние:** запрещено.\n\n- Проверено в стратифицированной выборке: **{len(selection)}** генов; структура: {strata}.\n- Снимок reviewed human UniProt: **{snapshot_meta['status']}**; записей: **{snapshot_meta.get('entries_n')}**.\n- Точные reviewed human UniProt + HGNC сопоставления со всем генным каталогом MCL: **{summary.get('mcl_exact_reviewed_with_hgnc_n')}**; конфликтов с локальным UniProt: **{summary.get('mcl_uniprot_local_mapping_conflicts_n')}**. Это идентификация, не доказательство лекарственной пригодности.
