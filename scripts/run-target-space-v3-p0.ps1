@@ -43,8 +43,25 @@ $PythonArgs = @(
     '--reference-root', $ReferenceRoot,
     '--out', $Out, '--offline', '--release-snapshot', $ReleaseSnapshot
 )
-& $Python @PythonArgs
-if ($LASTEXITCODE -ne 0) { throw "Inventory failed with exit code $LASTEXITCODE" }
+# Capture the *original Python exception* even in Windows PowerShell 5.1.
+# Native stderr can become a PowerShell error record if ErrorActionPreference=Stop,
+# so temporarily disable terminating on STDERR while preserving Python exit code.
+$Log = Join-Path $Parent ("TLS_V3_P0_DIAGNOSTIC_${Stamp}_${GitCommit}.log")
+$OriginalErrorActionPreference = $ErrorActionPreference
+$PythonExitCode = 1
+try {
+    $ErrorActionPreference = 'Continue'
+    & $Python @PythonArgs 2>&1 | Tee-Object -FilePath $Log
+    $PythonExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $OriginalErrorActionPreference
+}
+if ($PythonExitCode -ne 0) {
+    Write-Host "Python error log: $Log" -ForegroundColor Yellow
+    Write-Host '=== LAST 90 LINES OF ORIGINAL PYTHON OUTPUT ===' -ForegroundColor Red
+    Get-Content -LiteralPath $Log -Tail 90 | Out-Host
+    throw "Inventory failed with exit code $PythonExitCode; see the Python error log above"
+}
 Compress-Archive -Path (Join-Path $Out '*') -DestinationPath $Zip -CompressionLevel Optimal
 if (-not (Test-Path -LiteralPath $Zip -PathType Leaf)) { throw 'Report archive not created' }
 Write-Host "Report folder: $Out" -ForegroundColor Green
