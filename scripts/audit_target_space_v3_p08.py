@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-CONTRACT = 'mcl-tls-v3-p08-local-source-validation-v1'
+CONTRACT = 'mcl-tls-v3-p08-local-source-validation-v2'
 P0_CONTRACT = 'mcl-tls-v3-p0-inventory-v1'
 P06_CONTRACT = 'mcl-tls-v3-p06-target-coverage-pilot-v1'
 P07_CONTRACT = 'mcl-tls-v3-p07-source-reliability-v1'
@@ -45,6 +45,7 @@ OBS_CHEMBL = ['gene_symbol','uniprot_accession','chembl_target_id','activity_id'
               'document_chembl_id','doi','pmid','measurement_value_status','evidence_status',
               'primary_experiment_review_status','cross_source_potential_duplicate','scientific_acceptance']
 OBS_BINDING = ['gene_symbol','uniprot_accession','source_row','bindingdb_reactant_set_id','bindingdb_monomer_id',
+               'source_row_field_count','expected_field_count','source_row_width_status',
                'raw_chain_accessions','all_chain_accessions','populated_chain_count','declared_chain_count',
                'target_name','organism',
                'raw_ki_nm','raw_kd_nm','raw_ic50_nm','endpoint','raw_value_nm','relation','numeric_value_nm',
@@ -57,21 +58,33 @@ CHEMBL_COVERAGE = ['gene_symbol','status','target_matches','candidate_rows','row
                    'species_missing_objects_n','species_mismatch_objects_n','doi_records_n','pmid_records_n',
                    'primary_experiment_review_records_n','curator_potential_duplicate_records_n',
                    'rows_truncated_n','truncated']
-BINDING_COVERAGE = ['gene_symbol','status','chain_match_rows','single_chain_objects_n','multi_chain_objects_n',
-                    'unknown_chain_count_objects_n','species_missing_objects_n','species_mismatch_objects_n',
-                    'exact_numeric_n','censored_n','doi_records_n','pmid_records_n',
-                    'primary_experiment_review_records_n','rows_retained','rows_over_limit','rows_invalid',
-                    'rows_truncated_n','truncated']
+BINDING_COVERAGE = ['gene_symbol','status','source_rows_matching_accession_n',
+                    'source_rows_expected_width_n','source_rows_short_padded_n',
+                    'source_rows_single_chain_object_n','source_rows_multi_chain_object_n',
+                    'source_rows_unknown_chain_count_n','source_rows_human_species_n',
+                    'source_rows_species_missing_n','source_rows_species_mismatch_n',
+                    'source_rows_single_chain_human_n','source_rows_with_doi_n','source_rows_with_pmid_n',
+                    'source_rows_primary_experiment_review_required_n','measurement_values_nonempty_n',
+                    'measurement_observations_retained_n','retained_exact_numeric_measurements_n',
+                    'retained_censored_measurements_n','retained_invalid_measurements_n',
+                    'measurement_observations_over_limit_n','measurement_observations_truncated_n','truncated']
 TARGET_EVIDENCE = ['gene_symbol','uniprot_accession','chembl_status','chembl_exact_numeric_n',
                    'chembl_censored_n','chembl_single_component_protein_objects_n',
                    'chembl_multi_component_protein_objects_n','chembl_species_missing_objects_n',
                    'chembl_species_mismatch_objects_n','chembl_doi_records_n','chembl_pmid_records_n',
                    'chembl_primary_experiment_review_records_n','chembl_curator_potential_duplicate_records_n',
-                   'chembl_rows_truncated_n','bindingdb_status','bindingdb_exact_numeric_n',
-                   'bindingdb_censored_n','bindingdb_single_chain_objects_n','bindingdb_multi_chain_objects_n',
-                   'bindingdb_unknown_chain_count_objects_n','bindingdb_species_missing_objects_n',
-                   'bindingdb_species_mismatch_objects_n','bindingdb_doi_records_n','bindingdb_pmid_records_n',
-                   'bindingdb_primary_experiment_review_records_n','bindingdb_rows_truncated_n',
+                   'chembl_rows_truncated_n','bindingdb_status','bindingdb_source_rows_matching_accession_n',
+                   'bindingdb_source_rows_expected_width_n','bindingdb_source_rows_short_padded_n',
+                   'bindingdb_source_rows_single_chain_object_n','bindingdb_source_rows_multi_chain_object_n',
+                   'bindingdb_source_rows_unknown_chain_count_n','bindingdb_source_rows_human_species_n',
+                   'bindingdb_source_rows_species_missing_n','bindingdb_source_rows_species_mismatch_n',
+                   'bindingdb_source_rows_single_chain_human_n','bindingdb_source_rows_with_doi_n',
+                   'bindingdb_source_rows_with_pmid_n',
+                   'bindingdb_source_rows_primary_experiment_review_required_n',
+                   'bindingdb_measurement_values_nonempty_n','bindingdb_measurement_observations_retained_n',
+                   'bindingdb_retained_exact_numeric_measurements_n',
+                   'bindingdb_retained_censored_measurements_n','bindingdb_retained_invalid_measurements_n',
+                   'bindingdb_measurement_observations_truncated_n',
                    'cross_source_duplicate_status','cross_source_potential_duplicate_pairs_n']
 
 
@@ -350,10 +363,13 @@ def single_header(header:list[str],name:str,required:bool=True) -> int|None:
 
 def bindingdb_local(path:Path,panel:list[dict],max_rows:int) -> tuple[list[dict],list[dict],dict]:
     accessions={x['uniprot_accession']:x['gene_symbol'] for x in panel if x['uniprot_accession']}
-    matched=Counter();saved=Counter();singlechain=Counter();multichain=Counter();unknownchain=Counter()
-    species_missing=Counter();species_mismatch=Counter();doi_rows=Counter();pmid_rows=Counter()
-    exact=Counter();censored=Counter();invalid=Counter();overlimit=Counter();observations=[]
-    count=0; schema_mismatch=0
+    matched=Counter();matched_expected=Counter();matched_short=Counter();saved=Counter()
+    singlechain=Counter();multichain=Counter();unknownchain=Counter()
+    human_species=Counter();species_missing=Counter();species_mismatch=Counter();single_human=Counter()
+    doi_rows=Counter();pmid_rows=Counter()
+    measurement_values=Counter();exact=Counter();censored=Counter();invalid=Counter();overlimit=Counter()
+    observations=[];target_source_rows=set()
+    count=0;expected_width_rows=0;short_rows=0;long_rows=0
     with open_binding_tsv(path) as reader:
         header=next(reader,None)
         if not header:raise ValueError('Empty BindingDB TSV')
@@ -374,12 +390,22 @@ def bindingdb_local(path:Path,panel:list[dict],max_rows:int) -> tuple[list[dict]
         for n,row in enumerate(reader,start=2):
             count+=1
             if count%500000==0: print(f'[P0.8] BindingDB scanned {count:,} TSV rows',flush=True)
-            if len(row)>len(header):schema_mismatch+=1;continue
-            if len(row)<len(header):row.extend(['']*(len(header)-len(row)))
+            source_field_count=len(row)
+            if source_field_count>len(header):
+                long_rows+=1
+                continue
+            if source_field_count<len(header):
+                short_rows+=1
+                row_width_status='SHORT_ROW_PADDED_REVIEW_REQUIRED'
+                row.extend(['']*(len(header)-source_field_count))
+            else:
+                expected_width_rows+=1
+                row_width_status='EXPECTED_WIDTH'
             raw_chains=[str(row[i]) for i in chain_cols if row[i] is not None and str(row[i])!='']
             chains=[t(value).upper() for value in raw_chains if t(value)]
             related=sorted(set(chains)&set(accessions))
             if not related:continue
+            target_source_rows.add(n)
             raw_chain_count=raw_at(row,optional[4]);chain_count=t(raw_chain_count)
             unique_chains=sorted(set(chains))
             if (chain_count.isdigit() and int(chain_count)>1) or len(chains)>1:
@@ -394,17 +420,24 @@ def bindingdb_local(path:Path,panel:list[dict],max_rows:int) -> tuple[list[dict]
             else:species_status='REVIEW_SPECIES_MISMATCH'
             for acc in related:
                 gene=accessions[acc];matched[gene]+=1
+                if row_width_status=='EXPECTED_WIDTH':matched_expected[gene]+=1
+                else:matched_short[gene]+=1
                 if chain_status=='SWISSPROT_PRIMARY_SINGLE_CHAIN_MATCH':singlechain[gene]+=1
                 elif chain_status=='REVIEW_MULTI_CHAIN':multichain[gene]+=1
                 else:unknownchain[gene]+=1
-                if species_status=='REVIEW_SPECIES_MISSING':species_missing[gene]+=1
+                if species_status=='HUMAN_SPECIES_MATCH':human_species[gene]+=1
+                elif species_status=='REVIEW_SPECIES_MISSING':species_missing[gene]+=1
                 elif species_status=='REVIEW_SPECIES_MISMATCH':species_mismatch[gene]+=1
+                if (chain_status=='SWISSPROT_PRIMARY_SINGLE_CHAIN_MATCH' and
+                    species_status=='HUMAN_SPECIES_MATCH'):
+                    single_human[gene]+=1
                 if at(row,'Article DOI'):doi_rows[gene]+=1
                 if at(row,'PMID'):pmid_rows[gene]+=1
                 raw_values={endpoint:raw_at(row,endpoint+' (nM)') for endpoint in ENDPOINTS}
                 for endpoint in ENDPOINTS:
                     raw=raw_values[endpoint]
                     if not raw:continue
+                    measurement_values[gene]+=1
                     relation,numeric,qual=parse_nm(raw)
                     if saved[gene]>=max_rows:overlimit[gene]+=1;continue
                     if qual=='EXACT_NUMERIC':exact[gene]+=1
@@ -417,6 +450,8 @@ def bindingdb_local(path:Path,panel:list[dict],max_rows:int) -> tuple[list[dict]
                     observations.append({'gene_symbol':gene,'uniprot_accession':acc,'source_row':n,
                         'bindingdb_reactant_set_id':at(row,'BindingDB Reactant_set_id'),
                         'bindingdb_monomer_id':at(row,'BindingDB MonomerID'),
+                        'source_row_field_count':source_field_count,'expected_field_count':len(header),
+                        'source_row_width_status':row_width_status,
                         'raw_chain_accessions':';'.join(raw_chains),
                         'all_chain_accessions':';'.join(unique_chains),'populated_chain_count':len(chains),
                         'declared_chain_count':raw_chain_count,'target_name':at(row,'Target Name'),'organism':raw_organ,
@@ -432,30 +467,63 @@ def bindingdb_local(path:Path,panel:list[dict],max_rows:int) -> tuple[list[dict]
                         'scientific_acceptance':'NOT_APPROVED'})
                     saved[gene]+=1
     coverage=[{'gene_symbol':x['gene_symbol'],'status':'ROWS_MATCHED' if matched[x['gene_symbol']] else 'NO_UNIPROT_CHAIN_MATCH_IN_LOCAL_FILE',
-               'chain_match_rows':matched[x['gene_symbol']],'single_chain_objects_n':singlechain[x['gene_symbol']],
-               'multi_chain_objects_n':multichain[x['gene_symbol']],
-               'unknown_chain_count_objects_n':unknownchain[x['gene_symbol']],
-               'species_missing_objects_n':species_missing[x['gene_symbol']],
-               'species_mismatch_objects_n':species_mismatch[x['gene_symbol']],
-               'exact_numeric_n':exact[x['gene_symbol']],'censored_n':censored[x['gene_symbol']],
-               'doi_records_n':doi_rows[x['gene_symbol']],'pmid_records_n':pmid_rows[x['gene_symbol']],
-               'primary_experiment_review_records_n':matched[x['gene_symbol']],
-               'rows_retained':saved[x['gene_symbol']],'rows_over_limit':overlimit[x['gene_symbol']],
-               'rows_invalid':invalid[x['gene_symbol']],'rows_truncated_n':overlimit[x['gene_symbol']],
+               'source_rows_matching_accession_n':matched[x['gene_symbol']],
+               'source_rows_expected_width_n':matched_expected[x['gene_symbol']],
+               'source_rows_short_padded_n':matched_short[x['gene_symbol']],
+               'source_rows_single_chain_object_n':singlechain[x['gene_symbol']],
+               'source_rows_multi_chain_object_n':multichain[x['gene_symbol']],
+               'source_rows_unknown_chain_count_n':unknownchain[x['gene_symbol']],
+               'source_rows_human_species_n':human_species[x['gene_symbol']],
+               'source_rows_species_missing_n':species_missing[x['gene_symbol']],
+               'source_rows_species_mismatch_n':species_mismatch[x['gene_symbol']],
+               'source_rows_single_chain_human_n':single_human[x['gene_symbol']],
+               'source_rows_with_doi_n':doi_rows[x['gene_symbol']],
+               'source_rows_with_pmid_n':pmid_rows[x['gene_symbol']],
+               'source_rows_primary_experiment_review_required_n':matched[x['gene_symbol']],
+               'measurement_values_nonempty_n':measurement_values[x['gene_symbol']],
+               'measurement_observations_retained_n':saved[x['gene_symbol']],
+               'retained_exact_numeric_measurements_n':exact[x['gene_symbol']],
+               'retained_censored_measurements_n':censored[x['gene_symbol']],
+               'retained_invalid_measurements_n':invalid[x['gene_symbol']],
+               'measurement_observations_over_limit_n':overlimit[x['gene_symbol']],
+               'measurement_observations_truncated_n':overlimit[x['gene_symbol']],
                'truncated':overlimit[x['gene_symbol']]>0} for x in panel]
-    return observations,coverage,{'rows_scanned':count,'rows_schema_mismatch':schema_mismatch,
-                                'strict_primary_chain_name_matching':True,'source_assay_verified':False}
+    return observations,coverage,{
+        'source_rows_scanned_n':count,'source_rows_expected_width_n':expected_width_rows,
+        'source_rows_short_padded_n':short_rows,'source_rows_long_rejected_n':long_rows,
+        'header_fields_n':len(header),'target_source_rows_unique_n':len(target_source_rows),
+        'target_source_row_relations_n':sum(matched.values()),
+        'target_measurement_values_nonempty_n':sum(measurement_values.values()),
+        'target_measurement_observations_retained_n':len(observations),
+        'target_measurement_observations_over_limit_n':sum(overlimit.values()),
+        'strict_primary_chain_name_matching':True,'source_assay_verified':False}
 
 
-def source_metadata(path:Path,source:str,release:str,actual_sha256:str,*,publisher_sha256:str='',
+def source_metadata(path:Path,source:str,release:str,actual_sha256:str,*,expected_input_sha256:str='',
+                    release_archive_name:str='',release_archive_sha256:str='',release_archive_url:str='',
                     license_id:str='',license_url:str='') -> dict:
-    expected=t(publisher_sha256)
+    expected=t(expected_input_sha256)
     if expected:
-        expected=require_sha256(expected,f'{source} publisher SHA-256')
+        expected=require_sha256(expected,f'{source} expected input SHA-256')
         if expected!=actual_sha256:
-            raise ValueError(f'{source} publisher SHA-256 mismatch')
-        checksum_status='MATCH'
-    else:checksum_status='NOT_PROVIDED_NOT_ASSESSED'
+            raise ValueError(f'{source} expected input SHA-256 mismatch')
+        input_checksum_status='MATCH'
+    else:input_checksum_status='NOT_PROVIDED_NOT_ASSESSED'
+    archive_name=t(release_archive_name)
+    archive_sha=t(release_archive_sha256)
+    archive_url=t(release_archive_url)
+    if archive_sha:
+        archive_sha=require_sha256(archive_sha,f'{source} release archive SHA-256')
+    if archive_name and Path(archive_name).name!=archive_name:
+        raise ValueError(f'{source} release archive name must be a filename')
+    if archive_sha and archive_name and path.name.casefold()==archive_name.casefold():
+        if archive_sha!=actual_sha256:
+            raise ValueError(f'{source} release archive SHA-256 mismatch')
+        archive_checksum_status='MATCHES_INPUT_FILE'
+    elif archive_sha:
+        archive_checksum_status='PROVIDED_NOT_INPUT_NOT_VERIFIED_BY_IMPORTER'
+    else:
+        archive_checksum_status='NOT_PROVIDED_NOT_ASSESSED'
     if source=='ChEMBL':
         found=re.search(r'chembl_(\d+)',path.name,re.IGNORECASE)
         filename_release='chembl_'+found.group(1) if found else ''
@@ -466,8 +534,11 @@ def source_metadata(path:Path,source:str,release:str,actual_sha256:str,*,publish
         raise ValueError(f'{source} release label disagrees with source filename')
     return {'release':release,'filename_release':filename_release or None,
             'filename_release_status':'MATCH' if filename_release else 'FILENAME_NOT_INFORMATIVE_NOT_ASSESSED',
-            'actual_sha256':actual_sha256,'publisher_sha256':expected or None,
-            'publisher_sha256_status':checksum_status,'license_id':t(license_id) or None,
+            'actual_input_sha256':actual_sha256,'expected_input_sha256':expected or None,
+            'expected_input_sha256_status':input_checksum_status,
+            'release_archive_name':archive_name or None,'release_archive_sha256':archive_sha or None,
+            'release_archive_url':archive_url or None,'release_archive_sha256_status':archive_checksum_status,
+            'license_id':t(license_id) or None,
             'license_url':t(license_url) or None,
             'license_status':'PROVIDED_UNVERIFIED' if t(license_id) or t(license_url) else 'NOT_PROVIDED_NOT_ASSESSED'}
 
@@ -532,15 +603,26 @@ def target_evidence_rows(panel:list[dict],chem_cov:list[dict],bdb_cov:list[dict]
           'chembl_primary_experiment_review_records_n':c.get('primary_experiment_review_records_n',''),
           'chembl_curator_potential_duplicate_records_n':c.get('curator_potential_duplicate_records_n',''),
           'chembl_rows_truncated_n':c.get('rows_truncated_n',''),'bindingdb_status':b['status'],
-          'bindingdb_exact_numeric_n':b.get('exact_numeric_n',''),'bindingdb_censored_n':b.get('censored_n',''),
-          'bindingdb_single_chain_objects_n':b.get('single_chain_objects_n',''),
-          'bindingdb_multi_chain_objects_n':b.get('multi_chain_objects_n',''),
-          'bindingdb_unknown_chain_count_objects_n':b.get('unknown_chain_count_objects_n',''),
-          'bindingdb_species_missing_objects_n':b.get('species_missing_objects_n',''),
-          'bindingdb_species_mismatch_objects_n':b.get('species_mismatch_objects_n',''),
-          'bindingdb_doi_records_n':b.get('doi_records_n',''),'bindingdb_pmid_records_n':b.get('pmid_records_n',''),
-          'bindingdb_primary_experiment_review_records_n':b.get('primary_experiment_review_records_n',''),
-          'bindingdb_rows_truncated_n':b.get('rows_truncated_n',''),
+          'bindingdb_source_rows_matching_accession_n':b.get('source_rows_matching_accession_n',''),
+          'bindingdb_source_rows_expected_width_n':b.get('source_rows_expected_width_n',''),
+          'bindingdb_source_rows_short_padded_n':b.get('source_rows_short_padded_n',''),
+          'bindingdb_source_rows_single_chain_object_n':b.get('source_rows_single_chain_object_n',''),
+          'bindingdb_source_rows_multi_chain_object_n':b.get('source_rows_multi_chain_object_n',''),
+          'bindingdb_source_rows_unknown_chain_count_n':b.get('source_rows_unknown_chain_count_n',''),
+          'bindingdb_source_rows_human_species_n':b.get('source_rows_human_species_n',''),
+          'bindingdb_source_rows_species_missing_n':b.get('source_rows_species_missing_n',''),
+          'bindingdb_source_rows_species_mismatch_n':b.get('source_rows_species_mismatch_n',''),
+          'bindingdb_source_rows_single_chain_human_n':b.get('source_rows_single_chain_human_n',''),
+          'bindingdb_source_rows_with_doi_n':b.get('source_rows_with_doi_n',''),
+          'bindingdb_source_rows_with_pmid_n':b.get('source_rows_with_pmid_n',''),
+          'bindingdb_source_rows_primary_experiment_review_required_n':b.get(
+              'source_rows_primary_experiment_review_required_n',''),
+          'bindingdb_measurement_values_nonempty_n':b.get('measurement_values_nonempty_n',''),
+          'bindingdb_measurement_observations_retained_n':b.get('measurement_observations_retained_n',''),
+          'bindingdb_retained_exact_numeric_measurements_n':b.get('retained_exact_numeric_measurements_n',''),
+          'bindingdb_retained_censored_measurements_n':b.get('retained_censored_measurements_n',''),
+          'bindingdb_retained_invalid_measurements_n':b.get('retained_invalid_measurements_n',''),
+          'bindingdb_measurement_observations_truncated_n':b.get('measurement_observations_truncated_n',''),
           'cross_source_duplicate_status':'ASSESSED_EXACT_FIELDS_ONLY' if duplicates_assessed else 'NOT_ASSESSED_SOURCE_MISSING',
           'cross_source_potential_duplicate_pairs_n':duplicate_counts[gene] if duplicates_assessed else ''})
     return rows
@@ -549,7 +631,10 @@ def target_evidence_rows(panel:list[dict],chem_cov:list[dict],bdb_cov:list[dict]
 def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
         chembl_sqlite:Path|None=None,bindingdb_tsv:Path|None=None,out:Path,
         panel:str='focus6',max_rows_per_target:int=1000,release_chembl:str='',release_bindingdb:str='',
-        chembl_publisher_sha256:str='',bindingdb_publisher_sha256:str='',
+        chembl_expected_input_sha256:str='',bindingdb_expected_input_sha256:str='',
+        chembl_release_archive_name:str='',bindingdb_release_archive_name:str='',
+        chembl_release_archive_sha256:str='',bindingdb_release_archive_sha256:str='',
+        chembl_release_archive_url:str='',bindingdb_release_archive_url:str='',
         chembl_license_id:str='',bindingdb_license_id:str='',
         chembl_license_url:str='',bindingdb_license_url:str='') -> dict:
     if panel not in ('focus6','sample40'):raise ValueError('Invalid panel')
@@ -570,11 +655,19 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
     source_meta={}
     if chembl_sqlite:
         source_meta['chembl']=source_metadata(chembl_sqlite,'ChEMBL',release_chembl,
-            inputs[str(chembl_sqlite.resolve())]['sha256_before'],publisher_sha256=chembl_publisher_sha256,
+            inputs[str(chembl_sqlite.resolve())]['sha256_before'],
+            expected_input_sha256=chembl_expected_input_sha256,
+            release_archive_name=chembl_release_archive_name,
+            release_archive_sha256=chembl_release_archive_sha256,
+            release_archive_url=chembl_release_archive_url,
             license_id=chembl_license_id,license_url=chembl_license_url)
     if bindingdb_tsv:
         source_meta['bindingdb']=source_metadata(bindingdb_tsv,'BindingDB',release_bindingdb,
-            inputs[str(bindingdb_tsv.resolve())]['sha256_before'],publisher_sha256=bindingdb_publisher_sha256,
+            inputs[str(bindingdb_tsv.resolve())]['sha256_before'],
+            expected_input_sha256=bindingdb_expected_input_sha256,
+            release_archive_name=bindingdb_release_archive_name,
+            release_archive_sha256=bindingdb_release_archive_sha256,
+            release_archive_url=bindingdb_release_archive_url,
             license_id=bindingdb_license_id,license_url=bindingdb_license_url)
     qc=[];status={'chembl':'SOURCE_NOT_PROVIDED_NOT_ASSESSED','bindingdb':'SOURCE_NOT_PROVIDED_NOT_ASSESSED'}
     chem_rows=[];chem_cov=[];bdb_rows=[];bdb_cov=[];stats={}
@@ -593,6 +686,14 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
         try:
             bdb_rows,bdb_cov,stats['bindingdb']=bindingdb_local(bindingdb_tsv,panel_rows,max_rows_per_target)
             status['bindingdb']='LOCAL_SOURCE_CHECKED'
+            if stats['bindingdb']['source_rows_short_padded_n']:
+                qc.append({'severity':'REVIEW','source':'BindingDB','code':'TSV_SHORT_ROWS_PADDED',
+                           'detail':str(stats['bindingdb']['source_rows_short_padded_n'])+
+                           ' source rows had fewer fields than the header; padded observations remain REVIEW_REQUIRED'})
+            if stats['bindingdb']['source_rows_long_rejected_n']:
+                qc.append({'severity':'REVIEW','source':'BindingDB','code':'TSV_LONG_ROWS_REJECTED',
+                           'detail':str(stats['bindingdb']['source_rows_long_rejected_n'])+
+                           ' source rows had more fields than the header and were not interpreted'})
         except (ValueError,zipfile.BadZipFile,csv.Error,UnicodeError) as e:
             status['bindingdb']='SOURCE_SCHEMA_OR_READ_ERROR'
             bdb_cov=unassessed_coverage(panel_rows,BINDING_COVERAGE,'SOURCE_SCHEMA_OR_READ_ERROR_NOT_ASSESSED')
@@ -612,6 +713,8 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
     duplicates_assessed=(status['chembl']=='LOCAL_SOURCE_CHECKED' and status['bindingdb']=='LOCAL_SOURCE_CHECKED')
     duplicate_pairs=cross_source_duplicates(chem_rows,bdb_rows,duplicates_assessed)
     evidence_rows=target_evidence_rows(panel_rows,chem_cov,bdb_cov,duplicate_pairs,duplicates_assessed)
+    bindingdb_assessed=status['bindingdb']=='LOCAL_SOURCE_CHECKED'
+    bindingdb_stats=stats.get('bindingdb',{})
     # Both source types report experimental ligand activity only; PYZ not assessed.
     technical=('BLOCKED' if any(x['severity']=='BLOCKER' for x in qc) else
                'INPUT_REQUIRED' if not chembl_sqlite or not bindingdb_tsv else 'REVIEW_REQUIRED')
@@ -620,10 +723,17 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
              'source_status':status,'releases':{'chembl':release_chembl or None,'bindingdb':release_bindingdb or None},
              'chembl_rows_reviewed_n':len(chem_rows),
              'chembl_assay_metadata_eligible_n':sum(x['evidence_status']=='ASSAY_METADATA_MATCHED_PRIMARY_REVIEW_REQUIRED' for x in chem_rows),
-             'bindingdb_rows_reviewed_n':len(bdb_rows),
-             'bindingdb_single_chain_human_observations_n':sum(
+             'bindingdb_source_rows_scanned_n':bindingdb_stats.get('source_rows_scanned_n') if bindingdb_assessed else None,
+             'bindingdb_source_rows_expected_width_n':bindingdb_stats.get('source_rows_expected_width_n') if bindingdb_assessed else None,
+             'bindingdb_source_rows_short_padded_n':bindingdb_stats.get('source_rows_short_padded_n') if bindingdb_assessed else None,
+             'bindingdb_source_rows_long_rejected_n':bindingdb_stats.get('source_rows_long_rejected_n') if bindingdb_assessed else None,
+             'bindingdb_target_source_rows_unique_n':bindingdb_stats.get('target_source_rows_unique_n') if bindingdb_assessed else None,
+             'bindingdb_target_source_row_relations_n':bindingdb_stats.get('target_source_row_relations_n') if bindingdb_assessed else None,
+             'bindingdb_target_measurement_values_nonempty_n':bindingdb_stats.get('target_measurement_values_nonempty_n') if bindingdb_assessed else None,
+             'bindingdb_measurement_observations_retained_n':len(bdb_rows) if bindingdb_assessed else None,
+             'bindingdb_retained_single_chain_human_measurements_n':sum(
                  x['chain_status']=='SWISSPROT_PRIMARY_SINGLE_CHAIN_MATCH' and
-                 x['species_status']=='HUMAN_SPECIES_MATCH' for x in bdb_rows),
+                 x['species_status']=='HUMAN_SPECIES_MATCH' for x in bdb_rows) if bindingdb_assessed else None,
              'cross_source_potential_duplicate_pairs_n':len(duplicate_pairs),
              'scientific_verified_binding_to_pyz_n':0,'source_input_hashes_unchanged':True,
              'baseline_65x13_untouched':True,'linkage':linkage,'source_stats':stats,
@@ -652,6 +762,15 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
               'no_automatic_scientific_acceptance':True}
     with (out/'p08_source_manifest.json').open('w',encoding='utf-8') as f:json.dump(manifest,f,indent=2,ensure_ascii=False);f.write('\n')
     def shown(value:Any)->str:return 'NOT_ASSESSED' if value=='' or value is None else str(value)
+    binding_global_report=(
+      f"исходных строк TSV {summary['bindingdb_source_rows_scanned_n']}; ожидаемой ширины "
+      f"{summary['bindingdb_source_rows_expected_width_n']}; коротких дополненных "
+      f"{summary['bindingdb_source_rows_short_padded_n']}; длинных отклонённых "
+      f"{summary['bindingdb_source_rows_long_rejected_n']}; уникальных исходных строк с accession панели "
+      f"{summary['bindingdb_target_source_rows_unique_n']}; непустых значений Ki/Kd/IC50 по связям "
+      f"строка–мишень {summary['bindingdb_target_measurement_values_nonempty_n']}; сохранённых измерений "
+      f"после ограничения {summary['bindingdb_measurement_observations_retained_n']}"
+      if bindingdb_assessed else 'NOT_ASSESSED')
     target_lines=[]
     for row in evidence_rows:
         target_lines.append(
@@ -663,15 +782,26 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
           f"{shown(row['chembl_species_missing_objects_n'])}/{shown(row['chembl_species_mismatch_objects_n'])}, "
           f"DOI/PMID {shown(row['chembl_doi_records_n'])}/{shown(row['chembl_pmid_records_n'])}, "
           f"primary review {shown(row['chembl_primary_experiment_review_records_n'])}, truncated "
-          f"{shown(row['chembl_rows_truncated_n'])}; BindingDB `{row['bindingdb_status']}`: exact/censored "
-          f"{shown(row['bindingdb_exact_numeric_n'])}/{shown(row['bindingdb_censored_n'])}, "
-          f"single/multi/unknown-chain {shown(row['bindingdb_single_chain_objects_n'])}/"
-          f"{shown(row['bindingdb_multi_chain_objects_n'])}/{shown(row['bindingdb_unknown_chain_count_objects_n'])}, "
-          f"species missing/mismatch {shown(row['bindingdb_species_missing_objects_n'])}/"
-          f"{shown(row['bindingdb_species_mismatch_objects_n'])}, DOI/PMID "
-          f"{shown(row['bindingdb_doi_records_n'])}/{shown(row['bindingdb_pmid_records_n'])}, primary review "
-          f"{shown(row['bindingdb_primary_experiment_review_records_n'])}, truncated "
-          f"{shown(row['bindingdb_rows_truncated_n'])}; cross-source duplicate pairs "
+          f"{shown(row['chembl_rows_truncated_n'])}; BindingDB `{row['bindingdb_status']}`: source rows "
+          f"matching accession {shown(row['bindingdb_source_rows_matching_accession_n'])}, expected/short width "
+          f"{shown(row['bindingdb_source_rows_expected_width_n'])}/"
+          f"{shown(row['bindingdb_source_rows_short_padded_n'])}, source protein objects single/multi/unknown "
+          f"{shown(row['bindingdb_source_rows_single_chain_object_n'])}/"
+          f"{shown(row['bindingdb_source_rows_multi_chain_object_n'])}/"
+          f"{shown(row['bindingdb_source_rows_unknown_chain_count_n'])}, source-row species human/missing/mismatch "
+          f"{shown(row['bindingdb_source_rows_human_species_n'])}/"
+          f"{shown(row['bindingdb_source_rows_species_missing_n'])}/"
+          f"{shown(row['bindingdb_source_rows_species_mismatch_n'])}, single-chain human source rows "
+          f"{shown(row['bindingdb_source_rows_single_chain_human_n'])}, nonempty measurement values/retained "
+          f"measurements {shown(row['bindingdb_measurement_values_nonempty_n'])}/"
+          f"{shown(row['bindingdb_measurement_observations_retained_n'])}, retained exact/censored/invalid "
+          f"{shown(row['bindingdb_retained_exact_numeric_measurements_n'])}/"
+          f"{shown(row['bindingdb_retained_censored_measurements_n'])}/"
+          f"{shown(row['bindingdb_retained_invalid_measurements_n'])}, source rows DOI/PMID "
+          f"{shown(row['bindingdb_source_rows_with_doi_n'])}/"
+          f"{shown(row['bindingdb_source_rows_with_pmid_n'])}, source rows requiring primary review "
+          f"{shown(row['bindingdb_source_rows_primary_experiment_review_required_n'])}, truncated measurements "
+          f"{shown(row['bindingdb_measurement_observations_truncated_n'])}; cross-source duplicate pairs "
           f"{shown(row['cross_source_potential_duplicate_pairs_n'])} "
           f"(`{row['cross_source_duplicate_status']}`).")
     target_report='\n'.join(target_lines)
@@ -681,8 +811,10 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
 
 - Панель: {panel}; проверено генов {len(panel_rows)}. Сеть: 0 запросов.
 - ChEMBL: {status['chembl']}, release {release_chembl or 'НЕ ПРЕДОСТАВЛЕН'}; строк {len(chem_rows)}; предварительных точных измерений с проверенной метаинформацией assay: {summary['chembl_assay_metadata_eligible_n']}.
-- BindingDB: {status['bindingdb']}, release {release_bindingdb or 'НЕ ПРЕДОСТАВЛЕН'}; строк {len(bdb_rows)}; наблюдений одновременно с однозначной цепью SwissProt и подтверждённым видом Homo sapiens: {summary['bindingdb_single_chain_human_observations_n']}.
+- BindingDB: {status['bindingdb']}, release {release_bindingdb or 'НЕ ПРЕДОСТАВЛЕН'}; {binding_global_report}; сохранённых измерений одновременно с однозначной цепью SwissProt и подтверждённым видом Homo sapiens: {shown(summary['bindingdb_retained_single_chain_human_measurements_n'])}.
 - Связь с 65 PYZ, докинг, причинность и селективность **не устанавливались**.
+
+`Исходная строка TSV`, `связь строки с мишенью`, `непустое значение Ki/Kd/IC50` и `сохранённое измерение после ограничения` — разные знаменатели и не суммируются как число независимых экспериментов.
 
 ## Показатели по мишеням
 
@@ -692,7 +824,8 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
 '''
     (out/'P08_REPORT_RU.md').write_text(report,encoding='utf-8')
     print(json.dumps({k:summary[k] for k in ('technical_status','panel_genes_n','source_status',
-          'chembl_rows_reviewed_n','bindingdb_rows_reviewed_n','scientific_acceptance')},ensure_ascii=False),flush=True)
+          'chembl_rows_reviewed_n','bindingdb_measurement_observations_retained_n',
+          'scientific_acceptance')},ensure_ascii=False),flush=True)
     return summary
 
 
@@ -705,8 +838,14 @@ def main()->None:
     p.add_argument('--bindingdb-tsv',type=Path)
     p.add_argument('--chembl-release',default='')
     p.add_argument('--bindingdb-release',default='')
-    p.add_argument('--chembl-publisher-sha256',default='')
-    p.add_argument('--bindingdb-publisher-sha256',default='')
+    p.add_argument('--chembl-expected-input-sha256',default='')
+    p.add_argument('--bindingdb-expected-input-sha256',default='')
+    p.add_argument('--chembl-release-archive-name',default='')
+    p.add_argument('--bindingdb-release-archive-name',default='')
+    p.add_argument('--chembl-release-archive-sha256',default='')
+    p.add_argument('--bindingdb-release-archive-sha256',default='')
+    p.add_argument('--chembl-release-archive-url',default='')
+    p.add_argument('--bindingdb-release-archive-url',default='')
     p.add_argument('--chembl-license-id',default='')
     p.add_argument('--bindingdb-license-id',default='')
     p.add_argument('--chembl-license-url',default='')
@@ -718,8 +857,14 @@ def main()->None:
     run(p06_zip=a.p06_zip,p0_zip=a.p0_zip,p07_zip=a.p07_zip,
         chembl_sqlite=a.chembl_sqlite,bindingdb_tsv=a.bindingdb_tsv,
         release_chembl=a.chembl_release,release_bindingdb=a.bindingdb_release,
-        chembl_publisher_sha256=a.chembl_publisher_sha256,
-        bindingdb_publisher_sha256=a.bindingdb_publisher_sha256,
+        chembl_expected_input_sha256=a.chembl_expected_input_sha256,
+        bindingdb_expected_input_sha256=a.bindingdb_expected_input_sha256,
+        chembl_release_archive_name=a.chembl_release_archive_name,
+        bindingdb_release_archive_name=a.bindingdb_release_archive_name,
+        chembl_release_archive_sha256=a.chembl_release_archive_sha256,
+        bindingdb_release_archive_sha256=a.bindingdb_release_archive_sha256,
+        chembl_release_archive_url=a.chembl_release_archive_url,
+        bindingdb_release_archive_url=a.bindingdb_release_archive_url,
         chembl_license_id=a.chembl_license_id,bindingdb_license_id=a.bindingdb_license_id,
         chembl_license_url=a.chembl_license_url,bindingdb_license_url=a.bindingdb_license_url,
         panel=a.panel,max_rows_per_target=a.max_rows_per_target,out=a.out)

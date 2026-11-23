@@ -7,8 +7,14 @@
     [string]$BindingDBTsv = '',
     [string]$ChEMBLRelease = '',
     [string]$BindingDBRelease = '',
-    [string]$ChEMBLPublisherSHA256 = '',
-    [string]$BindingDBPublisherSHA256 = '',
+    [string]$ChEMBLExpectedInputSHA256 = '',
+    [string]$BindingDBExpectedInputSHA256 = '',
+    [string]$ChEMBLReleaseArchiveName = '',
+    [string]$BindingDBReleaseArchiveName = '',
+    [string]$ChEMBLReleaseArchiveSHA256 = '',
+    [string]$BindingDBReleaseArchiveSHA256 = '',
+    [string]$ChEMBLReleaseArchiveUrl = '',
+    [string]$BindingDBReleaseArchiveUrl = '',
     [string]$ChEMBLLicenseId = '',
     [string]$BindingDBLicenseId = '',
     [string]$ChEMBLLicenseUrl = '',
@@ -49,7 +55,10 @@ if ($ChEMBLSqlite) {
     if (-not (Test-Path -LiteralPath $ChEMBLSqlite -PathType Leaf)) { throw "ChEMBL SQLite missing: $ChEMBLSqlite" }
     if (-not $ChEMBLRelease) { throw 'Provide -ChEMBLRelease (e.g., chembl_36)' }
     $PythonArgs += @('--chembl-sqlite', $ChEMBLSqlite, '--chembl-release', $ChEMBLRelease)
-    if ($ChEMBLPublisherSHA256) { $PythonArgs += @('--chembl-publisher-sha256', $ChEMBLPublisherSHA256) }
+    if ($ChEMBLExpectedInputSHA256) { $PythonArgs += @('--chembl-expected-input-sha256', $ChEMBLExpectedInputSHA256) }
+    if ($ChEMBLReleaseArchiveName) { $PythonArgs += @('--chembl-release-archive-name', $ChEMBLReleaseArchiveName) }
+    if ($ChEMBLReleaseArchiveSHA256) { $PythonArgs += @('--chembl-release-archive-sha256', $ChEMBLReleaseArchiveSHA256) }
+    if ($ChEMBLReleaseArchiveUrl) { $PythonArgs += @('--chembl-release-archive-url', $ChEMBLReleaseArchiveUrl) }
     if ($ChEMBLLicenseId) { $PythonArgs += @('--chembl-license-id', $ChEMBLLicenseId) }
     if ($ChEMBLLicenseUrl) { $PythonArgs += @('--chembl-license-url', $ChEMBLLicenseUrl) }
 }
@@ -57,7 +66,10 @@ if ($BindingDBTsv) {
     if (-not (Test-Path -LiteralPath $BindingDBTsv -PathType Leaf)) { throw "BindingDB TSV/ZIP missing: $BindingDBTsv" }
     if (-not $BindingDBRelease) { throw 'Provide -BindingDBRelease (e.g., 202611)' }
     $PythonArgs += @('--bindingdb-tsv', $BindingDBTsv, '--bindingdb-release', $BindingDBRelease)
-    if ($BindingDBPublisherSHA256) { $PythonArgs += @('--bindingdb-publisher-sha256', $BindingDBPublisherSHA256) }
+    if ($BindingDBExpectedInputSHA256) { $PythonArgs += @('--bindingdb-expected-input-sha256', $BindingDBExpectedInputSHA256) }
+    if ($BindingDBReleaseArchiveName) { $PythonArgs += @('--bindingdb-release-archive-name', $BindingDBReleaseArchiveName) }
+    if ($BindingDBReleaseArchiveSHA256) { $PythonArgs += @('--bindingdb-release-archive-sha256', $BindingDBReleaseArchiveSHA256) }
+    if ($BindingDBReleaseArchiveUrl) { $PythonArgs += @('--bindingdb-release-archive-url', $BindingDBReleaseArchiveUrl) }
     if ($BindingDBLicenseId) { $PythonArgs += @('--bindingdb-license-id', $BindingDBLicenseId) }
     if ($BindingDBLicenseUrl) { $PythonArgs += @('--bindingdb-license-url', $BindingDBLicenseUrl) }
 }
