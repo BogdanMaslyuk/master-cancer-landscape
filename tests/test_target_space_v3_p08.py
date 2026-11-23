@@ -12,6 +12,7 @@ import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from audit_target_space_v3_p08 import (
+    CONTRACT,
     FOCUS6,
     P0_CONTRACT,
     P06_CONTRACT,
@@ -212,7 +213,10 @@ def test_sqlite_source_no_modify(input_archive,mock_sqlite):
 def test_bindingdb_duplicate_chain_columns_and_exact_uniprot(input_archive,mock_bindingdb):
     panel,_=rows_from_pilot(input_archive[1],None,None,'focus6')
     rows,cov,meta=bindingdb_local(mock_bindingdb,panel,100)
-    assert meta['rows_scanned']==9
+    assert meta['source_rows_scanned_n']==9
+    assert meta['source_rows_expected_width_n']==9
+    assert meta['source_rows_short_padded_n']==0
+    assert meta['source_rows_long_rejected_n']==0
     assert len(rows)==8
     assert rows[0]['gene_symbol']=='PRKDC'
     assert rows[0]['chain_status']=='SWISSPROT_PRIMARY_SINGLE_CHAIN_MATCH'
@@ -222,7 +226,7 @@ def test_bindingdb_duplicate_chain_columns_and_exact_uniprot(input_archive,mock_
     assert rows[2]['measurement_status']=='CENSORED_NOT_EXACT'
     assert rows[3]['chain_status']=='SWISSPROT_PRIMARY_SINGLE_CHAIN_MATCH'
     assert rows[3]['species_status']=='REVIEW_SPECIES_MISMATCH'
-    assert cov[0]['chain_match_rows']==8
+    assert cov[0]['source_rows_matching_accession_n']==8
 
 
 def test_bindingdb_species_and_chain_statuses_are_independent(input_archive,mock_bindingdb):
@@ -239,11 +243,13 @@ def test_bindingdb_species_and_chain_statuses_are_independent(input_archive,mock
     assert by_id['18']['species_status']=='REVIEW_SPECIES_MISSING'
     assert by_id['15']['raw_ki_nm']=='70' and by_id['15']['raw_kd_nm']=='' and by_id['15']['raw_ic50_nm']==''
     prkdc=next(x for x in cov if x['gene_symbol']=='PRKDC')
-    assert prkdc['single_chain_objects_n']==4
-    assert prkdc['multi_chain_objects_n']==3
-    assert prkdc['unknown_chain_count_objects_n']==1
-    assert prkdc['species_missing_objects_n']==2
-    assert prkdc['species_mismatch_objects_n']==2
+    assert prkdc['source_rows_single_chain_object_n']==4
+    assert prkdc['source_rows_multi_chain_object_n']==3
+    assert prkdc['source_rows_unknown_chain_count_n']==1
+    assert prkdc['source_rows_human_species_n']==4
+    assert prkdc['source_rows_species_missing_n']==2
+    assert prkdc['source_rows_species_mismatch_n']==2
+    assert prkdc['source_rows_single_chain_human_n']==2
 
 
 def test_bindingdb_preserves_all_raw_affinity_fields_including_invalid(input_archive,mock_bindingdb):
@@ -257,7 +263,52 @@ def test_bindingdb_preserves_all_raw_affinity_fields_including_invalid(input_arc
     assert len(raw)==3
     assert {(x['raw_ki_nm'],x['raw_kd_nm'],x['raw_ic50_nm']) for x in raw}=={(' >= 4 ','5e1','~7')}
     assert {x['measurement_value_status'] for x in raw}=={'CENSORED','EXACT_NUMERIC','INVALID_OR_MISSING'}
-    assert next(x for x in cov if x['gene_symbol']=='PRKDC')['rows_invalid']==1
+    assert next(x for x in cov if x['gene_symbol']=='PRKDC')['retained_invalid_measurements_n']==1
+
+
+def test_bindingdb_width_errors_have_separate_denominators_and_qc(input_archive,mock_bindingdb,tmp_path):
+    with mock_bindingdb.open(newline='') as f:
+        source=list(csv.reader(f,delimiter='\t'))
+    header=source[0];expected=source[1]
+    short=expected[:11]
+    long=expected+['UNEXPECTED_EXTRA_FIELD']
+    with mock_bindingdb.open('w',newline='') as f:
+        writer=csv.writer(f,delimiter='\t');writer.writerows([header,expected,short,long])
+    before=shafile(mock_bindingdb)
+    panel,_=rows_from_pilot(input_archive[1],None,None,'focus6')
+    observations,coverage,stats=bindingdb_local(mock_bindingdb,panel,100)
+    assert stats['source_rows_scanned_n']==3
+    assert stats['source_rows_expected_width_n']==1
+    assert stats['source_rows_short_padded_n']==1
+    assert stats['source_rows_long_rejected_n']==1
+    assert stats['target_source_rows_unique_n']==2
+    assert stats['target_measurement_values_nonempty_n']==2
+    assert stats['target_measurement_observations_retained_n']==2
+    assert len(observations)==2
+    padded=next(x for x in observations if x['source_row_width_status']=='SHORT_ROW_PADDED_REVIEW_REQUIRED')
+    assert padded['source_row_field_count']==11
+    assert padded['expected_field_count']==15
+    prkdc=next(x for x in coverage if x['gene_symbol']=='PRKDC')
+    assert prkdc['source_rows_matching_accession_n']==2
+    assert prkdc['source_rows_expected_width_n']==1
+    assert prkdc['source_rows_short_padded_n']==1
+    assert prkdc['measurement_values_nonempty_n']==2
+    assert prkdc['measurement_observations_retained_n']==2
+
+    p0,p06,p07=input_archive
+    result=run(p06_zip=p06,p0_zip=p0,p07_zip=p07,bindingdb_tsv=mock_bindingdb,
+               out=tmp_path/'width-audit',release_bindingdb='202611')
+    assert result['contract']==CONTRACT
+    assert result['bindingdb_source_rows_short_padded_n']==1
+    assert result['bindingdb_source_rows_long_rejected_n']==1
+    assert result['bindingdb_target_source_rows_unique_n']==2
+    assert result['bindingdb_target_measurement_values_nonempty_n']==2
+    with (tmp_path/'width-audit'/'p08_QC.tsv').open(newline='') as f:
+        codes={x['code'] for x in csv.DictReader(f,delimiter='\t')}
+    assert {'TSV_SHORT_ROWS_PADDED','TSV_LONG_ROWS_REJECTED'}.issubset(codes)
+    report=(tmp_path/'width-audit'/'P08_REPORT_RU.md').read_text(encoding='utf-8')
+    assert '`Исходная строка TSV`' in report
+    assert before==shafile(mock_bindingdb)
 
 
 def test_bindingdb_zip_stream(input_archive,mock_bindingdb,tmp_path):
@@ -280,8 +331,8 @@ def test_bindingdb_limit_reports_overlimit_not_invalid(input_archive,mock_bindin
     panel,_=rows_from_pilot(input_archive[1],None,None,'focus6')
     rows,cov,_=bindingdb_local(mock_bindingdb,panel,1)
     assert len(rows)==1 and cov[0]['truncated']
-    assert cov[0]['rows_over_limit']==7
-    assert cov[0]['rows_invalid']==0
+    assert cov[0]['measurement_observations_over_limit_n']==7
+    assert cov[0]['retained_invalid_measurements_n']==0
 
 
 def test_readonly_full_run_reproducible(input_archive,mock_sqlite,mock_bindingdb,tmp_path):
@@ -294,7 +345,9 @@ def test_readonly_full_run_reproducible(input_archive,mock_sqlite,mock_bindingdb
     assert one==two
     assert one['technical_status']=='REVIEW_REQUIRED'
     assert one['chembl_assay_metadata_eligible_n']==1
-    assert one['bindingdb_single_chain_human_observations_n']==2 # exact and censored, not PYZ
+    assert one['contract']==CONTRACT
+    assert one['bindingdb_measurement_observations_retained_n']==8
+    assert one['bindingdb_retained_single_chain_human_measurements_n']==2 # exact and censored, not PYZ
     assert one['cross_source_potential_duplicate_pairs_n']==1
     assert one['scientific_verified_binding_to_pyz_n']==0
     assert one['external_requests_n']==0
