@@ -7,6 +7,12 @@
     [string]$BindingDBTsv = '',
     [string]$ChEMBLRelease = '',
     [string]$BindingDBRelease = '',
+    [string]$ChEMBLPublisherSHA256 = '',
+    [string]$BindingDBPublisherSHA256 = '',
+    [string]$ChEMBLLicenseId = '',
+    [string]$BindingDBLicenseId = '',
+    [string]$ChEMBLLicenseUrl = '',
+    [string]$BindingDBLicenseUrl = '',
     [ValidateSet('focus6', 'sample40')][string]$Panel = 'focus6',
     [ValidateRange(1, 10000)][int]$MaxRowsPerTarget = 1000
 )
@@ -43,11 +49,17 @@ if ($ChEMBLSqlite) {
     if (-not (Test-Path -LiteralPath $ChEMBLSqlite -PathType Leaf)) { throw "ChEMBL SQLite missing: $ChEMBLSqlite" }
     if (-not $ChEMBLRelease) { throw 'Provide -ChEMBLRelease (e.g., chembl_36)' }
     $PythonArgs += @('--chembl-sqlite', $ChEMBLSqlite, '--chembl-release', $ChEMBLRelease)
+    if ($ChEMBLPublisherSHA256) { $PythonArgs += @('--chembl-publisher-sha256', $ChEMBLPublisherSHA256) }
+    if ($ChEMBLLicenseId) { $PythonArgs += @('--chembl-license-id', $ChEMBLLicenseId) }
+    if ($ChEMBLLicenseUrl) { $PythonArgs += @('--chembl-license-url', $ChEMBLLicenseUrl) }
 }
 if ($BindingDBTsv) {
     if (-not (Test-Path -LiteralPath $BindingDBTsv -PathType Leaf)) { throw "BindingDB TSV/ZIP missing: $BindingDBTsv" }
     if (-not $BindingDBRelease) { throw 'Provide -BindingDBRelease (e.g., 202611)' }
     $PythonArgs += @('--bindingdb-tsv', $BindingDBTsv, '--bindingdb-release', $BindingDBRelease)
+    if ($BindingDBPublisherSHA256) { $PythonArgs += @('--bindingdb-publisher-sha256', $BindingDBPublisherSHA256) }
+    if ($BindingDBLicenseId) { $PythonArgs += @('--bindingdb-license-id', $BindingDBLicenseId) }
+    if ($BindingDBLicenseUrl) { $PythonArgs += @('--bindingdb-license-url', $BindingDBLicenseUrl) }
 }
 Write-Host '=== MCL TLS V3 P0.8: OFFLINE local experimental-source validation ===' -ForegroundColor Cyan
 Write-Host "Panel: $Panel; Python: $Python"

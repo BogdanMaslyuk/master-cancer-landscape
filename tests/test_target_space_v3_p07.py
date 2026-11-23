@@ -2,19 +2,28 @@
 import csv
 import io
 import json
-from pathlib import Path
 import sys
 import zipfile
+from pathlib import Path
 
 import httpx
 import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from audit_target_space_v3_p07 import (
-    SafeZip, digest, hash_path, read_tsv, value, request_info,
-    parse_numeric, binding_records, is_binding_chemically_eligible,
-    classify_chembl_activity, retry_candidates, execute_retry, main_audit,
-    CONTRACT, P0_CONTRACT, P06_CONTRACT
+    P0_CONTRACT,
+    P06_CONTRACT,
+    SafeZip,
+    classify_chembl_activity,
+    digest,
+    execute_retry,
+    hash_path,
+    is_binding_chemically_eligible,
+    main_audit,
+    parse_numeric,
+    read_tsv,
+    request_info,
+    retry_candidates,
 )
 
 
@@ -132,7 +141,8 @@ def test_source_sha_tampering_rejected(sources,tmp_path):
 def test_cached_sha_tampering_rejected(sources,tmp_path):
     p0,p06=sources
     with zipfile.ZipFile(p06) as z: entries={x:z.read(x) for x in z.namelist()}
-    entries['external_response_cache\\cache0.bin']=b'NOT SAME CONTENT'
+    cache_name=next(x for x in entries if x.replace('\\','/')=='external_response_cache/cache0.bin')
+    entries[cache_name]=b'NOT SAME CONTENT'
     zipfrom(p06,entries)
     with pytest.raises(ValueError,match='integrity mismatch'):
         main_audit(p0,p06,tmp_path/'bad')
