@@ -499,15 +499,31 @@ def bindingdb_local(path:Path,panel:list[dict],max_rows:int) -> tuple[list[dict]
         'strict_primary_chain_name_matching':True,'source_assay_verified':False}
 
 
-def source_metadata(path:Path,source:str,release:str,actual_sha256:str,*,publisher_sha256:str='',
+def source_metadata(path:Path,source:str,release:str,actual_sha256:str,*,expected_input_sha256:str='',
+                    release_archive_name:str='',release_archive_sha256:str='',release_archive_url:str='',
                     license_id:str='',license_url:str='') -> dict:
-    expected=t(publisher_sha256)
+    expected=t(expected_input_sha256)
     if expected:
-        expected=require_sha256(expected,f'{source} publisher SHA-256')
+        expected=require_sha256(expected,f'{source} expected input SHA-256')
         if expected!=actual_sha256:
-            raise ValueError(f'{source} publisher SHA-256 mismatch')
-        checksum_status='MATCH'
-    else:checksum_status='NOT_PROVIDED_NOT_ASSESSED'
+            raise ValueError(f'{source} expected input SHA-256 mismatch')
+        input_checksum_status='MATCH'
+    else:input_checksum_status='NOT_PROVIDED_NOT_ASSESSED'
+    archive_name=t(release_archive_name)
+    archive_sha=t(release_archive_sha256)
+    archive_url=t(release_archive_url)
+    if archive_sha:
+        archive_sha=require_sha256(archive_sha,f'{source} release archive SHA-256')
+    if archive_name and Path(archive_name).name!=archive_name:
+        raise ValueError(f'{source} release archive name must be a filename')
+    if archive_sha and archive_name and path.name.casefold()==archive_name.casefold():
+        if archive_sha!=actual_sha256:
+            raise ValueError(f'{source} release archive SHA-256 mismatch')
+        archive_checksum_status='MATCHES_INPUT_FILE'
+    elif archive_sha:
+        archive_checksum_status='PROVIDED_NOT_INPUT_NOT_VERIFIED_BY_IMPORTER'
+    else:
+        archive_checksum_status='NOT_PROVIDED_NOT_ASSESSED'
     if source=='ChEMBL':
         found=re.search(r'chembl_(\d+)',path.name,re.IGNORECASE)
         filename_release='chembl_'+found.group(1) if found else ''
@@ -518,8 +534,11 @@ def source_metadata(path:Path,source:str,release:str,actual_sha256:str,*,publish
         raise ValueError(f'{source} release label disagrees with source filename')
     return {'release':release,'filename_release':filename_release or None,
             'filename_release_status':'MATCH' if filename_release else 'FILENAME_NOT_INFORMATIVE_NOT_ASSESSED',
-            'actual_sha256':actual_sha256,'publisher_sha256':expected or None,
-            'publisher_sha256_status':checksum_status,'license_id':t(license_id) or None,
+            'actual_input_sha256':actual_sha256,'expected_input_sha256':expected or None,
+            'expected_input_sha256_status':input_checksum_status,
+            'release_archive_name':archive_name or None,'release_archive_sha256':archive_sha or None,
+            'release_archive_url':archive_url or None,'release_archive_sha256_status':archive_checksum_status,
+            'license_id':t(license_id) or None,
             'license_url':t(license_url) or None,
             'license_status':'PROVIDED_UNVERIFIED' if t(license_id) or t(license_url) else 'NOT_PROVIDED_NOT_ASSESSED'}
 
@@ -612,7 +631,10 @@ def target_evidence_rows(panel:list[dict],chem_cov:list[dict],bdb_cov:list[dict]
 def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
         chembl_sqlite:Path|None=None,bindingdb_tsv:Path|None=None,out:Path,
         panel:str='focus6',max_rows_per_target:int=1000,release_chembl:str='',release_bindingdb:str='',
-        chembl_publisher_sha256:str='',bindingdb_publisher_sha256:str='',
+        chembl_expected_input_sha256:str='',bindingdb_expected_input_sha256:str='',
+        chembl_release_archive_name:str='',bindingdb_release_archive_name:str='',
+        chembl_release_archive_sha256:str='',bindingdb_release_archive_sha256:str='',
+        chembl_release_archive_url:str='',bindingdb_release_archive_url:str='',
         chembl_license_id:str='',bindingdb_license_id:str='',
         chembl_license_url:str='',bindingdb_license_url:str='') -> dict:
     if panel not in ('focus6','sample40'):raise ValueError('Invalid panel')
@@ -633,11 +655,19 @@ def run(*,p06_zip:Path,p0_zip:Path|None=None,p07_zip:Path|None=None,
     source_meta={}
     if chembl_sqlite:
         source_meta['chembl']=source_metadata(chembl_sqlite,'ChEMBL',release_chembl,
-            inputs[str(chembl_sqlite.resolve())]['sha256_before'],publisher_sha256=chembl_publisher_sha256,
+            inputs[str(chembl_sqlite.resolve())]['sha256_before'],
+            expected_input_sha256=chembl_expected_input_sha256,
+            release_archive_name=chembl_release_archive_name,
+            release_archive_sha256=chembl_release_archive_sha256,
+            release_archive_url=chembl_release_archive_url,
             license_id=chembl_license_id,license_url=chembl_license_url)
     if bindingdb_tsv:
         source_meta['bindingdb']=source_metadata(bindingdb_tsv,'BindingDB',release_bindingdb,
-            inputs[str(bindingdb_tsv.resolve())]['sha256_before'],publisher_sha256=bindingdb_publisher_sha256,
+            inputs[str(bindingdb_tsv.resolve())]['sha256_before'],
+            expected_input_sha256=bindingdb_expected_input_sha256,
+            release_archive_name=bindingdb_release_archive_name,
+            release_archive_sha256=bindingdb_release_archive_sha256,
+            release_archive_url=bindingdb_release_archive_url,
             license_id=bindingdb_license_id,license_url=bindingdb_license_url)
     qc=[];status={'chembl':'SOURCE_NOT_PROVIDED_NOT_ASSESSED','bindingdb':'SOURCE_NOT_PROVIDED_NOT_ASSESSED'}
     chem_rows=[];chem_cov=[];bdb_rows=[];bdb_cov=[];stats={}
@@ -808,8 +838,14 @@ def main()->None:
     p.add_argument('--bindingdb-tsv',type=Path)
     p.add_argument('--chembl-release',default='')
     p.add_argument('--bindingdb-release',default='')
-    p.add_argument('--chembl-publisher-sha256',default='')
-    p.add_argument('--bindingdb-publisher-sha256',default='')
+    p.add_argument('--chembl-expected-input-sha256',default='')
+    p.add_argument('--bindingdb-expected-input-sha256',default='')
+    p.add_argument('--chembl-release-archive-name',default='')
+    p.add_argument('--bindingdb-release-archive-name',default='')
+    p.add_argument('--chembl-release-archive-sha256',default='')
+    p.add_argument('--bindingdb-release-archive-sha256',default='')
+    p.add_argument('--chembl-release-archive-url',default='')
+    p.add_argument('--bindingdb-release-archive-url',default='')
     p.add_argument('--chembl-license-id',default='')
     p.add_argument('--bindingdb-license-id',default='')
     p.add_argument('--chembl-license-url',default='')
@@ -821,8 +857,14 @@ def main()->None:
     run(p06_zip=a.p06_zip,p0_zip=a.p0_zip,p07_zip=a.p07_zip,
         chembl_sqlite=a.chembl_sqlite,bindingdb_tsv=a.bindingdb_tsv,
         release_chembl=a.chembl_release,release_bindingdb=a.bindingdb_release,
-        chembl_publisher_sha256=a.chembl_publisher_sha256,
-        bindingdb_publisher_sha256=a.bindingdb_publisher_sha256,
+        chembl_expected_input_sha256=a.chembl_expected_input_sha256,
+        bindingdb_expected_input_sha256=a.bindingdb_expected_input_sha256,
+        chembl_release_archive_name=a.chembl_release_archive_name,
+        bindingdb_release_archive_name=a.bindingdb_release_archive_name,
+        chembl_release_archive_sha256=a.chembl_release_archive_sha256,
+        bindingdb_release_archive_sha256=a.bindingdb_release_archive_sha256,
+        chembl_release_archive_url=a.chembl_release_archive_url,
+        bindingdb_release_archive_url=a.bindingdb_release_archive_url,
         chembl_license_id=a.chembl_license_id,bindingdb_license_id=a.bindingdb_license_id,
         chembl_license_url=a.chembl_license_url,bindingdb_license_url=a.bindingdb_license_url,
         panel=a.panel,max_rows_per_target=a.max_rows_per_target,out=a.out)

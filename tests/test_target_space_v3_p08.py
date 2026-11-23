@@ -375,18 +375,33 @@ def test_explicit_release_required(input_archive,mock_sqlite,tmp_path):
         run(p06_zip=input_archive[1],chembl_sqlite=mock_sqlite,out=tmp_path/'out')
 
 
-def test_publisher_sha_release_and_license_metadata(mock_sqlite):
+def test_input_sha_release_archive_and_license_metadata(mock_sqlite):
     digest=shafile(mock_sqlite)
-    meta=source_metadata(mock_sqlite,'ChEMBL','chembl_36',digest,publisher_sha256=digest,
+    meta=source_metadata(mock_sqlite,'ChEMBL','chembl_36',digest,expected_input_sha256=digest,
+                         release_archive_name='chembl_36_sqlite.tar.gz',release_archive_sha256='1'*64,
+                         release_archive_url='https://example.test/chembl_36_sqlite.tar.gz',
                          license_id='ChEMBL license',license_url='https://example.test/license')
-    assert meta['publisher_sha256_status']=='MATCH'
+    assert meta['expected_input_sha256_status']=='MATCH'
+    assert meta['release_archive_sha256_status']=='PROVIDED_NOT_INPUT_NOT_VERIFIED_BY_IMPORTER'
     assert meta['filename_release_status']=='MATCH'
     assert meta['license_status']=='PROVIDED_UNVERIFIED'
 
 
-def test_publisher_sha_mismatch_is_rejected(mock_sqlite):
-    with pytest.raises(ValueError,match='publisher SHA-256 mismatch'):
-        source_metadata(mock_sqlite,'ChEMBL','chembl_36',shafile(mock_sqlite),publisher_sha256='0'*64)
+def test_expected_input_sha_mismatch_is_rejected(mock_sqlite):
+    with pytest.raises(ValueError,match='expected input SHA-256 mismatch'):
+        source_metadata(mock_sqlite,'ChEMBL','chembl_36',shafile(mock_sqlite),
+                        expected_input_sha256='0'*64)
+
+
+def test_release_archive_sha_is_verified_only_when_archive_is_input(tmp_path):
+    archive=tmp_path/'BindingDB_All_202611_tsv.zip';archive.write_bytes(b'archive')
+    digest=shafile(archive)
+    meta=source_metadata(archive,'BindingDB','202611',digest,
+                         release_archive_name=archive.name,release_archive_sha256=digest)
+    assert meta['release_archive_sha256_status']=='MATCHES_INPUT_FILE'
+    with pytest.raises(ValueError,match='release archive SHA-256 mismatch'):
+        source_metadata(archive,'BindingDB','202611',digest,
+                        release_archive_name=archive.name,release_archive_sha256='0'*64)
 
 
 def test_output_cannot_overwrite_previous_report(input_archive,tmp_path):
